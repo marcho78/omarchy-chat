@@ -389,10 +389,12 @@ Column {
           width: Style.space(13); height: width
           radius: width / 2
           color: root.service ? root.service.sidebarBg : Color.background
+          // A bridged room wears its network's logo; the lock only applies
+          // to the Matrix leg there, so the subtitle says so instead.
           Text {
             anchors.centerIn: parent
-            text: row.modelData.encrypted ? "󰌾" : "󰌿"
-            color: row.modelData.encrypted ? root.accent : Color.urgent
+            text: row.modelData.bridge ? Format.bridgeGlyph(row.modelData.bridge.protocol) : (row.modelData.encrypted ? "󰌾" : "󰌿")
+            color: row.modelData.bridge ? root.fg : (row.modelData.encrypted ? root.accent : Color.urgent)
             font.family: root.fontFamily; font.pixelSize: Style.space(9)
           }
         }
@@ -426,9 +428,12 @@ Column {
         Text {
           // An unsent draft takes the subtitle's place so it is not forgotten.
           readonly property string draft: root.service ? root.service.draft(row.modelData.id) : ""
-          visible: draft !== "" || (!row.direct && !!row.modelData.topic)
+          readonly property string via: row.modelData.bridge ? "via " + row.modelData.bridge.name : ""
+          visible: draft !== "" || via !== "" || (!row.direct && !!row.modelData.topic)
           width: parent.width
-          text: draft !== "" ? "󰏫 " + Format.oneLine(draft) : Format.oneLine(row.modelData.topic)
+          text: draft !== "" ? "󰏫 " + Format.oneLine(draft)
+            : via !== "" ? via + (!row.direct && row.modelData.topic ? " · " + Format.oneLine(row.modelData.topic) : "")
+            : Format.oneLine(row.modelData.topic)
           color: draft !== "" ? (root.service ? root.service.accent : Color.accent) : root.fg
           opacity: draft !== "" ? 0.85 : 0.45
           font.family: root.fontFamily

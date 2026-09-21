@@ -552,9 +552,12 @@ Item {
               }
               Text {
                 width: parent.width
-                text: (roomView.encrypted ? "󰌾 End-to-end encrypted" : "󰌿 Not encrypted")
+                readonly property var bridge: roomView.room ? roomView.room.bridge : null
+                text: (bridge
+                    ? Format.bridgeGlyph(bridge.protocol) + " via " + bridge.name + (roomView.encrypted ? " · 󰌾 encrypted to the bridge, not end to end" : " · 󰌿 not encrypted")
+                    : (roomView.encrypted ? "󰌾 End-to-end encrypted" : "󰌿 Not encrypted"))
                   + (roomView.room && roomView.room.topic ? " · " + Format.oneLine(roomView.room.topic) : "")
-                color: roomView.encrypted ? root.fg : Color.urgent
+                color: roomView.encrypted || bridge ? root.fg : Color.urgent
                 opacity: 0.7
                 font.family: root.fontFamily; font.pixelSize: Style.font.caption
                 elide: Text.ElideRight

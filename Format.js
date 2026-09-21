@@ -131,3 +131,16 @@ function timeOf(ts) {
   if (isSameDay(ts, y.getTime())) return "Yesterday"
   return d.toLocaleDateString(Qt.locale(), "d MMM")
 }
+
+// A glyph for a bridged network; a link for ones the font has no logo for.
+function bridgeGlyph(protocol) {
+  switch (String(protocol || "")) {
+    case "whatsapp": return "󰖣"
+    case "discord": return "󰙯"
+    case "slack": return "󰒱"
+    case "instagram": return "󰋾"
+    case "facebook": return "󰈌"
+    case "telegram": return "󰒊"
+    default: return "󰌷"
+  }
+}

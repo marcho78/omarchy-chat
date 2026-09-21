@@ -24,6 +24,7 @@ you build from source on your own machine. **No binary is downloaded, ever.**
 | | Replies, edits (Up edits your last message), reactions, read receipts, typing indicators; room info with members, invites and moderation |
 | | Threads: 󰻞 on any message starts one; roots show "N replies · who · when"; the thread opens beside the conversation (or in its place when narrow, and in the popup) with its own composer; thread replies stay out of the room timeline |
 | | Spaces, favourites, search across rooms and messages, per-room notification levels |
+| | Bridged rooms (WhatsApp, Telegram, Signal, Discord… via a bridge on your homeserver or Beeper) show the network's logo, "via WhatsApp", who the bridge bot is, and say plainly that encryption stops at the bridge; bridged senders are tagged by name |
 | | Sign in with the browser (Google, GitHub, a password — whatever the homeserver offers) or with a password |
 
 The popup is for a quick reply from the bar. The window is a normal

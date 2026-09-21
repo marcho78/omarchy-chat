@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "Format.js" as Format
 
 // Yapper: the bar widget and its popup. A view over Service.qml — the socket,
 // session and room state live there and are shared with the app window.
@@ -154,6 +155,7 @@ Panel {
               text: root.showInfo ? roomView.roomName
                 : root.inThread ? roomView.roomName
                 : root.showSettings ? "Applied as you change them"
+                : root.inRoom && roomView.room && roomView.room.bridge ? Format.bridgeGlyph(roomView.room.bridge.protocol) + " via " + roomView.room.bridge.name + (roomView.encrypted ? " · encrypted to the bridge" : " · not encrypted")
                 : root.inRoom ? (roomView.encrypted ? "󰌾 End-to-end encrypted" : "󰌿 Not encrypted")
                 : root.stateText
               color: root.inRoom && !roomView.encrypted ? Color.urgent : root.bar.foreground

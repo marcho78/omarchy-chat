@@ -251,6 +251,7 @@ Item {
       edited: m.edited === true,
       deleted: m.deleted === true,
       mention: m.highlight === true,
+      via: m.via || "",
       reactionsJson: JSON.stringify(m.reactions || []),
       readByJson: JSON.stringify(m.read_by || []),
       ts: Number(m.ts) || 0,
@@ -305,6 +306,7 @@ Item {
       edited: m.edited === true,
       deleted: m.deleted === true,
       mention: m.highlight === true,
+      via: m.via || "",
       reactionsJson: JSON.stringify(m.reactions || []),
       readByJson: JSON.stringify(m.read_by || []),
       ts: ts,
@@ -705,6 +707,7 @@ Item {
         edited: model.edited
         deleted: model.deleted
         mention: model.mention
+        via: model.via
         linkPreviews: root.service ? root.service.linkPreviews : true
         reactions: JSON.parse(model.reactionsJson)
         readBy: JSON.parse(model.readByJson)

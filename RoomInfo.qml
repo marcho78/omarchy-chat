@@ -135,7 +135,7 @@ Item {
             if (!root.details) return root.loading ? "Loading…" : ""
             var d = root.details
             var bits = [d.member_count + " member" + (d.member_count === 1 ? "" : "s")]
-            bits.push(d.encrypted ? "󰌾 encrypted" : "󰌿 not encrypted")
+            bits.push(d.bridge ? (d.encrypted ? "󰌾 encrypted to the bridge" : "󰌿 not encrypted") : (d.encrypted ? "󰌾 encrypted" : "󰌿 not encrypted"))
             bits.push(d.join_rule === "public" ? "public" : d.join_rule === "invite" ? "invite only" : d.join_rule)
             return bits.join("  ·  ")
           }
@@ -203,6 +203,55 @@ Item {
         color: root.fg; opacity: 0.5
         font.family: root.fontFamily; font.pixelSize: Style.font.caption
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.service.copyText(root.details.alias) }
+      }
+    }
+
+    // Bridged room: what it mirrors, and the bot that runs it
+    Rectangle {
+      readonly property var bridge: root.details ? root.details.bridge : null
+      visible: bridge !== null && bridge !== undefined && root.editing === "" && root.member === null
+      width: parent.width
+      implicitHeight: visible ? bridgeCol.implicitHeight + Style.space(20) : 0
+      radius: Style.space(8)
+      color: Util.alpha(root.fg, 0.05)
+      border.width: 1
+      border.color: Util.alpha(root.fg, 0.18)
+      Column {
+        id: bridgeCol
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Style.space(10)
+        spacing: Style.space(4)
+        Row {
+          spacing: Style.space(8)
+          Text { anchors.verticalCenter: parent.verticalCenter; text: parent.parent.parent.bridge ? Format.bridgeGlyph(parent.parent.parent.bridge.protocol) : ""; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle }
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            readonly property var b: parent.parent.parent.bridge
+            text: b ? "Bridged to " + b.name + (b.channel ? " · " + b.channel : "") : ""
+            color: root.fg
+            font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true
+          }
+        }
+        Text {
+          width: parent.width
+          wrapMode: Text.WordWrap
+          readonly property var b: parent.parent.bridge
+          text: (b && b.bridge ? "Run by " + b.bridge + ". " : "")
+            + "Messages are relayed by the bridge, which reads them to forward them"
+            + (root.details && root.details.encrypted ? " — Matrix encryption covers the leg to the bridge, not end to end." : ".")
+          color: root.fg; opacity: 0.75
+          font.family: root.fontFamily; font.pixelSize: Style.font.caption
+        }
+        Button {
+          readonly property var b: parent.parent.bridge
+          visible: b && !!b.bot
+          text: "Message the bridge bot"
+          iconText: "󰚩"
+          bordered: true
+          onClicked: root.memberChosen({ id: b.bot, name: b.bot })
+        }
       }
     }
 
@@ -310,7 +359,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - Style.space(40) - Style.space(10) - sheetClose.width - Style.space(10)
             Text { width: parent.width; text: root.member ? root.member.name : ""; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true; elide: Text.ElideRight }
-            Text { width: parent.width; text: root.member ? root.member.id + (root.member.role !== "member" ? "  ·  " + (root.member.role === "admin" ? "Admin" : "Moderator") : "") : ""; color: root.fg; opacity: 0.6; font.family: root.fontFamily; font.pixelSize: Style.font.caption; elide: Text.ElideMiddle }
+            Text { width: parent.width; text: root.member ? root.member.id + (root.member.via ? "  ·  via " + root.member.via : "") + (root.member.role !== "member" ? "  ·  " + (root.member.role === "admin" ? "Admin" : "Moderator") : "") : ""; color: root.fg; opacity: 0.6; font.family: root.fontFamily; font.pixelSize: Style.font.caption; elide: Text.ElideMiddle }
           }
           Button { id: sheetClose; anchors.verticalCenter: parent.verticalCenter; iconText: "󰅖"; text: ""; onClicked: root.member = null }
         }
@@ -404,7 +453,7 @@ Item {
             }
             Text {
               width: parent.width
-              text: row.modelData.id
+              text: (row.modelData.via ? "via " + row.modelData.via + "  ·  " : "") + row.modelData.id
               color: root.fg; opacity: 0.45
               font.family: root.fontFamily; font.pixelSize: Style.font.caption
               elide: Text.ElideMiddle

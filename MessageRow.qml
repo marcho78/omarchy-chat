@@ -35,6 +35,8 @@ Item {
   property bool canDelete: false
   property bool mention: false
   property bool linkPreviews: true
+  // The sender is a bridge puppet for this network ("WhatsApp"), shown by the name.
+  property string via: ""
   // Thread summary on a root ({replies, latest_ts, latest_sender_name}),
   // whether this row sits inside a thread view, and whether it is that
   // thread's root (drawn as the opening post).
@@ -351,7 +353,7 @@ Item {
           anchors.right: root.bubbles && root.mine ? parent.right : undefined
           spacing: Style.space(8)
           Text {
-            text: root.senderName
+            text: root.senderName + (root.via !== "" ? "  ·  " + root.via : "")
             color: root.nameColor
             font.family: root.fontFamily
             font.pixelSize: root.bodySize
