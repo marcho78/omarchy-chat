@@ -47,6 +47,26 @@ Back in the panel, **Check again** finds the daemon, the plugin starts it
 (`systemctl --user start omarchy-yapperd`) and shows the sign-in form. Any
 Matrix homeserver works; `matrix.org` is pre-filled.
 
+## Encryption, verification and recovery
+
+The first time you sign in, a red card asks you to **verify this device** —
+until you do, other people's clients show it as untrusted and history from
+before you signed in stays unreadable. Three ways:
+
+* **Use another device** — Element on your phone, say. Both screens show the
+  same seven emoji; confirm on both.
+* **Use recovery key** — type the key you saved when you set up encryption.
+* **Set up encryption** — first device on the account: creates your
+  cross-signing identity and key backup and shows a recovery key **once**.
+  Save it; it cannot be shown again.
+
+Requests from your other devices show up as a notification and in the card,
+with Accept / Decline. Nothing is accepted for you.
+
+Settings → **Encryption** shows the state (verified, backup, other devices)
+and **Reset recovery key** for when the key is lost: a new one is shown
+once and the old one stops working.
+
 ## The window
 
 ```bash
@@ -184,10 +204,9 @@ omarchy-yapperd --socket /tmp/chat-test.sock --data-dir /tmp/chat-test-data
 
 ## Not yet
 
-Device verification and key backup, attachments, reactions, edits, replies,
-typing indicators, member lists. Until verification lands, other clients
-show this device as unverified and history from before you signed in here
-is not readable. See the daemon's roadmap.
+Attachments, scrollback, read markers, replies and edits (in progress);
+then reactions, typing indicators, member lists and more. See the daemon's
+roadmap.
 
 ## License
 

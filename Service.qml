@@ -162,6 +162,30 @@ Item {
   // Views subscribe to these instead of polling.
   signal messageReceived(var message)
   signal invitationReceived(var invite)
+  signal verificationEvent(var info)
+
+  // ---------- verification ----------
+  // {device_verified, cross_signing, recovery, backup, device_id, other_devices}
+  property var verification: null
+  // The flow currently on screen (one at a time), as the last event for it.
+  property var activeFlow: null
+  readonly property bool deviceVerified: verification ? verification.device_verified === true : false
+  readonly property bool needsVerification: loggedIn && verification !== null && !deviceVerified
+
+  function refreshVerification() {
+    root.request("verification_status", {}, function(r) { if (r.ok) root.verification = r.result })
+  }
+  function verifyRequest(cb) { root.request("verify_request", {}, cb || function() {}) }
+  function verifyAccept(flowId, cb) { root.request("verify_accept", { flow_id: flowId }, cb || function() {}) }
+  function verifyConfirm(flowId, cb) { root.request("verify_confirm", { flow_id: flowId }, cb || function() {}) }
+  function verifyCancel(flowId, cb) {
+    root.request("verify_cancel", { flow_id: flowId }, cb || function() {})
+    if (root.activeFlow && root.activeFlow.flow_id === flowId) root.activeFlow = null
+  }
+  function recover(key, cb) { root.request("recover", { key: key }, function(r) { if (r.ok) root.verification = r.result; cb(r) }) }
+  function setupRecovery(cb) { root.request("setup_recovery", {}, function(r) { root.refreshVerification(); cb(r) }) }
+  function resetRecoveryKey(cb) { root.request("reset_recovery_key", {}, function(r) { root.refreshVerification(); cb(r) }) }
+  function dismissFlow() { root.activeFlow = null }
 
   // ---------- daemon discovery / start ----------
 
@@ -290,7 +314,7 @@ Item {
       var wasLoggedIn = root.loggedIn
       root.status = ev
       if (root.loggedIn && (!wasLoggedIn || ev.syncing)) root.refresh()
-      if (!root.loggedIn) { root.rooms = []; root.invites = [] }
+      if (!root.loggedIn) { root.rooms = []; root.invites = []; root.verification = null; root.activeFlow = null }
     } else if (ev.event === "message") {
       root.messageReceived(ev)
       if (!root.isViewed(ev.room)) {
@@ -305,6 +329,16 @@ Item {
           "Invitation from " + (ev.inviter_name || ev.inviter || "someone"), ev.direct ? "wants to chat with you" : String(ev.name)])
     } else if (ev.event === "rooms_changed") {
       root.refresh()
+    } else if (ev.event === "verification") {
+      // Keep the newest state per flow; a finished flow lingers so the
+      // view can show "done" / "cancelled" until dismissed.
+      if (!root.activeFlow || root.activeFlow.flow_id === ev.flow_id || ev.state === "requested") root.activeFlow = ev
+      root.verificationEvent(ev)
+      if (ev.state === "requested" && !ev.outgoing && root.notificationsEnabled)
+        Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Yapper", "-i", "dialog-password", "--",
+          "Verification request", "Another device wants to verify with this one. Open Yapper to continue."])
+    } else if (ev.event === "verification_status_changed") {
+      root.refreshVerification()
     }
   }
 
@@ -342,7 +376,7 @@ Item {
 
   // ---------- rooms / invites ----------
 
-  function refresh() { root.refreshRooms(); root.refreshInvites() }
+  function refresh() { root.refreshRooms(); root.refreshInvites(); root.refreshVerification() }
   function refreshRooms() { root.request("rooms", {}, function(r) { if (r.ok) root.rooms = r.result }) }
   function refreshInvites() { root.request("invites", {}, function(r) { if (r.ok) root.invites = r.result }) }
 

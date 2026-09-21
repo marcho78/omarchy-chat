@@ -23,7 +23,7 @@ Column {
   // Delegates report focus and slider drags upward so these stay reactive.
   property int textFocusCount: 0
   property int draggingCount: 0
-  readonly property bool hasTextFocus: textFocusCount > 0
+  readonly property bool hasTextFocus: textFocusCount > 0 || encryptionCard.hasTextFocus
   readonly property bool dragging: draggingCount > 0
 
   function current(key, fallback) { return root.service ? root.service.setting(key, fallback) : fallback }
@@ -119,6 +119,17 @@ Column {
         fontFamily: root.fontFamily
       }
     }
+  }
+
+  PanelSectionHeader { text: "Encryption"; visible: root.service && root.service.loggedIn }
+  VerificationView {
+    id: encryptionCard
+    width: parent.width
+    visible: root.service && root.service.loggedIn
+    service: root.service
+    fg: root.fg
+    fontFamily: root.fontFamily
+    inSettings: true
   }
 
   Text {

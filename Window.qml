@@ -210,6 +210,14 @@ Item {
             fontFamily: root.fontFamily
           }
 
+          VerificationView {
+            width: parent.width
+            service: root.service
+            fg: root.fg
+            fontFamily: root.fontFamily
+            compact: true
+          }
+
           Flickable {
             id: listFlick
             width: parent.width

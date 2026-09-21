@@ -70,6 +70,7 @@ Item {
       senderName: m.sender_name || m.sender,
       body: m.body,
       html: m.html || "",
+      msgtype: m.msgtype || "m.text",
       ts: ts,
       mine: m.sender === root.service.userId,
       encrypted: m.encrypted === true,
@@ -132,6 +133,7 @@ Item {
         senderName: model.senderName
         body: model.body
         html: model.html
+        msgtype: model.msgtype
         ts: model.ts
         mine: model.mine
         encrypted: model.encrypted

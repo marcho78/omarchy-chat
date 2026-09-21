@@ -12,6 +12,7 @@ Item {
   property string senderName: ""
   property string body: ""
   property string html: ""
+  property string msgtype: "m.text"
   property real ts: 0
   property bool mine: false
   property bool encrypted: true
@@ -164,8 +165,11 @@ Item {
               anchors.leftMargin: root.bubbles ? Style.space(12) : 0
               anchors.rightMargin: root.bubbles ? Style.space(12) : 0
               textFormat: Text.RichText
-              text: root.html !== "" ? Format.cleanHtml(root.html) : Format.linkify(root.body)
+              text: root.msgtype === "unable_to_decrypt"
+                ? "<i>󰌾 Unable to decrypt — this device did not have the key. It fills in once backup or another device shares it.</i>"
+                : (root.html !== "" ? Format.cleanHtml(root.html) : Format.linkify(root.body))
               wrapMode: Text.Wrap
+              opacity: root.msgtype === "unable_to_decrypt" ? 0.6 : 1
               color: root.bubbles && root.mine ? root.bg : root.fg
               linkColor: root.bubbles && root.mine ? root.bg : root.accent
               font.family: root.fontFamily

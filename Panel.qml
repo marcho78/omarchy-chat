@@ -74,9 +74,9 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: (root.unreadTotal > 0 ? root.glyph + " " + root.unreadTotal : root.glyph) + (root.service && root.service.updateAvailable ? " 󰚰" : "")
+    text: (root.unreadTotal > 0 ? root.glyph + " " + root.unreadTotal : root.glyph) + (root.service && root.service.updateAvailable ? " 󰚰" : "") + (root.service && root.service.needsVerification ? " 󰀦" : "")
     dimmed: !root.loggedIn
-    tooltipText: "Yapper: " + root.stateText + (root.unreadTotal > 0 ? " · " + root.unreadTotal + " unread" : "") + (root.service && root.service.updateAvailable ? " · update available" : "")
+    tooltipText: "Yapper: " + root.stateText + (root.unreadTotal > 0 ? " · " + root.unreadTotal + " unread" : "") + (root.service && root.service.updateAvailable ? " · update available" : "") + (root.service && root.service.needsVerification ? " · device not verified" : "")
     onPressed: function(b) {
       if (b === Qt.MiddleButton) { if (root.service) root.service.openWindow() }
       else root.toggle()
@@ -98,7 +98,7 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: roomView.hasTextFocus || roomList.hasTextFocus || gate.hasTextFocus || settingsView.hasTextFocus
+      blocked: roomView.hasTextFocus || roomList.hasTextFocus || gate.hasTextFocus || settingsView.hasTextFocus || verifyView.hasTextFocus
       onCloseRequested: { if (root.showSettings) root.showSettings = false; else if (root.inRoom) root.backToList(); else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
@@ -187,6 +187,16 @@ Panel {
           service: root.service
           fg: root.bar.foreground
           fontFamily: root.bar.fontFamily
+        }
+
+        VerificationView {
+          id: verifyView
+          width: parent.width
+          visible: root.loggedIn && !root.inRoom && !root.showSettings && (root.service.needsVerification || root.service.activeFlow !== null || mode === "key")
+          service: root.service
+          fg: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          compact: true
         }
 
         SessionGate {
