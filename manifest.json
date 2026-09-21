@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "marcho78.chat",
+  "name": "Chat",
+  "version": "0.1.0",
+  "author": "marcho78",
+  "license": "MIT",
+  "description": "End-to-end encrypted chat from the bar. Matrix (Olm/Megolm) via the omarchy-chatd daemon; the shell never touches a key.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Chat",
+    "description": "Encrypted Matrix chat: rooms, unread count and a composer in a bar panel.",
+    "category": "Communication",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "homeserver": "https://matrix.org",
+      "notifications": true,
+      "autostartDaemon": true
+    },
+    "schema": [
+      {
+        "key": "homeserver",
+        "type": "string",
+        "label": "Homeserver",
+        "defaultValue": "https://matrix.org",
+        "description": "Pre-filled on the login form. Any Matrix homeserver works."
+      },
+      {
+        "key": "notifications",
+        "type": "boolean",
+        "label": "Desktop notifications for new messages",
+        "defaultValue": true
+      },
+      {
+        "key": "autostartDaemon",
+        "type": "boolean",
+        "label": "Start omarchy-chatd when the panel opens",
+        "defaultValue": true,
+        "description": "Runs 'systemctl --user start omarchy-chatd' if the daemon is installed but not running."
+      }
+    ]
+  }
+}
