@@ -55,10 +55,11 @@ omarchy-shell shell toggle marcho78.chat '{}'                       # toggle
 omarchy-shell shell summon marcho78.chat '{"room":"!id:server"}'    # open into a room
 ```
 
-A keybinding, in `~/.config/hypr/bindings.lua`:
+A keybinding, in `~/.config/hypr/bindings.lua` (`SUPER+SHIFT+C` is Omarchy's
+calendar, so pick something free):
 
 ```lua
-o.bind("SUPER SHIFT", "C", "omarchy-shell shell toggle marcho78.chat '{}'", { desc = "Chat" })
+o.bind("SUPER + SHIFT + T", "Chat", "omarchy-shell shell toggle marcho78.chat '{}'")
 ```
 
 A launcher entry, so it shows up next to your other apps:
