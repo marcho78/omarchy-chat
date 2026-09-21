@@ -35,7 +35,7 @@ Click the chat icon. Without the daemon the panel shows the command that
 builds it:
 
 ```bash
-git clone https://github.com/marcho78/omarchy-yapperd && cd omarchy-yapperd/packaging && makepkg -si
+git clone https://github.com/marcho78/omarchy-yapperd && cd omarchy-yapperd && git checkout "$(git tag -l 'v*' --sort=-v:refname | head -1)" && cd packaging && makepkg -si
 ```
 
 **Copy command** puts it on the clipboard for your own terminal — read the
@@ -138,8 +138,10 @@ and the window says what is new, with an **Update** button:
 
 * **Plugin** runs `omarchy plugin update marcho78.yapper` in a floating
   terminal — it shows the diff and asks before pulling — then restarts the shell.
-* **Daemon** runs the same clone-and-`makepkg -si` as the install, then
-  restarts the daemon's unit. Your session stays signed in.
+* **Daemon** clones the repo, checks out exactly the release the card
+  named, builds it with `makepkg -si` and restarts the daemon's unit. Your
+  session stays signed in. Updates are never step-by-step: from any version,
+  one update lands on the newest release.
 
 Nothing is ever installed without you confirming in that terminal. The
 About card at the top of Settings shows both versions, when the last check

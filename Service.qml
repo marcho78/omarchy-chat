@@ -22,11 +22,14 @@ Item {
   readonly property string daemonRepo: "https://github.com/marcho78/omarchy-yapperd"
   readonly property string daemonUnit: "omarchy-yapperd"
   // Shown to the user verbatim: clone, read, build, install. No binary download.
-  readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-yapperd/packaging && makepkg -si"
-  // Same thing for the terminal button, in a scratch dir so nothing is left behind.
-  readonly property string installScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd/packaging\" && makepkg -si; cd; rm -rf \"$d\""
-  // The update reuses the install and then restarts the unit.
-  readonly property string updateScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd/packaging\" && makepkg -si && systemctl --user restart " + daemonUnit + "; cd; rm -rf \"$d\""
+  readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-yapperd && git checkout \"$(git tag -l 'v*' --sort=-v:refname | head -1)\" && cd packaging && makepkg -si"
+  // Same thing for the terminal button, in a scratch dir so nothing is left
+  // behind, building the newest release tag rather than whatever master is.
+  readonly property string installScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd\" && t=$(git tag -l 'v*' --sort=-v:refname | head -1) && git checkout -q \"$t\" && cd packaging && makepkg -si; cd; rm -rf \"$d\""
+  // The update reuses the install, but pinned to the release tag the card
+  // announced (`daemonLatest`), so the build is exactly that version even
+  // if master has moved on; then it restarts the unit.
+  readonly property string updateScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd\" && git checkout -q \"v" + daemonLatest + "\" && cd packaging && makepkg -si && systemctl --user restart " + daemonUnit + "; cd; rm -rf \"$d\""
   readonly property string glyph: "󰭹"
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, "")
   readonly property string pluginVersion: (manifest && manifest.version) ? String(manifest.version) : ""
