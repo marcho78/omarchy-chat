@@ -127,10 +127,6 @@ Item {
         width: Math.max(Style.space(300), Math.min(Style.space(380), parent.width * 0.34))
 
         Rectangle {
-          anchors.fill: parent
-          color: Util.alpha(Color.menu.selectedBackground, 0.5)
-        }
-        Rectangle {
           anchors.right: parent.right
           anchors.top: parent.top
           anchors.bottom: parent.bottom
