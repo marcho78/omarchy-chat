@@ -72,6 +72,31 @@ Item {
   readonly property bool senderColors: flag("senderColors", true)
   readonly property real fontScale: Math.max(0.8, Math.min(1.5, (Number(setting("fontScale", 100)) || 100) / 100))
 
+  // The manifest schema drives the settings screen, so a new key needs only
+  // a manifest entry.
+  readonly property var schema: (manifest && manifest.barWidget && Array.isArray(manifest.barWidget.schema)) ? manifest.barWidget.schema : []
+
+  // Persist settings through the shell's inline writer (what its own bar
+  // gestures use); falls back to `omarchy bar set` per key.
+  function writeSettings(changes) {
+    var keys = Object.keys(changes || {})
+    if (keys.length === 0) return
+    if (shell && typeof shell.updateEntryInline === "function" && layoutEntry) {
+      var merged = {}
+      for (var k in layoutEntry) if (k !== "id") merged[k] = layoutEntry[k]
+      for (var i = 0; i < keys.length; i++) merged[keys[i]] = changes[keys[i]]
+      shell.updateEntryInline(pluginId, merged)
+      return
+    }
+    for (var j = 0; j < keys.length; j++) {
+      var v = changes[keys[j]]
+      var argv = ["omarchy-bar-set", pluginId, keys[j], typeof v === "string" ? v : JSON.stringify(v)]
+      if (typeof v !== "string") argv.push("--json")
+      Quickshell.execDetached(argv)
+    }
+  }
+  function set(key, value) { var c = ({}); c[key] = value; writeSettings(c) }
+
   readonly property string defaultHomeserver: String(setting("homeserver", "https://matrix.org"))
   readonly property bool notificationsEnabled: flag("notifications", true)
   readonly property bool autostartDaemon: flag("autostartDaemon", true)

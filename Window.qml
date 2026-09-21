@@ -26,6 +26,7 @@ Item {
   readonly property string fontFamily: Style.font.family
   readonly property bool inRoom: roomView.roomId !== ""
   readonly property bool opened: window.visible
+  property bool showSettings: false
 
   // ---- plugin lifecycle ----------------------------------------------------
 
@@ -166,12 +167,21 @@ Item {
                 elide: Text.ElideRight
               }
             }
-            Button {
+            Row {
               id: signOutButton
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              text: "Sign out"
-              onClicked: { roomView.close(); root.service.logout() }
+              spacing: Style.spacing.controlGap
+              Button {
+                iconText: "󰒓"
+                text: ""
+                bordered: root.showSettings
+                onClicked: root.showSettings = !root.showSettings
+              }
+              Button {
+                text: "Sign out"
+                onClicked: { roomView.close(); root.service.logout() }
+              }
             }
           }
 
@@ -205,10 +215,54 @@ Item {
         anchors.bottom: parent.bottom
         anchors.margins: Style.space(16)
 
+        // Settings
+        Flickable {
+          anchors.fill: parent
+          visible: root.showSettings
+          contentHeight: settingsColumn.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+          Column {
+            id: settingsColumn
+            width: parent.width
+            spacing: Style.space(12)
+            Item {
+              width: parent.width
+              implicitHeight: Math.max(settingsTitle.implicitHeight, settingsClose.implicitHeight)
+              Text {
+                id: settingsTitle
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Settings"
+                color: root.fg
+                font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true
+              }
+              Button {
+                id: settingsClose
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Done"
+                bordered: true
+                onClicked: root.showSettings = false
+              }
+            }
+            PanelSeparator { width: parent.width }
+            SettingsView {
+              id: settingsView
+              width: parent.width
+              service: root.service
+              fg: root.fg
+              fontFamily: root.fontFamily
+            }
+          }
+        }
+
         // Empty state
         Column {
           anchors.centerIn: parent
-          visible: !root.inRoom
+          visible: !root.inRoom && !root.showSettings
           spacing: Style.space(6)
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -226,7 +280,7 @@ Item {
 
         Column {
           anchors.fill: parent
-          visible: root.inRoom
+          visible: root.inRoom && !root.showSettings
           spacing: Style.space(10)
 
           // Room header
@@ -269,7 +323,7 @@ Item {
             viewId: "window"
             fg: root.fg
             fontFamily: root.fontFamily
-            visible: root.inRoom && window.visible
+            visible: root.inRoom && !root.showSettings && window.visible
           }
         }
       }

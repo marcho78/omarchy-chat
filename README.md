@@ -86,7 +86,10 @@ rm -rf ~/.local/share/omarchy-yapperd      # optional: drops the session and key
 
 ## Settings
 
-Set from Omarchy's bar settings or in `~/.config/omarchy/shell.json`:
+The ⚙ gear — top of the window's sidebar, or in the popup's header — opens a
+settings screen; changes apply as you make them and are stored in
+`~/.config/omarchy/shell.json` on the widget's entry. The same keys work
+from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -100,7 +103,8 @@ Set from Omarchy's bar settings or in `~/.config/omarchy/shell.json`:
 | `senderColors` | `true` | A stable colour per sender's name |
 | `fontScale` | `100` | Chat text size in percent, 80–150 |
 
-From the CLI, e.g. `omarchy bar set marcho78.yapper messageStyle bubbles`; changes apply live.
+The screen is rendered from the manifest's `barWidget.schema`, so a new
+setting needs only a schema entry.
 
 ## IPC
 

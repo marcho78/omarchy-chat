@@ -20,6 +20,7 @@ Panel {
   readonly property string stateText: service ? service.stateText : "Starting…"
   readonly property string glyph: "󰭹"
   readonly property bool inRoom: roomView.roomId !== ""
+  property bool showSettings: false
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -37,6 +38,7 @@ Panel {
     } else {
       gate.clearSecrets()
       roomView.close()
+      root.showSettings = false
     }
   }
 
@@ -87,8 +89,8 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: roomView.hasTextFocus || roomList.hasTextFocus || gate.hasTextFocus
-      onCloseRequested: { if (root.inRoom) root.backToList(); else root.close() }
+      blocked: roomView.hasTextFocus || roomList.hasTextFocus || gate.hasTextFocus || settingsView.hasTextFocus
+      onCloseRequested: { if (root.showSettings) root.showSettings = false; else if (root.inRoom) root.backToList(); else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Column {
@@ -103,7 +105,7 @@ Panel {
 
           Text {
             id: heroIcon
-            text: root.inRoom ? "󰁍" : root.glyph
+            text: (root.inRoom || root.showSettings) ? "󰁍" : root.glyph
             color: root.loggedIn ? Color.accent : root.bar.foreground
             font.family: root.bar.fontFamily
             font.pixelSize: Style.font.display
@@ -111,9 +113,9 @@ Panel {
             anchors.verticalCenter: parent.verticalCenter
             MouseArea {
               anchors.fill: parent
-              enabled: root.inRoom
+              enabled: root.inRoom || root.showSettings
               cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-              onClicked: root.backToList()
+              onClicked: { if (root.showSettings) root.showSettings = false; else root.backToList() }
             }
           }
 
@@ -136,8 +138,8 @@ Panel {
               width: parent.width
             }
             Text {
-              text: root.inRoom
-                ? (roomView.encrypted ? "󰌾 End-to-end encrypted" : "󰌿 Not encrypted")
+              text: root.showSettings ? "Applied as you change them"
+                : root.inRoom ? (roomView.encrypted ? "󰌾 End-to-end encrypted" : "󰌿 Not encrypted")
                 : root.stateText
               color: root.inRoom && !roomView.encrypted ? Color.urgent : root.bar.foreground
               opacity: 0.7
@@ -148,14 +150,23 @@ Panel {
             }
           }
 
-          Button {
+          Row {
             id: appButton
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            iconText: "󰖲"
-            text: "App"
-            bordered: true
-            onClicked: { if (root.service) root.service.openWindow(); root.close() }
+            spacing: Style.spacing.controlGap
+            Button {
+              iconText: "󰒓"
+              text: ""
+              bordered: root.showSettings
+              onClicked: root.showSettings = !root.showSettings
+            }
+            Button {
+              iconText: "󰖲"
+              text: "App"
+              bordered: true
+              onClicked: { if (root.service) root.service.openWindow(); root.close() }
+            }
           }
         }
 
@@ -169,10 +180,19 @@ Panel {
           fontFamily: root.bar.fontFamily
         }
 
+        SettingsView {
+          id: settingsView
+          width: parent.width
+          visible: root.showSettings
+          service: root.service
+          fg: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+        }
+
         RoomList {
           id: roomList
           width: parent.width
-          visible: root.loggedIn && !root.inRoom
+          visible: root.loggedIn && !root.inRoom && !root.showSettings
           service: root.service
           fg: root.bar.foreground
           fontFamily: root.bar.fontFamily
@@ -183,7 +203,7 @@ Panel {
           id: roomView
           width: parent.width
           height: visible ? implicitHeight : 0
-          visible: root.loggedIn && root.inRoom && root.opened
+          visible: root.loggedIn && root.inRoom && root.opened && !root.showSettings
           service: root.service
           viewId: "popup"
           fg: root.bar.foreground
@@ -191,12 +211,12 @@ Panel {
           onRoomLeft: root.backToList()
         }
 
-        PanelSeparator { width: parent.width; visible: root.loggedIn }
+        PanelSeparator { width: parent.width; visible: root.loggedIn && !root.showSettings }
 
         // Footer: account + sign out
         Item {
           width: parent.width
-          visible: root.loggedIn
+          visible: root.loggedIn && !root.showSettings
           implicitHeight: Math.max(footerText.implicitHeight, signOut.implicitHeight)
 
           Text {
