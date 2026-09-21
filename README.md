@@ -107,12 +107,30 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 The screen is rendered from the manifest's `barWidget.schema`, so a new
 setting needs only a schema entry.
 
+## Updates
+
+Once a day (and at startup) Yapper compares the installed plugin with its git
+remote and the running daemon's version with the newest `v*` tag of
+[omarchy-yapperd](https://github.com/marcho78/omarchy-yapperd). When either is
+behind, a 󰚰 appears next to the bar glyph and a card at the top of the popup
+and the window says what is new, with an **Update** button:
+
+* **Plugin** runs `omarchy plugin update marcho78.yapper` in a floating
+  terminal — it shows the diff and asks before pulling — then restarts the shell.
+* **Daemon** runs the same clone-and-`makepkg -si` as the install, then
+  restarts the daemon's unit. Your session stays signed in.
+
+Nothing is ever installed without you confirming in that terminal. Turn the
+check off under Settings → Updates; **Check now** is there too.
+
 ## IPC
 
 ```bash
 omarchy-shell marcho78.yapper toggle
 omarchy-shell marcho78.yapper status     # {installed, connected, loggedIn, userId, syncing, unread, rooms, opened}
 omarchy-shell marcho78.yapper refresh
+omarchy-shell marcho78.yapper checkUpdates
+omarchy-shell marcho78.yapper updates      # {daemon, daemonLatest, daemonUpdate, pluginBehind, pluginUpdate, lastChecked, error, checking}
 ```
 
 ## How it fits together

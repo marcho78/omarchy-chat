@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "Format.js" as Format
 
 // Yapper service: the single connection to omarchy-yapperd, the session state,
 // the room and invitation lists, and desktop notifications. Mounted when
@@ -19,11 +20,15 @@ Item {
   readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR")
   readonly property string socketPath: runtimeDir + "/omarchy-yapper.sock"
   readonly property string daemonRepo: "https://github.com/marcho78/omarchy-yapperd"
+  readonly property string daemonUnit: "omarchy-yapperd"
   // Shown to the user verbatim: clone, read, build, install. No binary download.
   readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-yapperd/packaging && makepkg -si"
   // Same thing for the terminal button, in a scratch dir so nothing is left behind.
   readonly property string installScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd/packaging\" && makepkg -si; cd; rm -rf \"$d\""
+  // The update reuses the install and then restarts the unit.
+  readonly property string updateScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd/packaging\" && makepkg -si && systemctl --user restart " + daemonUnit + "; cd; rm -rf \"$d\""
   readonly property string glyph: "󰭹"
+  readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, "")
 
   function log(msg) { console.log("[yapper] " + msg) }
 
@@ -177,7 +182,7 @@ Item {
 
   Process {
     id: startProc
-    command: ["/usr/bin/systemctl", "--user", "start", "omarchy-yapperd.service"]
+    command: ["/usr/bin/systemctl", "--user", "start", root.daemonUnit + ".service"]
     onExited: function(code) {
       if (code !== 0) {
         root.starting = false
@@ -391,6 +396,104 @@ Item {
     if (copyProc.running) return
     root._copyPayload = String(s)
     copyProc.running = true
+  }
+
+  // ---------- updates ----------
+  // Plugin: commits on the git remote we do not have. Daemon: newest v* tag
+  // on its repo vs the version the running daemon reports. Checked on
+  // startup and every six hours; nothing is installed without the user.
+
+  readonly property bool checkUpdates: flag("checkUpdates", true)
+  property bool checking: false
+  property int pluginUpdateCount: 0
+  property var pluginUpdateLog: []        // subjects of the incoming commits
+  property string daemonLatest: ""
+  property string lastChecked: ""
+  property string updateError: ""
+  readonly property string daemonVersion: (status && status.version) ? String(status.version) : ""
+  readonly property bool daemonUpdateAvailable: daemonLatest !== "" && daemonVersion !== "" && Format.compareVersions(daemonLatest, daemonVersion) > 0
+  readonly property bool pluginUpdateAvailable: pluginUpdateCount > 0
+  readonly property bool updateAvailable: daemonUpdateAvailable || pluginUpdateAvailable
+
+  function checkForUpdates() {
+    if (root.checking) return
+    root.checking = true
+    root.updateError = ""
+    pluginCheck.running = true
+  }
+
+  Process {
+    id: pluginCheck
+    property string out: ""
+    // Fetch, then list what we are behind by. A non-git plugin dir (a dev
+    // copy) simply reports nothing.
+    command: ["/usr/bin/bash", "-c",
+      "cd \"$0\" || exit 0; git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0; " +
+      "GIT_TERMINAL_PROMPT=0 git fetch --quiet origin HEAD 2>/dev/null || { echo ERR fetch; exit 0; }; " +
+      "git rev-list --count HEAD..FETCH_HEAD; git log --format=%s HEAD..FETCH_HEAD | head -8",
+      root.pluginDir]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { pluginCheck.out += d } }
+    onStarted: out = ""
+    onExited: function() {
+      var lines = pluginCheck.out.split("\n").filter(function(l) { return l.trim() !== "" })
+      if (lines.length > 0 && lines[0].indexOf("ERR") === 0) {
+        root.updateError = "Could not reach the plugin's git remote."
+      } else if (lines.length > 0) {
+        root.pluginUpdateCount = parseInt(lines[0], 10) || 0
+        root.pluginUpdateLog = lines.slice(1)
+      } else {
+        root.pluginUpdateCount = 0
+        root.pluginUpdateLog = []
+      }
+      daemonCheck.running = true
+    }
+  }
+
+  Process {
+    id: daemonCheck
+    property string out: ""
+    command: ["/usr/bin/bash", "-c",
+      "GIT_TERMINAL_PROMPT=0 git ls-remote --tags --refs \"$0\" 'v*' 2>/dev/null | sed 's#.*/tags/##'",
+      root.daemonRepo]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { daemonCheck.out += d } }
+    onStarted: out = ""
+    onExited: function(code) {
+      var best = ""
+      var tags = daemonCheck.out.split("\n")
+      for (var i = 0; i < tags.length; i++) {
+        var t = tags[i].trim()
+        if (!/^v\d+\.\d+\.\d+$/.test(t)) continue
+        if (best === "" || Format.compareVersions(t, best) > 0) best = t
+      }
+      if (best === "" && code !== 0) root.updateError = (root.updateError ? root.updateError + " " : "") + "Could not reach the daemon's repository."
+      root.daemonLatest = best.replace(/^v/, "")
+      root.lastChecked = new Date().toLocaleTimeString(Qt.locale(), "HH:mm")
+      root.checking = false
+    }
+  }
+
+  Timer {
+    interval: 6 * 60 * 60 * 1000
+    repeat: true
+    running: root.checkUpdates
+    triggeredOnStart: false
+    onTriggered: root.checkForUpdates()
+  }
+  Timer {
+    // First check shortly after the shell comes up, once the network is likely there.
+    interval: 45 * 1000
+    running: root.checkUpdates
+    onTriggered: root.checkForUpdates()
+  }
+
+  // Both updates run in a floating terminal so the user sees the diff /
+  // the build and answers the prompts themselves.
+  function updatePlugin() {
+    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation",
+      "omarchy plugin update " + root.pluginId + " && omarchy restart shell"])
+  }
+  function updateDaemon() {
+    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", root.updateScript])
   }
 
   function openWindow() {

@@ -57,6 +57,15 @@ Panel {
     }
     function refresh(): void { if (root.service) root.service.refresh() }
     function app(): void { if (root.service) root.service.openWindow() }
+    function checkUpdates(): string {
+      if (!root.service) return "no service"
+      root.service.checkForUpdates()
+      return "checking"
+    }
+    function updates(): string {
+      var s = root.service
+      return JSON.stringify(s ? { daemon: s.daemonVersion, daemonLatest: s.daemonLatest, daemonUpdate: s.daemonUpdateAvailable, pluginBehind: s.pluginUpdateCount, pluginUpdate: s.pluginUpdateAvailable, lastChecked: s.lastChecked, error: s.updateError, checking: s.checking } : {})
+    }
   }
 
   // ---------- bar button ----------
@@ -65,9 +74,9 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.unreadTotal > 0 ? root.glyph + " " + root.unreadTotal : root.glyph
+    text: (root.unreadTotal > 0 ? root.glyph + " " + root.unreadTotal : root.glyph) + (root.service && root.service.updateAvailable ? " 󰚰" : "")
     dimmed: !root.loggedIn
-    tooltipText: "Yapper: " + root.stateText + (root.unreadTotal > 0 ? " · " + root.unreadTotal + " unread" : "")
+    tooltipText: "Yapper: " + root.stateText + (root.unreadTotal > 0 ? " · " + root.unreadTotal + " unread" : "") + (root.service && root.service.updateAvailable ? " · update available" : "")
     onPressed: function(b) {
       if (b === Qt.MiddleButton) { if (root.service) root.service.openWindow() }
       else root.toggle()
@@ -171,6 +180,14 @@ Panel {
         }
 
         PanelSeparator { width: parent.width }
+
+        UpdateBanner {
+          width: parent.width
+          visible: (root.service ? root.service.updateAvailable : false) && !root.inRoom && !root.showSettings
+          service: root.service
+          fg: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+        }
 
         SessionGate {
           id: gate

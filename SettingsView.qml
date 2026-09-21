@@ -272,4 +272,57 @@ Column {
       }
     }
   }
+
+  // Updates: status and a manual check (the toggle above comes from the schema).
+  Item {
+    width: parent.width
+    implicitHeight: Math.max(updateStatus.implicitHeight, checkButton.implicitHeight)
+    Column {
+      id: updateStatus
+      anchors.left: parent.left
+      anchors.right: checkButton.left
+      anchors.rightMargin: Style.space(10)
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.space(2)
+      Text {
+        text: root.service && root.service.updateAvailable ? "Update available" : "Up to date"
+        color: root.service && root.service.updateAvailable ? Color.accent : root.fg
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.subtitle
+      }
+      Text {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        text: {
+          if (!root.service) return ""
+          var s = root.service
+          var parts = ["Daemon " + (s.daemonVersion || "not running") + (s.daemonLatest ? " · newest " + s.daemonLatest : "")]
+          if (s.pluginUpdateCount > 0) parts.push("plugin " + s.pluginUpdateCount + " behind")
+          if (s.lastChecked) parts.push("checked " + s.lastChecked)
+          if (s.updateError) parts.push(s.updateError)
+          return parts.join(" · ")
+        }
+        color: root.service && root.service.updateError ? Color.urgent : root.fg
+        opacity: root.service && root.service.updateError ? 0.9 : 0.55
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+    }
+    Button {
+      id: checkButton
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      text: root.service && root.service.checking ? "Checking…" : "Check now"
+      bordered: true
+      enabled: !(root.service && root.service.checking)
+      onClicked: root.service.checkForUpdates()
+    }
+  }
+
+  UpdateBanner {
+    width: parent.width
+    service: root.service
+    fg: root.fg
+    fontFamily: root.fontFamily
+  }
 }

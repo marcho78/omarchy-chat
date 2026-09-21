@@ -191,6 +191,13 @@ Item {
             }
           }
 
+          UpdateBanner {
+            width: parent.width
+            service: root.service
+            fg: root.fg
+            fontFamily: root.fontFamily
+          }
+
           Flickable {
             id: listFlick
             width: parent.width

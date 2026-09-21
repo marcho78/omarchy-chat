@@ -62,3 +62,15 @@ function isSameDay(a, b) {
   var x = new Date(a), y = new Date(b)
   return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate()
 }
+
+// Semantic version compare: 1 if a > b, -1 if a < b, 0 if equal or unparsable.
+function compareVersions(a, b) {
+  var pa = String(a || "").replace(/^v/, "").split(".").map(function(x) { return parseInt(x, 10) || 0 })
+  var pb = String(b || "").replace(/^v/, "").split(".").map(function(x) { return parseInt(x, 10) || 0 })
+  for (var i = 0; i < 3; i++) {
+    var x = pa[i] || 0, y = pb[i] || 0
+    if (x > y) return 1
+    if (x < y) return -1
+  }
+  return 0
+}

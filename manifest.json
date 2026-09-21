@@ -35,7 +35,8 @@
       "senderColors": true,
       "fontScale": 100,
       "hoverColor": "",
-      "selectionColor": ""
+      "selectionColor": "",
+      "checkUpdates": true
     },
     "schema": [
       {
@@ -157,6 +158,14 @@
         "step": 5,
         "defaultValue": 100,
         "section": "Messages"
+      },
+      {
+        "key": "checkUpdates",
+        "type": "boolean",
+        "section": "Updates",
+        "label": "Check for updates",
+        "defaultValue": true,
+        "description": "Once a day, compare the plugin with its git remote and the daemon with its newest release tag. Nothing is installed without you."
       }
     ]
   },
