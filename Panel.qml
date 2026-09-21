@@ -22,9 +22,9 @@ Panel {
   readonly property string socketPath: runtimeDir + "/omarchy-chat.sock"
   readonly property string daemonRepo: "https://github.com/marcho78/omarchy-chatd"
   // Shown to the user verbatim: clone, read, build, install. No binary download.
-  readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-chatd && makepkg -si"
+  readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-chatd/packaging && makepkg -si"
   // Same thing for the terminal button, in a scratch dir so nothing is left behind.
-  readonly property string installScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-chatd\" && cd \"$d/omarchy-chatd\" && makepkg -si; cd; rm -rf \"$d\""
+  readonly property string installScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-chatd\" && cd \"$d/omarchy-chatd/packaging\" && makepkg -si; cd; rm -rf \"$d\""
 
   readonly property string defaultHomeserver: String(setting("homeserver", "https://matrix.org"))
   readonly property bool notificationsEnabled: setting("notifications", true) !== false

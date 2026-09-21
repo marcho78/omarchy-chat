@@ -30,7 +30,7 @@ Click the chat icon. If the daemon is missing, the panel shows the command
 that builds it:
 
 ```bash
-git clone https://github.com/marcho78/omarchy-chatd && cd omarchy-chatd && makepkg -si
+git clone https://github.com/marcho78/omarchy-chatd && cd omarchy-chatd/packaging && makepkg -si
 ```
 
 Copy it, or press **Open in terminal** to run it in a floating terminal. It
