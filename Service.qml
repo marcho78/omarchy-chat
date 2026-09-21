@@ -332,15 +332,19 @@ Item {
       root.messageReceived(ev)
       if (!root.isViewed(ev.room)) {
         root.refreshRooms()
-        var mode = (root.roomById(ev.room) || {}).notification_mode || "all"
-        if (root.notificationsEnabled && ev.sender !== root.userId && mode === "all") root.notify(ev)
+        // The daemon reports what the account's push rules decided (mute,
+        // mentions-only, keywords). Without a verdict, fall back to the
+        // room's mode.
+        var wants = ev.notify !== undefined ? ev.notify === true : ((root.roomById(ev.room) || {}).notification_mode || "all") === "all"
+        if (root.notificationsEnabled && ev.sender !== root.userId && wants) root.notify(ev)
       }
     } else if (ev.event === "invite") {
       root.refreshInvites()
       root.invitationReceived(ev)
       if (root.notificationsEnabled)
-        Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Yapper", "-i", "dialog-information", "--",
-          "Invitation from " + (ev.inviter_name || ev.inviter || "someone"), ev.direct ? "wants to chat with you" : String(ev.name)])
+        Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Yapper", "-g", root.glyph,
+          "Invitation from " + (ev.inviter_name || ev.inviter || "someone"), ev.direct ? "wants to chat with you" : String(ev.name),
+          "--exec", "omarchy-shell", "shell", "summon", root.pluginId, "{}"])
     } else if (ev.event === "rooms_changed") {
       root.refresh()
     } else if (ev.event === "verification") {
@@ -349,8 +353,9 @@ Item {
       if (!root.activeFlow || root.activeFlow.flow_id === ev.flow_id || ev.state === "requested") root.activeFlow = ev
       root.verificationEvent(ev)
       if (ev.state === "requested" && !ev.outgoing && root.notificationsEnabled)
-        Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Yapper", "-i", "dialog-password", "--",
-          "Verification request", "Another device wants to verify with this one. Open Yapper to continue."])
+        Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Yapper", "-g", "󰌾", "-u", "critical",
+          "Verification request", "Another device wants to verify with this one.",
+          "--exec", "omarchy-shell", "shell", "summon", root.pluginId, "{}"])
     } else if (ev.event === "verification_status_changed") {
       root.refreshVerification()
     }
@@ -479,10 +484,17 @@ Item {
     return false
   }
 
+  // Omarchy's notifier: themed, and clicking it opens the room in the window.
   function notify(m) {
-    var title = (m.sender_name || m.sender) + " · " + root.roomName(m.room)
-    var body = String(m.body).slice(0, 300)
-    Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Yapper", "-i", "dialog-information", "--", title, body])
+    var room = root.roomName(m.room)
+    var who = m.sender_name || m.sender
+    var direct = (root.roomById(m.room) || {}).direct === true
+    var title = direct ? who : who + " · " + room
+    var body = m.attachment ? (m.attachment.kind === "image" ? "󰋩 Image" : "󰈔 " + m.attachment.name) : String(m.body).slice(0, 300)
+    if (m.highlight === true) body = "󰀦 " + body
+    Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Yapper", "-g", root.glyph,
+      "-u", m.highlight === true ? "critical" : "normal", title, body,
+      "--exec", "omarchy-shell", "shell", "summon", root.pluginId, JSON.stringify({ room: m.room })])
   }
 
   function timeText(ts) {

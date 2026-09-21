@@ -347,14 +347,26 @@ Column {
         anchors.verticalCenter: parent.verticalCenter
         width: parent.width - Style.space(30) - Style.space(10) - (badge.visible ? badge.width + Style.space(10) : 0)
         spacing: Style.space(1)
-        Text {
+        Row {
           width: parent.width
-          text: row.modelData.name
-          color: row.selected ? Color.menu.selectedText : root.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          font.bold: row.unread > 0
-          elide: Text.ElideRight
+          spacing: Style.space(6)
+          Text {
+            width: parent.width - (muteGlyph.visible ? muteGlyph.implicitWidth + Style.space(6) : 0)
+            text: row.modelData.name
+            color: row.selected ? Color.menu.selectedText : root.fg
+            opacity: row.modelData.notification_mode === "mute" ? 0.6 : 1
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            font.bold: row.unread > 0 && row.modelData.notification_mode !== "mute"
+            elide: Text.ElideRight
+          }
+          Text {
+            id: muteGlyph
+            visible: row.modelData.notification_mode === "mute"
+            text: "󰂛"
+            color: root.fg; opacity: 0.45
+            font.family: root.fontFamily; font.pixelSize: Style.font.caption
+          }
         }
         Text {
           visible: !row.direct && !!row.modelData.topic

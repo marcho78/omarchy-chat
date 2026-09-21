@@ -32,6 +32,7 @@ Item {
   property bool highlighted: false
   property bool canEdit: false
   property bool canDelete: false
+  property bool mention: false
   property var reactions: []
   property var readBy: []
   property bool paletteOpen: false
@@ -180,8 +181,19 @@ Item {
         anchors.leftMargin: -Style.space(6)
         anchors.rightMargin: -Style.space(6)
         radius: Style.space(4)
-        color: root.highlighted ? Util.alpha(root.accent, 0.18) : (rowMouse.containsMouse && !root.bubbles ? root.hover : "transparent")
+        color: root.highlighted ? Util.alpha(root.accent, 0.18) : root.mention ? Util.alpha(Color.urgent, 0.08) : (rowMouse.containsMouse && !root.bubbles ? root.hover : "transparent")
         Behavior on color { ColorAnimation { duration: 200 } }
+      }
+      // Mentions get a bar on the left, like Element
+      Rectangle {
+        visible: root.mention
+        anchors.left: parent.left
+        anchors.leftMargin: -Style.space(6)
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 3
+        radius: 2
+        color: Color.urgent
       }
       MouseArea {
         id: rowMouse

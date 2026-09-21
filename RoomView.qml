@@ -183,6 +183,7 @@ Item {
       replyJson: m.reply_to ? JSON.stringify(m.reply_to) : "",
       edited: m.edited === true,
       deleted: m.deleted === true,
+      mention: m.highlight === true,
       reactionsJson: JSON.stringify(m.reactions || []),
       readByJson: JSON.stringify(m.read_by || []),
       ts: Number(m.ts) || 0,
@@ -236,6 +237,7 @@ Item {
       replyJson: m.reply_to ? JSON.stringify(m.reply_to) : "",
       edited: m.edited === true,
       deleted: m.deleted === true,
+      mention: m.highlight === true,
       reactionsJson: JSON.stringify(m.reactions || []),
       readByJson: JSON.stringify(m.read_by || []),
       ts: ts,
@@ -556,6 +558,7 @@ Item {
         replyTo: model.replyJson !== "" ? JSON.parse(model.replyJson) : null
         edited: model.edited
         deleted: model.deleted
+        mention: model.mention
         reactions: JSON.parse(model.reactionsJson)
         readBy: JSON.parse(model.readByJson)
         onReactRequested: function(key) { root.toggleReaction(model.eventId, key) }
