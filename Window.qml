@@ -233,7 +233,7 @@ Item {
           Flickable {
             id: listFlick
             width: parent.width
-            height: parent.height - y
+            height: parent.height - y - developerRow.height - parent.spacing
             contentHeight: roomList.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
@@ -249,6 +249,40 @@ Item {
               showSearchButton: true
               onRoomChosen: function(r) { root.openRoom(r) }
               onSearchRequested: root.openSearch(false)
+            }
+          }
+
+          // Who made this: message them on Matrix, or find them on X.
+          Item {
+            id: developerRow
+            width: parent.width
+            implicitHeight: developerButtons.implicitHeight
+            Text {
+              anchors.left: parent.left
+              anchors.right: developerButtons.left
+              anchors.rightMargin: Style.space(8)
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Made by " + (root.service ? root.service.developerName : "")
+              color: root.fg; opacity: 0.45
+              elide: Text.ElideRight
+              font.family: root.fontFamily; font.pixelSize: Style.font.caption
+            }
+            Row {
+              id: developerButtons
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.spacing.controlGap
+              Button {
+                iconText: "󰭹"
+                text: ""
+                visible: root.service && root.service.userId !== root.service.developerMatrix
+                enabled: root.service && root.service.canMessageDeveloper
+                onClicked: roomList.openDm(root.service.developerMatrix)
+              }
+              Button {
+                text: "𝕏"
+                onClicked: root.service.openDeveloperX()
+              }
             }
           }
         }

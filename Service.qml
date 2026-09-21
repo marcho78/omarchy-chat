@@ -559,6 +559,25 @@ Item {
   function searchRooms(query, cb) { root.request("search_rooms", { query: String(query) }, cb) }
   function searchUsers(query, cb) { root.request("search_users", { query: String(query) }, cb) }
   function join(idOrAlias, cb) { root.request("join", { room: String(idOrAlias) }, function(r) { root.refreshRooms(); cb(r) }) }
+  // Who made this, reachable from the sidebar and the About card.
+  readonly property string developerName: "devsec_ai"
+  readonly property string developerMatrix: "@devsec_ai:matrix.org"
+  readonly property string developerX: "https://x.com/devsec_ai"
+  property bool developerDmPending: false
+  // You cannot DM yourself, so the developer's own account gets no Message button.
+  readonly property bool canMessageDeveloper: loggedIn && userId !== developerMatrix && !developerDmPending
+  // Open (or start) a DM with the developer and bring the window up in it.
+  function messageDeveloper() {
+    if (root.developerDmPending) return
+    root.developerDmPending = true
+    root.dm(root.developerMatrix, function(r) {
+      root.developerDmPending = false
+      if (!r.ok) { root.log("developer DM: " + (r.error || "failed")); return }
+      Quickshell.execDetached(["omarchy-shell", "shell", "summon", root.pluginId, JSON.stringify({ room: r.result.id })])
+    })
+  }
+  function openDeveloperX() { Quickshell.execDetached(["omarchy-launch-browser", root.developerX]) }
+
   function dm(userId, cb) { root.request("dm", { user: String(userId) }, function(r) { root.refreshRooms(); cb(r) }) }
   function createRoom(name, encrypted, priv, cb) {
     root.request("create_room", { name: String(name), encrypted: encrypted === true, private: priv === true }, function(r) { root.refreshRooms(); cb(r) })

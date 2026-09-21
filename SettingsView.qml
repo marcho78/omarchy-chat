@@ -118,6 +118,49 @@ Column {
         fg: root.fg
         fontFamily: root.fontFamily
       }
+
+      Rectangle { width: parent.width; height: 1; color: Util.alpha(root.fg, 0.15) }
+
+      // Developer
+      Item {
+        width: parent.width
+        implicitHeight: Math.max(developerText.implicitHeight, developerLinks.implicitHeight)
+        Column {
+          id: developerText
+          anchors.left: parent.left
+          anchors.right: developerLinks.left
+          anchors.rightMargin: Style.space(10)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(2)
+          Text {
+            text: "Made by " + (root.service ? root.service.developerName : "")
+            color: root.fg
+            font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true
+          }
+          Text {
+            width: parent.width
+            elide: Text.ElideRight
+            text: (root.service ? root.service.developerMatrix : "") + "  ·  𝕏 @" + (root.service ? root.service.developerName : "")
+            color: root.fg; opacity: 0.7
+            font.family: root.fontFamily; font.pixelSize: Style.font.caption
+          }
+        }
+        Row {
+          id: developerLinks
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.spacing.controlGap
+          Button {
+            iconText: "󰭹"
+            text: root.service && root.service.developerDmPending ? "Opening…" : "Message"
+            bordered: true
+            visible: root.service && root.service.userId !== root.service.developerMatrix
+            enabled: root.service && root.service.canMessageDeveloper
+            onClicked: root.service.messageDeveloper()
+          }
+          Button { text: "𝕏"; onClicked: root.service.openDeveloperX() }
+        }
+      }
     }
   }
 
