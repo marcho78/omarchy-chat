@@ -20,13 +20,11 @@ Column {
   // Ask the enclosing scroller to bring an unfolded row into view.
   signal reveal(real y)
 
-  readonly property bool hasTextFocus: {
-    for (var i = 0; i < fields.count; i++) {
-      var it = fields.itemAt(i)
-      if (it && it.textFocus) return true
-    }
-    return false
-  }
+  // Delegates report focus and slider drags upward so these stay reactive.
+  property int textFocusCount: 0
+  property int draggingCount: 0
+  readonly property bool hasTextFocus: textFocusCount > 0
+  readonly property bool dragging: draggingCount > 0
 
   function current(key, fallback) { return root.service ? root.service.setting(key, fallback) : fallback }
   function themeFallback(key) {
@@ -58,6 +56,10 @@ Column {
       readonly property string type: String(modelData.type)
       readonly property var value: root.current(key, modelData.defaultValue)
       readonly property bool textFocus: textField.activeFocus || (picker.item ? picker.item.hasTextFocus : false)
+      readonly property bool dragging: slider.dragging
+      onTextFocusChanged: root.textFocusCount += textFocus ? 1 : -1
+      onDraggingChanged: root.draggingCount += dragging ? 1 : -1
+      Component.onDestruction: { if (textFocus) root.textFocusCount--; if (dragging) root.draggingCount-- }
       readonly property bool isColor: String(modelData.format || "") === "color"
       readonly property bool pickerOpen: root.pickKey === key
       readonly property string section: String(modelData.section || "")
@@ -134,6 +136,7 @@ Column {
           }
         }
         PanelSlider {
+          id: slider
           width: parent.width
           minimum: Number(field.modelData.min !== undefined ? field.modelData.min : 0)
           maximum: Number(field.modelData.max !== undefined ? field.modelData.max : 100)

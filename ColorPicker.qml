@@ -83,6 +83,8 @@ Column {
     MouseArea {
       anchors.fill: parent
       cursorShape: Qt.CrossCursor
+      // The settings pane scrolls; without this a drag becomes a flick.
+      preventStealing: true
       function pick(m) {
         root.sat = Math.max(0, Math.min(1, m.x / width))
         root.val = Math.max(0, Math.min(1, 1 - m.y / height))
@@ -122,6 +124,7 @@ Column {
     MouseArea {
       anchors.fill: parent
       anchors.margins: -4
+      preventStealing: true
       function pick(m) { root.hue = Math.max(0, Math.min(0.9999, (m.x - 4) / hueBar.width)); root.commit() }
       onPressed: function(m) { pick(m) }
       onPositionChanged: function(m) { if (pressed) pick(m) }

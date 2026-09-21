@@ -226,6 +226,8 @@ Item {
           id: settingsFlick
           anchors.fill: parent
           visible: root.showSettings
+          // A slider drag must not turn into a flick.
+          interactive: !settingsView.dragging
           contentHeight: settingsColumn.implicitHeight
           clip: true
           boundsBehavior: Flickable.StopAtBounds
