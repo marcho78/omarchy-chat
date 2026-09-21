@@ -38,6 +38,11 @@ Panel {
   property bool connected: false
   property var status: ({ logged_in: false, syncing: false })
   property var rooms: []
+  property var invites: []
+  property var results: []          // directory search results
+  property string resultsKind: ""   // "rooms" | "users"
+  property bool searching: false
+  property bool showNewRoom: false
   property string currentRoom: ""
   property string currentRoomName: ""
   property bool currentRoomEncrypted: false
@@ -182,10 +187,19 @@ Panel {
     if (ev.event === "state") {
       var wasLoggedIn = root.loggedIn
       root.status = ev
-      if (root.loggedIn && (!wasLoggedIn || ev.syncing)) root.refreshRooms()
-      if (!root.loggedIn) { root.rooms = []; root.leaveRoom() }
+      if (root.loggedIn && (!wasLoggedIn || ev.syncing)) { root.refreshRooms(); root.refreshInvites() }
+      if (!root.loggedIn) { root.rooms = []; root.leaveRoomView() }
     } else if (ev.event === "message") {
       root.onMessage(ev)
+    } else if (ev.event === "invite") {
+      root.refreshInvites()
+      if (root.notificationsEnabled && !root.opened)
+        Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Chat", "-i", "dialog-information", "--",
+          "Invitation from " + (ev.inviter_name || ev.inviter || "someone"), ev.direct ? "wants to chat with you" : ev.name])
+    } else if (ev.event === "rooms_changed") {
+      root.refreshRooms()
+      root.refreshInvites()
+      if (root.currentRoom !== "" && !root.rooms.some(function(r) { return r.id === root.currentRoom })) root.leaveRoomView()
     }
   }
 
@@ -231,8 +245,108 @@ Panel {
     root.request("logout", {}, function(r) {
       root.busy = false
       if (!r.ok) root.errorText = r.error || "Logout failed"
-      root.leaveRoom()
+      root.leaveRoomView()
       root.rooms = []
+    })
+  }
+
+  // ---------- discovery ----------
+
+  function refreshInvites() {
+    root.request("invites", {}, function(r) { if (r.ok) root.invites = r.result })
+  }
+
+  function clearResults() { root.results = []; root.resultsKind = ""; searchField.text = "" }
+
+  // One field, three behaviours: "#alias:server" / "!id:server" joins,
+  // "@user:server" opens a DM, "@name" searches people, anything else
+  // searches the public room directory.
+  function search(text) {
+    text = String(text).trim()
+    if (text === "" || root.searching) return
+    root.errorText = ""
+    var first = text.charAt(0)
+    if (first === "#" || first === "!") { root.joinRoom(text); return }
+    if (first === "@") {
+      if (text.indexOf(":") > 1) { root.openDm(text); return }
+      root.searching = true
+      root.request("search_users", { query: text.substring(1) }, function(r) {
+        root.searching = false
+        if (!r.ok) { root.errorText = r.error || "Search failed"; return }
+        root.results = r.result; root.resultsKind = "users"
+        if (r.result.length === 0) root.errorText = "No one found for " + text
+      })
+      return
+    }
+    root.searching = true
+    root.request("search_rooms", { query: text }, function(r) {
+      root.searching = false
+      if (!r.ok) { root.errorText = r.error || "Search failed"; return }
+      root.results = r.result; root.resultsKind = "rooms"
+      if (r.result.length === 0) root.errorText = "No public rooms match \"" + text + "\""
+    })
+  }
+
+  function joinRoom(idOrAlias) {
+    if (root.busy) return
+    root.busy = true
+    root.request("join", { room: idOrAlias }, function(r) {
+      root.busy = false
+      if (!r.ok) { root.errorText = r.error || "Could not join"; return }
+      root.clearResults()
+      root.refreshRooms()
+      root.openRoom(r.result)
+    })
+  }
+
+  function openDm(userId) {
+    if (root.busy) return
+    root.busy = true
+    root.request("dm", { user: userId }, function(r) {
+      root.busy = false
+      if (!r.ok) { root.errorText = r.error || "Could not open chat"; return }
+      root.clearResults()
+      root.refreshRooms()
+      root.openRoom(r.result)
+    })
+  }
+
+  function createRoom(name, encrypted, priv) {
+    if (root.busy) return
+    root.busy = true
+    root.request("create_room", { name: name, encrypted: encrypted, private: priv }, function(r) {
+      root.busy = false
+      if (!r.ok) { root.errorText = r.error || "Could not create room"; return }
+      root.showNewRoom = false
+      newRoomName.text = ""
+      root.refreshRooms()
+      root.openRoom(r.result)
+    })
+  }
+
+  function acceptInvite(roomId) {
+    root.request("accept_invite", { room: roomId }, function(r) {
+      if (!r.ok) { root.errorText = r.error || "Could not accept"; return }
+      root.refreshInvites(); root.refreshRooms()
+      root.openRoom(r.result)
+    })
+  }
+
+  function declineInvite(roomId) {
+    root.request("decline_invite", { room: roomId }, function(r) {
+      if (!r.ok) root.errorText = r.error || "Could not decline"
+      root.refreshInvites()
+    })
+  }
+
+  function leaveCurrentRoom() {
+    if (!root.currentRoom || root.busy) return
+    root.busy = true
+    root.request("leave", { room: root.currentRoom }, function(r) {
+      root.busy = false
+      if (!r.ok) { root.errorText = r.error || "Could not leave"; return }
+      root.leaveRoomView()
+      root.refreshRooms()
     })
   }
 
@@ -258,7 +372,7 @@ Panel {
     })
   }
 
-  function leaveRoom() {
+  function leaveRoomView() {
     root.currentRoom = ""
     root.currentRoomName = ""
     msgModel.clear()
@@ -344,7 +458,7 @@ Panel {
       root.errorText = ""
       if (!root.installed) root.checkInstalled()
       else if (!root.connected) { root.connectSocket(); if (root.autostartDaemon) root.startDaemon() }
-      else if (root.loggedIn) root.refreshRooms()
+      else if (root.loggedIn) { root.refreshRooms(); root.refreshInvites() }
       Qt.callLater(function() {
         if (composer.visible) composer.forceActiveFocus()
         else if (userField.visible) userField.forceActiveFocus()
@@ -390,13 +504,13 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(420))
-    contentHeight: panel.fittedContentHeight(panelColumn.implicitHeight, Style.space(600))
+    contentHeight: panel.fittedContentHeight(panelColumn.implicitHeight, Style.space(640))
 
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: composer.activeFocus || hsField.activeFocus || userField.activeFocus || pwField.activeFocus
-      onCloseRequested: { if (root.currentRoom !== "") root.leaveRoom(); else root.close() }
+      blocked: composer.activeFocus || hsField.activeFocus || userField.activeFocus || pwField.activeFocus || searchField.activeFocus || newRoomName.activeFocus
+      onCloseRequested: { if (root.currentRoom !== "") root.leaveRoomView(); else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Column {
@@ -421,7 +535,7 @@ Panel {
               anchors.fill: parent
               enabled: root.currentRoom !== ""
               cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-              onClicked: root.leaveRoom()
+              onClicked: root.leaveRoomView()
             }
           }
 
@@ -604,75 +718,279 @@ Panel {
           }
         }
 
-        // Signed in: room list
+        // Signed in: find / create / invites / rooms
         Column {
           width: parent.width
-          spacing: Style.space(4)
+          spacing: Style.space(8)
           visible: root.loggedIn && root.currentRoom === ""
 
-          Text {
+          // Find
+          Row {
             width: parent.width
-            visible: root.rooms.length === 0
-            wrapMode: Text.WordWrap
-            text: root.status.syncing ? "No rooms yet. Join one from another client and it appears here." : "Syncing…"
-            color: root.bar.foreground
-            opacity: 0.6
-            font.family: root.bar.fontFamily
-            font.pixelSize: Style.font.caption
+            spacing: Style.spacing.controlGap
+            TextField {
+              id: searchField
+              width: parent.width - findButton.width - newRoomButton.width - 2 * Style.spacing.controlGap
+              maximumLength: 256
+              placeholderText: "Find rooms · #alias · @user"
+              enabled: !root.searching
+              onAccepted: root.search(searchField.text)
+            }
+            Button {
+              id: findButton
+              text: root.searching ? "…" : "Find"
+              iconText: "󰍉"
+              enabled: !root.searching
+              onClicked: root.search(searchField.text)
+            }
+            Button {
+              id: newRoomButton
+              iconText: "󰐕"
+              text: "Room"
+              bordered: true
+              onClicked: { root.showNewRoom = !root.showNewRoom; if (root.showNewRoom) Qt.callLater(function() { newRoomName.forceActiveFocus() }) }
+            }
           }
 
-          Repeater {
-            model: root.rooms
-            delegate: Item {
-              id: roomRow
-              required property var modelData
-              width: panelColumn.width
-              implicitHeight: Style.space(34)
-
-              Rectangle {
-                anchors.fill: parent
-                radius: Style.space(6)
-                color: rowMouse.containsMouse ? Color.menu.selectedBackground : "transparent"
+          // New room form
+          Column {
+            width: parent.width
+            spacing: Style.space(6)
+            visible: root.showNewRoom
+            TextField {
+              id: newRoomName
+              width: parent.width
+              maximumLength: 128
+              placeholderText: "Room name"
+              enabled: !root.busy
+              onAccepted: root.createRoom(newRoomName.text, encryptedToggle.checked, privateToggle.checked)
+            }
+            Toggle {
+              id: encryptedToggle
+              width: parent.width
+              label: "End-to-end encrypted"
+              description: "Cannot be turned off later"
+              checked: true
+              onClicked: checked = !checked
+            }
+            Toggle {
+              id: privateToggle
+              width: parent.width
+              label: "Private"
+              description: checked ? "Invite only" : "Listed in the public directory"
+              checked: true
+              onClicked: checked = !checked
+            }
+            Row {
+              spacing: Style.spacing.controlGap
+              Button {
+                text: root.busy ? "Creating…" : "Create"
+                iconText: "󰐕"
+                bordered: true
+                enabled: !root.busy
+                onClicked: root.createRoom(newRoomName.text, encryptedToggle.checked, privateToggle.checked)
               }
-              Row {
-                anchors.fill: parent
-                anchors.leftMargin: Style.space(8)
-                anchors.rightMargin: Style.space(8)
-                spacing: Style.space(8)
+              Button { text: "Cancel"; onClicked: root.showNewRoom = false }
+            }
+          }
 
-                Text {
+          // Search results
+          Column {
+            width: parent.width
+            spacing: Style.space(2)
+            visible: root.results.length > 0
+
+            Item {
+              width: parent.width
+              implicitHeight: resultsHeader.implicitHeight
+              PanelSectionHeader { id: resultsHeader; text: root.resultsKind === "users" ? "People" : "Public rooms" }
+              Button {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Clear"
+                onClicked: root.clearResults()
+              }
+            }
+
+            Repeater {
+              model: root.results
+              delegate: Item {
+                id: resultRow
+                required property var modelData
+                width: panelColumn.width
+                implicitHeight: Style.space(36)
+
+                Column {
+                  anchors.left: parent.left
+                  anchors.right: resultAction.left
+                  anchors.rightMargin: Style.space(8)
                   anchors.verticalCenter: parent.verticalCenter
-                  text: roomRow.modelData.encrypted ? "󰌾" : "󰌿"
-                  color: roomRow.modelData.encrypted ? Color.accent : Color.urgent
-                  font.family: root.bar.fontFamily
-                  font.pixelSize: Style.font.body
+                  spacing: Style.space(1)
+                  Text {
+                    width: parent.width
+                    text: root.resultsKind === "users"
+                      ? (resultRow.modelData.name || resultRow.modelData.id)
+                      : resultRow.modelData.name
+                    color: root.bar.foreground
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.body
+                    elide: Text.ElideRight
+                  }
+                  Text {
+                    width: parent.width
+                    text: root.resultsKind === "users"
+                      ? resultRow.modelData.id
+                      : ((resultRow.modelData.alias || resultRow.modelData.id) + " · " + resultRow.modelData.members + " members")
+                    color: root.bar.foreground
+                    opacity: 0.5
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.caption
+                    elide: Text.ElideRight
+                  }
                 }
-                Text {
+                Button {
+                  id: resultAction
+                  anchors.right: parent.right
                   anchors.verticalCenter: parent.verticalCenter
-                  width: parent.width - Style.space(60)
-                  text: roomRow.modelData.name
-                  color: root.bar.foreground
-                  font.family: root.bar.fontFamily
-                  font.pixelSize: Style.font.body
-                  font.bold: (Number(roomRow.modelData.unread) || 0) > 0
-                  elide: Text.ElideRight
-                }
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  visible: (Number(roomRow.modelData.unread) || 0) > 0
-                  text: String(roomRow.modelData.unread)
-                  color: (Number(roomRow.modelData.highlights) || 0) > 0 ? Color.urgent : Color.accent
-                  font.family: root.bar.fontFamily
-                  font.pixelSize: Style.font.caption
-                  font.bold: true
+                  bordered: true
+                  enabled: !root.busy
+                  text: root.resultsKind === "users" ? "Message" : (resultRow.modelData.joined ? "Open" : "Join")
+                  onClicked: {
+                    if (root.resultsKind === "users") root.openDm(resultRow.modelData.id)
+                    else if (resultRow.modelData.joined) { root.clearResults(); root.openRoom(resultRow.modelData) }
+                    else root.joinRoom(resultRow.modelData.alias || resultRow.modelData.id)
+                  }
                 }
               }
-              MouseArea {
-                id: rowMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openRoom(roomRow.modelData)
+            }
+          }
+
+          // Invites
+          Column {
+            width: parent.width
+            spacing: Style.space(2)
+            visible: root.invites.length > 0
+
+            PanelSectionHeader { text: "Invitations" }
+
+            Repeater {
+              model: root.invites
+              delegate: Item {
+                id: inviteRow
+                required property var modelData
+                width: panelColumn.width
+                implicitHeight: Style.space(36)
+
+                Column {
+                  anchors.left: parent.left
+                  anchors.right: inviteButtons.left
+                  anchors.rightMargin: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  spacing: Style.space(1)
+                  Text {
+                    width: parent.width
+                    text: inviteRow.modelData.name
+                    color: root.bar.foreground
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.body
+                    font.bold: true
+                    elide: Text.ElideRight
+                  }
+                  Text {
+                    width: parent.width
+                    text: "from " + (inviteRow.modelData.inviter_name || inviteRow.modelData.inviter || "unknown")
+                    color: root.bar.foreground
+                    opacity: 0.5
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.caption
+                    elide: Text.ElideRight
+                  }
+                }
+                Row {
+                  id: inviteButtons
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  spacing: Style.spacing.controlGap
+                  Button { text: "Accept"; bordered: true; onClicked: root.acceptInvite(inviteRow.modelData.room) }
+                  Button { text: "Decline"; onClicked: root.declineInvite(inviteRow.modelData.room) }
+                }
+              }
+            }
+          }
+
+          // Rooms
+          Column {
+            width: parent.width
+            spacing: Style.space(2)
+
+            PanelSectionHeader { text: "Rooms"; visible: root.rooms.length > 0 }
+
+            Text {
+              width: parent.width
+              visible: root.rooms.length === 0
+              wrapMode: Text.WordWrap
+              text: root.status.syncing
+                ? "No rooms yet. Search the directory above, join by #alias, or message someone by @user:server."
+                : "Syncing…"
+              color: root.bar.foreground
+              opacity: 0.6
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+
+            Repeater {
+              model: root.rooms
+              delegate: Item {
+                id: roomRow
+                required property var modelData
+                width: panelColumn.width
+                implicitHeight: Style.space(34)
+
+                Rectangle {
+                  anchors.fill: parent
+                  radius: Style.space(6)
+                  color: rowMouse.containsMouse ? Color.menu.selectedBackground : "transparent"
+                }
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: Style.space(8)
+                  anchors.rightMargin: Style.space(8)
+                  spacing: Style.space(8)
+
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: roomRow.modelData.direct ? "󰭹" : (roomRow.modelData.encrypted ? "󰌾" : "󰌿")
+                    color: roomRow.modelData.encrypted ? Color.accent : Color.urgent
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.body
+                  }
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - Style.space(60)
+                    text: roomRow.modelData.name
+                    color: root.bar.foreground
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.body
+                    font.bold: (Number(roomRow.modelData.unread) || 0) > 0
+                    elide: Text.ElideRight
+                  }
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: (Number(roomRow.modelData.unread) || 0) > 0
+                    text: String(roomRow.modelData.unread)
+                    color: (Number(roomRow.modelData.highlights) || 0) > 0 ? Color.urgent : Color.accent
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.caption
+                    font.bold: true
+                  }
+                }
+                MouseArea {
+                  id: rowMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.openRoom(roomRow.modelData)
+                }
               }
             }
           }
@@ -746,6 +1064,11 @@ Panel {
               enabled: !root.busy
               onClicked: root.send(composer.text)
             }
+          }
+          Button {
+            text: "Leave room"
+            enabled: !root.busy
+            onClicked: root.leaveCurrentRoom()
           }
         }
 
