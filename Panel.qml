@@ -42,11 +42,13 @@ Panel {
   property string currentRoomName: ""
   property bool currentRoomEncrypted: false
   property bool busy: false
+  property bool usePassword: false
   property string errorText: ""
   property int nextId: 1
   property var pending: ({})
 
   readonly property bool loggedIn: connected && status.logged_in === true
+  readonly property bool pendingLogin: connected && status.pending_login === true
   readonly property int unreadTotal: {
     var n = 0
     for (var i = 0; i < rooms.length; i++) n += Number(rooms[i].unread) || 0
@@ -56,6 +58,7 @@ Panel {
   readonly property string stateText: !checked ? "Checking…"
     : !installed ? "omarchy-chatd not installed"
     : !connected ? (starting ? "Starting daemon…" : "Daemon not running")
+    : pendingLogin ? "Waiting for the browser…"
     : !loggedIn ? "Signed out"
     : status.syncing ? (status.user_id || "Connected")
     : (status.error ? "Reconnecting…" : "Connecting…")
@@ -201,6 +204,25 @@ Panel {
       else { pwField.text = ""; root.status = r.result; root.refreshRooms() }
     })
     password = ""
+  }
+
+  function loginOauth(homeserver) {
+    if (root.busy) return
+    homeserver = String(homeserver).trim()
+    if (homeserver === "") { root.errorText = "Enter a homeserver."; return }
+    root.busy = true
+    root.errorText = ""
+    root.request("login_oauth", { homeserver: homeserver }, function(r) {
+      root.busy = false
+      if (!r.ok) { root.errorText = r.error || "Could not start browser sign-in"; return }
+      Quickshell.execDetached(["omarchy-launch-browser", String(r.result.url)])
+    })
+  }
+
+  function loginCancel() {
+    root.request("login_cancel", {}, function(r) {
+      if (!r.ok) root.errorText = r.error || "Could not cancel"
+    })
   }
 
   function logout() {
@@ -489,16 +511,18 @@ Panel {
           }
         }
 
-        // Signed out: login form
+        // Signed out: browser sign-in first, password as the fallback
         Column {
           width: parent.width
           spacing: Style.space(8)
-          visible: root.connected && !root.loggedIn
+          visible: root.connected && !root.loggedIn && !root.pendingLogin
 
           Text {
             width: parent.width
             wrapMode: Text.WordWrap
-            text: "Sign in with a Matrix account. The password goes only to the local daemon, which keeps an access token and never the password."
+            text: root.usePassword
+              ? "The password goes only to the local daemon, which keeps an access token and never the password."
+              : "Sign in with a Matrix account. Your browser opens on the homeserver's own sign-in page — Google, GitHub or a password there — and nothing but the resulting token reaches this machine."
             color: root.bar.foreground
             opacity: 0.85
             font.family: root.bar.fontFamily
@@ -509,13 +533,14 @@ Panel {
             width: parent.width
             maximumLength: 256
             text: root.defaultHomeserver
-            placeholderText: "Homeserver, e.g. https://matrix.org"
+            placeholderText: "Homeserver, e.g. matrix.org"
             enabled: !root.busy
-            onAccepted: userField.forceActiveFocus()
+            onAccepted: { if (root.usePassword) userField.forceActiveFocus(); else root.loginOauth(hsField.text) }
           }
           TextField {
             id: userField
             width: parent.width
+            visible: root.usePassword
             maximumLength: 256
             placeholderText: "Username"
             enabled: !root.busy
@@ -524,18 +549,58 @@ Panel {
           TextField {
             id: pwField
             width: parent.width
+            visible: root.usePassword
             maximumLength: 1024
             password: true
             placeholderText: "Password"
             enabled: !root.busy
             onAccepted: root.login(hsField.text, userField.text, pwField.text)
           }
+          Row {
+            spacing: Style.spacing.controlGap
+            Button {
+              visible: !root.usePassword
+              text: root.busy ? "Starting…" : "Sign in with browser"
+              iconText: "󰖟"
+              bordered: true
+              enabled: !root.busy
+              onClicked: root.loginOauth(hsField.text)
+            }
+            Button {
+              visible: root.usePassword
+              text: root.busy ? "Signing in…" : "Sign in"
+              iconText: "󰍂"
+              bordered: true
+              enabled: !root.busy
+              onClicked: root.login(hsField.text, userField.text, pwField.text)
+            }
+            Button {
+              text: root.usePassword ? "Use the browser instead" : "Use a password instead"
+              enabled: !root.busy
+              onClicked: { root.usePassword = !root.usePassword; root.errorText = "" }
+            }
+          }
+        }
+
+        // Browser sign-in in progress
+        Column {
+          width: parent.width
+          spacing: Style.space(8)
+          visible: root.pendingLogin
+
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Finish signing in in your browser. This panel updates by itself when the homeserver sends you back."
+            color: root.bar.foreground
+            opacity: 0.85
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.body
+          }
           Button {
-            text: root.busy ? "Signing in…" : "Sign in"
-            iconText: "󰍂"
+            text: "Cancel"
             bordered: true
-            enabled: !root.busy
-            onClicked: root.login(hsField.text, userField.text, pwField.text)
+            onClicked: root.loginCancel()
           }
         }
 
