@@ -28,6 +28,25 @@ Item {
   property string errorText: ""
 
   signal roomLeft()
+  // Someone wants the thread under a message opened (the host shows it).
+  signal threadRequested(string eventId)
+  // Esc in a thread with nothing to cancel: the host closes the thread.
+  signal closeRequested()
+
+  // Thread mode: this view shows one thread of `room` instead of the room.
+  // Replies come from the `thread` command, sends go into the thread, and
+  // nothing here marks the room read.
+  property string threadRoot: ""
+  readonly property bool inThread: threadRoot !== ""
+  readonly property string draftKey: roomId + (inThread ? "#" + threadRoot : "")
+  property bool _stashed: false
+  function openThread(r, rootId) {
+    // Stash under the thread we are leaving, before the key changes.
+    root.stashDraft()
+    root._stashed = true
+    root.threadRoot = rootId
+    root.open(r)
+  }
 
   implicitHeight: column.implicitHeight
   readonly property bool hasTextFocus: composer.hasFocus
@@ -48,7 +67,7 @@ Item {
   property string lastEventId: ""
   readonly property bool atEnd: msgList.atYEnd || msgList.contentHeight <= msgList.height
   function maybeMarkRead() {
-    if (!root.roomId || !root.visible || !root.atEnd || root.lastEventId === "") return
+    if (root.inThread || !root.roomId || !root.visible || !root.atEnd || root.lastEventId === "") return
     if (root.pendingNew === 0 && root.readUpTo === root.lastEventId) return
     root.pendingNew = 0
     root.readUpTo = root.lastEventId
@@ -56,7 +75,7 @@ Item {
   }
   property string readUpTo: ""
   onAtEndChanged: if (atEnd) maybeMarkRead()
-  onVisibleChanged: { if (root.service) root.service.setViewing(root.viewId, visible ? root.roomId : ""); if (visible) Qt.callLater(maybeMarkRead) }
+  onVisibleChanged: { if (root.service && !root.inThread) root.service.setViewing(root.viewId, visible ? root.roomId : ""); if (visible) Qt.callLater(maybeMarkRead) }
   function jumpToNew() { root.stickToEnd = true; root.snapToEnd(); }
 
   // Delegates load lazily (images, wrapped text), so a single
@@ -89,7 +108,8 @@ Item {
   property string pendingJump: ""
 
   function open(r) {
-    root.stashDraft()
+    if (!root._stashed) root.stashDraft()
+    root._stashed = false
     root.room = r
     root.errorText = ""
     root.pendingJump = ""
@@ -103,12 +123,16 @@ Item {
     root.reactionIndex = ({})
     root.confirmDelete = null
     msgModel.clear()
-    root.service.setViewing(root.viewId, root.roomId)
+    if (!root.inThread) root.service.setViewing(root.viewId, root.roomId)
     root.restoreDraft()
     var id = root.roomId
-    var marker = r.read_marker || ""
-    root.service.timeline(id, 60, "", function(res) {
-      if (root.roomId !== id) return
+    var marker = root.inThread ? "" : (r.read_marker || "")
+    var thread = root.threadRoot
+    var load = root.inThread
+      ? function(cb) { root.service.thread(id, thread, 60, "", cb) }
+      : function(cb) { root.service.timeline(id, 60, "", cb) }
+    load(function(res) {
+      if (root.roomId !== id || root.threadRoot !== thread) return
       if (!res.ok) { root.errorText = res.error || "Could not load messages"; return }
       var list = res.result.messages
       root.nextToken = res.result.next || ""
@@ -144,9 +168,13 @@ Item {
     root.loadingOlder = true
     var id = root.roomId
     var token = root.nextToken
-    root.service.timeline(id, 60, token, function(res) {
+    var thread = root.threadRoot
+    var load = root.inThread
+      ? function(cb) { root.service.thread(id, thread, 60, token, cb) }
+      : function(cb) { root.service.timeline(id, 60, token, cb) }
+    load(function(res) {
       root.loadingOlder = false
-      if (root.roomId !== id) return
+      if (root.roomId !== id || root.threadRoot !== thread) return
       if (!res.ok) { root.errorText = res.error || "Could not load earlier messages"; return }
       root.nextToken = res.result.next || ""
       root.prepend(res.result.messages)
@@ -163,12 +191,12 @@ Item {
   // dropped (it is the message's own text), a reply keeps its draft.
   function stashDraft() {
     if (root.roomId === "" || !root.service) return
-    root.service.setDraft(root.roomId, root.editing ? "" : composer.text)
+    root.service.setDraft(root.draftKey, root.editing ? "" : composer.text)
     composer.text = ""
   }
   function restoreDraft() {
     if (!root.service) return
-    var d = root.service.draft(root.roomId)
+    var d = root.service.draft(root.draftKey)
     composer.text = d
     composer.cursorPosition = d.length
   }
@@ -181,7 +209,8 @@ Item {
     root.editing = null
     root.typingUsers = []
     msgModel.clear()
-    root.service.setViewing(root.viewId, "")
+    if (!root.inThread) root.service.setViewing(root.viewId, "")
+    root.threadRoot = ""
   }
 
   // Group a message under the previous header when it is the same sender
@@ -282,8 +311,23 @@ Item {
       encrypted: m.encrypted === true,
       header: header,
       dayLabel: newDay ? Format.dayLabel(ts, Date.now()) : "",
-      newDivider: false
+      newDivider: false,
+      threadRoot: m.thread_root || "",
+      threadJson: m.thread ? JSON.stringify(m.thread) : ""
     })
+  }
+
+  // A reply arrived in a thread whose root is on screen: bump its summary.
+  function bumpThread(m) {
+    var i = root.indexOfEvent(m.thread_root)
+    if (i < 0) return
+    var cur = msgModel.get(i).threadJson
+    var t = cur !== "" ? JSON.parse(cur) : { replies: 0 }
+    t.replies = (t.replies || 0) + 1
+    t.latest_ts = Number(m.ts) || Date.now()
+    t.latest_sender = m.sender
+    t.latest_sender_name = m.sender_name || m.sender
+    msgModel.setProperty(i, "threadJson", JSON.stringify(t))
   }
 
   // ---------- reactions / receipts / typing ----------
@@ -395,6 +439,9 @@ Item {
     }
     function onMessageReceived(m) {
       if (!root.roomId || m.room !== root.roomId) return
+      // Thread replies belong to their thread; the room only counts them.
+      if (root.inThread) { if (m.thread_root !== root.threadRoot) return }
+      else if (m.thread_root) { root.bumpThread(m); return }
       var wasAtEnd = root.atEnd
       root.append(m)
       root.lastEventId = m.event_id
@@ -488,10 +535,13 @@ Item {
       return
     }
     var reply = root.replyTo ? root.replyTo.event_id : ""
-    root.service.send(root.roomId, text, reply, function(r) {
+    var deliver = root.inThread
+      ? function(cb) { root.service.sendInThread(root.roomId, root.threadRoot, text, reply, cb) }
+      : function(cb) { root.service.send(root.roomId, text, reply, cb) }
+    deliver(function(r) {
       root.busy = false
       if (!r.ok) root.errorText = r.error || "Send failed"
-      else { composer.text = ""; root.service.setDraft(root.roomId, ""); root.errorText = ""; root.replyTo = null; Qt.callLater(function() { msgList.positionViewAtEnd() }) }
+      else { composer.text = ""; root.service.setDraft(root.draftKey, ""); root.errorText = ""; root.replyTo = null; Qt.callLater(function() { msgList.positionViewAtEnd() }) }
     })
   }
 
@@ -655,6 +705,10 @@ Item {
         onReplyRequested: root.startReply({ event_id: model.eventId, sender_name: model.senderName, body: model.body })
         onEditRequested: root.startEdit({ event_id: model.eventId, body: model.body })
         onJumpRequested: function(id) { root.jumpTo(id) }
+        threadInfo: model.threadJson !== "" ? JSON.parse(model.threadJson) : null
+        inThread: root.inThread
+        isThreadRoot: root.inThread && model.eventId === root.threadRoot
+        onThreadRequested: root.threadRequested(model.eventId)
         fg: root.fg
         accent: root.service ? root.service.accent : Color.accent
         bg: root.service ? root.service.bg : Color.popups.background
@@ -817,6 +871,7 @@ Item {
         accent: root.service ? root.service.accent : Color.accent
         placeholderText: root.uploads > 0 ? "Sending " + root.uploads + " file" + (root.uploads === 1 ? "" : "s") + "…"
           : root.editing ? "Edit your message…" : root.replyTo ? "Write a reply…"
+          : root.inThread ? "Reply in thread…"
           : (root.encrypted ? "Encrypted message…" : "Message (not encrypted)…")
         enabled: !root.busy && root.roomId !== ""
         onAccepted: { if (root.emojiHits.length) root.insertEmoji(root.emojiIndex); else root.send() }
@@ -835,6 +890,9 @@ Item {
           } else if (event.key === Qt.Key_Escape && (root.replyTo || root.editing)) {
             event.accepted = true
             root.cancelCompose()
+          } else if (event.key === Qt.Key_Escape && root.inThread) {
+            event.accepted = true
+            root.closeRequested()
           } else if (event.key === Qt.Key_Up && composer.text === "" && !root.editing) {
             // Up in an empty composer edits your last message, like Slack/Element.
             for (var i = msgModel.count - 1; i >= 0; i--) {
@@ -868,7 +926,7 @@ Item {
 
     Row {
       id: leaveButton
-      visible: root.showLeave && root.roomId !== ""
+      visible: root.showLeave && !root.inThread && root.roomId !== ""
       spacing: Style.spacing.controlGap
       property bool confirm: false
       Button {

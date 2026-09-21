@@ -473,6 +473,14 @@ Item {
     if (typeof replyTo === "function") { cb = replyTo; replyTo = "" }
     root.request("send", { room: roomId, body: String(body), reply_to: replyTo || null }, cb)
   }
+  // A message into the thread under `rootId`; `replyTo` makes it a reply within it.
+  function sendInThread(roomId, rootId, body, replyTo, cb) {
+    root.request("send", { room: roomId, body: String(body), reply_to: replyTo || null, thread: rootId }, cb)
+  }
+  // A thread's page: the root first (on the last page), then replies oldest first.
+  function thread(roomId, rootId, limit, before, cb) {
+    root.request("thread", { room: roomId, root: rootId, limit: limit || 60, before: before || null }, cb)
+  }
   function edit(roomId, eventId, body, cb) { root.request("edit", { room: roomId, event_id: eventId, body: String(body) }, cb) }
   function deleteMessage(roomId, eventId, cb) { root.request("delete", { room: roomId, event_id: eventId }, cb) }
   function react(roomId, eventId, key, cb) { root.request("react", { room: roomId, event_id: eventId, key: key }, cb) }

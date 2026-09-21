@@ -22,6 +22,7 @@ you build from source on your own machine. **No binary is downloaded, ever.**
 | | Markdown in the composer (`**bold**`, `_italic_`, `` `code` ``, lists, quotes); `:tada` offers emoji, Tab or Enter inserts; 󰞅 opens Omarchy's emoji picker |
 | | The first link in a message gets a preview card — title, description and image, fetched by your homeserver |
 | | Replies, edits (Up edits your last message), reactions, read receipts, typing indicators; room info with members, invites and moderation |
+| | Threads: 󰻞 on any message starts one; roots show "N replies · who · when"; the thread opens beside the conversation (or in its place when narrow, and in the popup) with its own composer; thread replies stay out of the room timeline |
 | | Spaces, favourites, search across rooms and messages, per-room notification levels |
 | | Sign in with the browser (Google, GitHub, a password — whatever the homeserver offers) or with a password |
 
@@ -79,6 +80,7 @@ once and the old one stops working.
 omarchy-shell shell summon marcho78.yapper '{}'                       # open
 omarchy-shell shell toggle marcho78.yapper '{}'                       # toggle
 omarchy-shell shell summon marcho78.yapper '{"room":"!id:server"}'    # open into a room
+omarchy-shell shell summon marcho78.yapper '{"room":"!id:server","thread":"$event"}'  # …and a thread in it
 omarchy-shell shell summon marcho78.yapper '{"settings":true}'         # open on settings
 omarchy-shell shell summon marcho78.yapper '{"pick":"accentColor"}'    # open a colour picker
 ```
@@ -215,8 +217,7 @@ omarchy-yapperd --socket /tmp/chat-test.sock --data-dir /tmp/chat-test-data
 
 ## Not yet
 
-Threads, voice messages and calls, multiple accounts. See the daemon's
-roadmap.
+Voice messages and calls, multiple accounts. See the daemon's roadmap.
 
 ## License
 

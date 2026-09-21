@@ -35,13 +35,21 @@ Item {
   property bool canDelete: false
   property bool mention: false
   property bool linkPreviews: true
+  // Thread summary on a root ({replies, latest_ts, latest_sender_name}),
+  // whether this row sits inside a thread view, and whether it is that
+  // thread's root (drawn as the opening post).
+  property var threadInfo: null
+  property bool inThread: false
+  property bool isThreadRoot: false
+  signal threadRequested()
   property var preview: null
   property bool previewAsked: false
   readonly property string firstUrl: root.deleted || root.isAttachment ? "" : Format.firstUrl(root.body)
   function loadPreview() {
     if (!root.linkPreviews || root.previewAsked || root.firstUrl === "" || !root.service) return
     root.previewAsked = true
-    root.service.preview(root.firstUrl, function(p) { root.preview = p })
+    // The row may be gone by the time the reply lands (list rebuilt).
+    root.service.preview(root.firstUrl, function(p) { if (root) root.preview = p })
   }
   onFirstUrlChanged: { previewAsked = false; preview = null; loadPreview() }
   onLinkPreviewsChanged: loadPreview()
@@ -83,6 +91,7 @@ Item {
     if (!root.isImage || root.thumbPath !== "" || root.fetching || !root.service) return
     root.fetching = true
     root.service.download(root.roomId, root.eventId, true, function(r) {
+      if (!root) return
       root.fetching = false
       if (r.ok) root.thumbPath = r.result.path
       else root.fetchError = r.error || "Could not load"
@@ -236,6 +245,7 @@ Item {
           Repeater {
             model: {
               var a = [{ icon: "󰞅", tip: "React", act: "react" }, { icon: "󰑚", tip: "Reply", act: "reply" }]
+              if (!root.inThread && !root.deleted && root.msgtype !== "system") a.push({ icon: "󰻞", tip: "Thread", act: "thread" })
               if (root.canEdit) a.push({ icon: "󰏫", tip: "Edit", act: "edit" })
               if (root.canDelete) a.push({ icon: "󰆴", tip: "Delete", act: "delete" })
               return a
@@ -254,6 +264,7 @@ Item {
                 onClicked: {
                   var act = parent.modelData.act
                   if (act === "reply") root.replyRequested()
+                  else if (act === "thread") root.threadRequested()
                   else if (act === "edit") root.editRequested()
                   else if (act === "delete") root.deleteRequested()
                   else root.paletteOpen = !root.paletteOpen
@@ -652,6 +663,45 @@ Item {
               cursorShape: Qt.PointingHandCursor
               onClicked: Quickshell.execDetached(["omarchy-launch-browser", root.firstUrl])
             }
+          }
+        }
+
+        // Thread summary under a root: click opens the thread
+        Item {
+          readonly property int replies: root.threadInfo ? Number(root.threadInfo.replies) || 0 : 0
+          visible: !root.inThread && replies > 0
+          width: parent.width
+          implicitHeight: visible ? Style.space(26) : 0
+          Rectangle {
+            id: threadLine
+            anchors.right: root.bubbles && root.mine ? parent.right : undefined
+            anchors.left: root.bubbles && root.mine ? undefined : parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: threadRow.implicitWidth + Style.space(16)
+            height: Style.space(24)
+            radius: Style.space(6)
+            color: threadMouse.containsMouse ? Util.alpha(root.accent, 0.18) : Util.alpha(root.accent, 0.08)
+            Row {
+              id: threadRow
+              anchors.centerIn: parent
+              spacing: Style.space(6)
+              Text { anchors.verticalCenter: parent.verticalCenter; text: "󰻞"; color: root.accent; font.family: root.fontFamily; font.pixelSize: Style.font.caption }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: parent.parent.parent.replies + (parent.parent.parent.replies === 1 ? " reply" : " replies")
+                color: root.accent
+                font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.bold: true
+              }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.threadInfo && !!root.threadInfo.latest_ts
+                text: "· " + (root.threadInfo && root.threadInfo.latest_sender_name ? root.threadInfo.latest_sender_name + " " : "")
+                  + (root.threadInfo && root.threadInfo.latest_ts ? Format.timeOf(Number(root.threadInfo.latest_ts)) : "")
+                color: root.fg; opacity: 0.6
+                font.family: root.fontFamily; font.pixelSize: Style.font.caption
+              }
+            }
+            MouseArea { id: threadMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.threadRequested() }
           }
         }
 

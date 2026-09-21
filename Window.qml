@@ -45,11 +45,13 @@ Item {
     window.visible = true
     if (service) { service.ensureDaemon(); if (service.loggedIn) service.refresh() }
     var wanted = ""
+    var wantedThread = ""
     if (payloadJson) {
       try {
         var p = JSON.parse(String(payloadJson))
         // A room request (notification click, launcher) takes over from the settings pane.
         if (p && typeof p.room === "string") { wanted = p.room; root.showSettings = false }
+        if (p && typeof p.thread === "string") wantedThread = p.thread
         if (p && p.settings === true) root.showSettings = true
         if (p && typeof p.pick === "string") { root.showSettings = true; settingsView.pickKey = p.pick }
         if (p && p.info === true) root.showInfo = true
@@ -61,6 +63,7 @@ Item {
       if (wanted !== "" && service) {
         var r = service.roomById(wanted)
         if (r) root.openRoom(r)
+        if (r && wantedThread !== "") conversation.openThread(wantedThread)
       }
       if (root.showSearch) searchView.focusField()
       else if (roomView.roomId !== "") roomView.focusComposer()
@@ -422,9 +425,93 @@ Item {
           }
         }
 
+        // A thread, beside the conversation
+        id: conversation
+        property bool showThread: threadView.roomId !== ""
+        // Side by side when there is room for both; otherwise the thread
+        // takes the conversation's place and its ✕ goes back.
+        readonly property bool splitThreads: width >= Style.space(760)
+        function openThread(eventId) {
+          if (!roomView.room) return
+          threadView.openThread(roomView.room, eventId)
+          Qt.callLater(function() { threadView.focusComposer() })
+        }
+        function closeThread() { if (threadView.roomId !== "") threadView.close(); roomView.focusComposer() }
+
+        Rectangle {
+          id: threadPane
+          visible: parent.showThread && root.inRoom && !root.showSettings && !root.showSearch
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.bottom: parent.bottom
+          width: !visible ? 0 : parent.splitThreads ? Math.max(Style.space(340), Math.min(Style.space(480), parent.width * 0.42)) : parent.width
+          color: "transparent"
+          Rectangle {
+            visible: conversation.splitThreads
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 1
+            color: Color.popups.border
+            opacity: 0.4
+          }
+          Column {
+            anchors.fill: parent
+            anchors.leftMargin: conversation.splitThreads ? Style.space(14) : 0
+            spacing: Style.space(10)
+            Item {
+              id: threadHeader
+              width: parent.width
+              implicitHeight: Math.max(threadTitle.implicitHeight, threadClose.implicitHeight, Style.space(28))
+              Column {
+                id: threadTitle
+                anchors.left: parent.left
+                anchors.right: threadClose.left
+                anchors.rightMargin: Style.space(8)
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(2)
+                Text { text: "󰻞  Thread"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
+                Text {
+                  width: parent.width
+                  text: roomView.roomName
+                  color: root.fg; opacity: 0.6
+                  font.family: root.fontFamily; font.pixelSize: Style.font.caption
+                  elide: Text.ElideRight
+                }
+              }
+              Button {
+                id: threadClose
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                iconText: conversation.splitThreads ? "󰅖" : "󰁍"
+                text: conversation.splitThreads ? "" : "Back"
+                onClicked: conversation.closeThread()
+              }
+            }
+            PanelSeparator { width: parent.width }
+            RoomView {
+              id: threadView
+              width: parent.width
+              height: parent.height - threadHeader.height - parent.spacing * 2 - 1
+              fillHeight: true
+              service: root.service
+              viewId: "window-thread"
+              fg: root.fg
+              fontFamily: root.fontFamily
+              showLeave: false
+              visible: threadPane.visible
+              onCloseRequested: conversation.closeThread()
+            }
+          }
+        }
+
         Column {
-          anchors.fill: parent
-          visible: root.inRoom && !root.showSettings && !root.showSearch
+          anchors.left: parent.left
+          anchors.right: threadPane.visible && conversation.splitThreads ? threadPane.left : parent.right
+          anchors.rightMargin: threadPane.visible && conversation.splitThreads ? Style.space(14) : 0
+          anchors.top: parent.top
+          anchors.bottom: parent.bottom
+          visible: root.inRoom && !root.showSettings && !root.showSearch && (conversation.splitThreads || !threadPane.visible)
           spacing: Style.space(10)
 
           // Room header (click for room info)
@@ -495,6 +582,9 @@ Item {
             fg: root.fg
             fontFamily: root.fontFamily
             visible: root.inRoom && !root.showSettings && !root.showSearch && window.visible
+            onThreadRequested: function(id) { conversation.openThread(id) }
+            // Switching rooms closes the thread of the previous one.
+            onRoomIdChanged: if (threadView.roomId !== "" && threadView.roomId !== roomId) threadView.close()
           }
         }
       }

@@ -27,7 +27,10 @@ Panel {
   implicitHeight: button.implicitHeight
 
   function openRoom(r) { roomView.open(r) }
-  function backToList() { root.showInfo = false; roomView.close() }
+  function backToList() { root.showInfo = false; threadView.close(); roomView.close() }
+  readonly property bool inThread: threadView.roomId !== ""
+  function openThread(eventId) { if (roomView.room) { threadView.openThread(roomView.room, eventId); Qt.callLater(function() { threadView.focusComposer() }) } }
+  function closeThread() { threadView.close(); roomView.focusComposer() }
 
   onOpenedChanged: {
     if (opened) {
@@ -100,7 +103,7 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       blocked: roomView.hasTextFocus || roomList.hasTextFocus || gate.hasTextFocus || settingsView.hasTextFocus || verifyView.hasTextFocus || infoView.hasTextFocus
-      onCloseRequested: { if (root.showInfo) root.showInfo = false; else if (root.showSettings) root.showSettings = false; else if (root.inRoom) root.backToList(); else root.close() }
+      onCloseRequested: { if (root.showInfo) root.showInfo = false; else if (root.showSettings) root.showSettings = false; else if (root.inThread) root.closeThread(); else if (root.inRoom) root.backToList(); else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Column {
@@ -125,7 +128,7 @@ Panel {
               anchors.fill: parent
               enabled: root.inRoom || root.showSettings || root.showInfo
               cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-              onClicked: { if (root.showInfo) root.showInfo = false; else if (root.showSettings) root.showSettings = false; else root.backToList() }
+              onClicked: { if (root.showInfo) root.showInfo = false; else if (root.showSettings) root.showSettings = false; else if (root.inThread) root.closeThread(); else root.backToList() }
             }
           }
 
@@ -139,7 +142,7 @@ Panel {
             spacing: Style.space(2)
 
             Text {
-              text: root.inRoom ? roomView.roomName : "Yapper"
+              text: root.inThread ? "󰻞  Thread" : root.inRoom ? roomView.roomName : "Yapper"
               color: root.bar.foreground
               font.family: root.bar.fontFamily
               font.pixelSize: Style.font.title
@@ -149,6 +152,7 @@ Panel {
             }
             Text {
               text: root.showInfo ? roomView.roomName
+                : root.inThread ? roomView.roomName
                 : root.showSettings ? "Applied as you change them"
                 : root.inRoom ? (roomView.encrypted ? "󰌾 End-to-end encrypted" : "󰌿 Not encrypted")
                 : root.stateText
@@ -254,12 +258,27 @@ Panel {
           id: roomView
           width: parent.width
           height: visible ? implicitHeight : 0
-          visible: root.loggedIn && root.inRoom && root.opened && !root.showSettings && !root.showInfo
+          visible: root.loggedIn && root.inRoom && root.opened && !root.showSettings && !root.showInfo && !root.inThread
           service: root.service
           viewId: "popup"
           fg: root.bar.foreground
           fontFamily: root.bar.fontFamily
           onRoomLeft: root.backToList()
+          onThreadRequested: function(id) { root.openThread(id) }
+        }
+
+        // A thread takes the room's place; the hero's back arrow returns.
+        RoomView {
+          id: threadView
+          width: parent.width
+          height: visible ? implicitHeight : 0
+          visible: root.loggedIn && root.inThread && root.opened && !root.showSettings && !root.showInfo
+          service: root.service
+          viewId: "popup-thread"
+          fg: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          showLeave: false
+          onCloseRequested: root.closeThread()
         }
 
         PanelSeparator { width: parent.width; visible: root.loggedIn && !root.showSettings }

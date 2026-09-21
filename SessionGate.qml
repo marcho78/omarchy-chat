@@ -130,18 +130,24 @@ Column {
       }
       Button { text: "Forget this session"; enabled: !parent.parent.busy; onClicked: parent.parent.confirmForget = true }
     }
-    Flow {
+    Column {
+      id: forgetConfirm
       width: parent.width
-      spacing: Style.spacing.controlGap
+      spacing: Style.space(6)
       visible: parent.confirmForget
+      readonly property var card: parent
       Text {
-        anchors.verticalCenter: parent.verticalCenter
+        width: parent.width
+        wrapMode: Text.WordWrap
         text: "Forget it? Encrypted history on this device is lost unless you have your recovery key."
         color: root.fg; opacity: 0.8
         font.family: root.fontFamily; font.pixelSize: Style.font.caption
       }
-      Button { text: "Forget"; bordered: true; onClicked: { var card = parent.parent; card.confirmForget = false; root.service.forgetSession(function(r) { if (!r.ok) root.errorText = r.error || "Could not forget the session" }) } }
-      Button { text: "Keep"; onClicked: parent.parent.confirmForget = false }
+      Row {
+        spacing: Style.spacing.controlGap
+        Button { text: "Forget"; bordered: true; onClicked: { forgetConfirm.card.confirmForget = false; root.service.forgetSession(function(r) { if (!r.ok) root.errorText = r.error || "Could not forget the session" }) } }
+        Button { text: "Keep"; onClicked: forgetConfirm.card.confirmForget = false }
+      }
     }
   }
 

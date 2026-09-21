@@ -122,3 +122,12 @@ function firstUrl(text) {
   var m = String(text || "").match(/https?:\/\/[^\s<>"')\]]+/)
   return m ? m[0] : ""
 }
+
+// "10:42" today, "Yesterday", or a short date.
+function timeOf(ts) {
+  var d = new Date(ts), n = new Date()
+  if (isSameDay(ts, n.getTime())) return d.toLocaleTimeString(Qt.locale(), "HH:mm")
+  var y = new Date(n); y.setDate(n.getDate() - 1)
+  if (isSameDay(ts, y.getTime())) return "Yesterday"
+  return d.toLocaleDateString(Qt.locale(), "d MMM")
+}
