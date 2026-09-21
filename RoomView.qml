@@ -30,7 +30,7 @@ Item {
   signal roomLeft()
 
   implicitHeight: column.implicitHeight
-  readonly property bool hasTextFocus: composer.activeFocus
+  readonly property bool hasTextFocus: composer.hasFocus
   function focusComposer() { composer.forceActiveFocus() }
 
   ListModel { id: msgModel }
@@ -89,6 +89,7 @@ Item {
   property string pendingJump: ""
 
   function open(r) {
+    root.stashDraft()
     root.room = r
     root.errorText = ""
     root.pendingJump = ""
@@ -103,6 +104,7 @@ Item {
     root.confirmDelete = null
     msgModel.clear()
     root.service.setViewing(root.viewId, root.roomId)
+    root.restoreDraft()
     var id = root.roomId
     var marker = r.read_marker || ""
     root.service.timeline(id, 60, "", function(res) {
@@ -157,7 +159,22 @@ Item {
     })
   }
 
+  // Keep what was typed in the room we are leaving; an edit in progress is
+  // dropped (it is the message's own text), a reply keeps its draft.
+  function stashDraft() {
+    if (root.roomId === "" || !root.service) return
+    root.service.setDraft(root.roomId, root.editing ? "" : composer.text)
+    composer.text = ""
+  }
+  function restoreDraft() {
+    if (!root.service) return
+    var d = root.service.draft(root.roomId)
+    composer.text = d
+    composer.cursorPosition = d.length
+  }
+
   function close() {
+    root.stashDraft()
     root.setTyping(false)
     root.room = null
     root.replyTo = null
@@ -474,7 +491,7 @@ Item {
     root.service.send(root.roomId, text, reply, function(r) {
       root.busy = false
       if (!r.ok) root.errorText = r.error || "Send failed"
-      else { composer.text = ""; root.errorText = ""; root.replyTo = null; Qt.callLater(function() { msgList.positionViewAtEnd() }) }
+      else { composer.text = ""; root.service.setDraft(root.roomId, ""); root.errorText = ""; root.replyTo = null; Qt.callLater(function() { msgList.positionViewAtEnd() }) }
     })
   }
 
@@ -581,6 +598,8 @@ Item {
       onDraggingChanged: if (dragging) root.stickToEnd = false
       onFlickingChanged: if (flicking && !atYEnd) root.stickToEnd = false
       onAtYEndChanged: if (atYEnd) root.stickToEnd = true
+      // The composer growing shrinks the list; keep the end in view.
+      onHeightChanged: if (root.stickToEnd) Qt.callLater(root.snapToEnd)
 
       header: Item {
         width: msgList.width
@@ -776,6 +795,7 @@ Item {
       spacing: Style.spacing.controlGap
       Button {
         id: attachButton
+        anchors.bottom: parent.bottom
         iconText: "󰁦"
         text: ""
         enabled: !root.busy && root.roomId !== ""
@@ -783,15 +803,18 @@ Item {
       }
       Button {
         id: emojiButton
+        anchors.bottom: parent.bottom
         iconText: "󰞅"
         text: ""
         enabled: !root.busy && root.roomId !== ""
         onClicked: { composer.forceActiveFocus(); root.service.openEmojiPicker() }
       }
-      TextField {
+      Composer {
         id: composer
         width: parent.width - sendButton.width - attachButton.width - emojiButton.width - 3 * Style.spacing.controlGap
         maximumLength: 4000
+        foreground: root.fg
+        accent: root.service ? root.service.accent : Color.accent
         placeholderText: root.uploads > 0 ? "Sending " + root.uploads + " file" + (root.uploads === 1 ? "" : "s") + "…"
           : root.editing ? "Edit your message…" : root.replyTo ? "Write a reply…"
           : (root.encrypted ? "Encrypted message…" : "Message (not encrypted)…")
@@ -799,7 +822,7 @@ Item {
         onAccepted: { if (root.emojiHits.length) root.insertEmoji(root.emojiIndex); else root.send() }
         onTextChanged: { root.noteTyping(); root.updateEmojiHints() }
         onCursorPositionChanged: root.updateEmojiHints()
-        Keys.onPressed: function(event) {
+        onKeyPressed: function(event) {
           if (root.emojiHits.length) {
             if (event.key === Qt.Key_Tab) { event.accepted = true; root.insertEmoji(root.emojiIndex); return }
             if (event.key === Qt.Key_Down || event.key === Qt.Key_Right) { event.accepted = true; root.emojiIndex = (root.emojiIndex + 1) % root.emojiHits.length; return }
@@ -823,6 +846,7 @@ Item {
       }
       Button {
         id: sendButton
+        anchors.bottom: parent.bottom
         text: root.busy ? "…" : (root.editing ? "Save" : "Send")
         iconText: root.editing ? "󰄬" : "󰒊"
         enabled: !root.busy && root.roomId !== ""

@@ -559,6 +559,18 @@ Item {
   function searchRooms(query, cb) { root.request("search_rooms", { query: String(query) }, cb) }
   function searchUsers(query, cb) { root.request("search_users", { query: String(query) }, cb) }
   function join(idOrAlias, cb) { root.request("join", { room: String(idOrAlias) }, function(r) { root.refreshRooms(); cb(r) }) }
+  // Unsent composer text per room, shared by the popup and the window for
+  // the life of the shell session.
+  property var drafts: ({})
+  function draft(roomId) { return root.drafts[roomId] || "" }
+  function setDraft(roomId, text) {
+    if (!roomId) return
+    if ((root.drafts[roomId] || "") === text) return
+    var d = Object.assign({}, root.drafts)
+    if (text) d[roomId] = text; else delete d[roomId]
+    root.drafts = d
+  }
+
   // Who made this, reachable from the sidebar and the About card.
   readonly property string developerName: "devsec_ai"
   readonly property string developerMatrix: "@devsec_ai:matrix.org"

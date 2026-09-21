@@ -16,7 +16,8 @@ you build from source on your own machine. **No binary is downloaded, ever.**
 | Left click opens the popup, middle click opens the window | **Find**: a word searches the public directory, `#alias:server` joins, `@user:server` opens a DM, `@name` finds people |
 | Dimmed while signed out | **Room** creates one — end-to-end encrypted and private by default |
 | Notifications for rooms no view is showing | Invitations with Accept / Decline; Leave room |
-| | History back to the start of the room — scroll up or press *Load earlier*; live messages; composer, Enter sends |
+| | History back to the start of the room — scroll up or press *Load earlier*; live messages |
+| | Multi-line composer: Enter sends, Shift+Enter (or Ctrl+Enter) starts a new line, grows to six lines then scrolls; unsent text is kept per room as a draft (shown 󰏫 in the room list) |
 | | Images inline (click to open), files as cards with Open; send with 📎, drag-and-drop, or Ctrl+V an image — encrypted in encrypted rooms |
 | | Markdown in the composer (`**bold**`, `_italic_`, `` `code` ``, lists, quotes); `:tada` offers emoji, Tab or Enter inserts; 󰞅 opens Omarchy's emoji picker |
 | | The first link in a message gets a preview card — title, description and image, fetched by your homeserver |

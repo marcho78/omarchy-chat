@@ -381,11 +381,13 @@ Column {
           }
         }
         Text {
-          visible: !row.direct && !!row.modelData.topic
+          // An unsent draft takes the subtitle's place so it is not forgotten.
+          readonly property string draft: root.service ? root.service.draft(row.modelData.id) : ""
+          visible: draft !== "" || (!row.direct && !!row.modelData.topic)
           width: parent.width
-          text: Format.oneLine(row.modelData.topic)
-          color: root.fg
-          opacity: 0.45
+          text: draft !== "" ? "󰏫 " + Format.oneLine(draft) : Format.oneLine(row.modelData.topic)
+          color: draft !== "" ? (root.service ? root.service.accent : Color.accent) : root.fg
+          opacity: draft !== "" ? 0.85 : 0.45
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
           elide: Text.ElideRight
