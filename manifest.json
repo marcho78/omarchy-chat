@@ -39,7 +39,9 @@
       "checkUpdates": true,
       "roomSort": "activity",
       "linkPreviews": true,
-      "voiceVolume": 100
+      "voiceVolume": 100,
+      "voiceInput": "",
+      "voiceOutput": ""
     },
     "schema": [
       {

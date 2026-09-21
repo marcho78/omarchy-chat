@@ -175,6 +175,70 @@ Column {
     inSettings: true
   }
 
+  // Voice: which microphone and speaker voice messages use
+  PanelSectionHeader { text: "Voice" }
+  Rectangle {
+    id: voiceCard
+    width: parent.width
+    implicitHeight: voiceCol.implicitHeight + Style.space(24)
+    radius: Style.space(8)
+    color: "transparent"
+    border.width: 1
+    border.color: Util.alpha(root.fg, 0.25)
+    Component.onCompleted: if (root.service) root.service.refreshAudioDevices()
+    onVisibleChanged: if (visible && root.service) root.service.refreshAudioDevices()
+    Column {
+      id: voiceCol
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.margins: Style.space(12)
+      spacing: Style.space(10)
+      Column {
+        width: parent.width
+        spacing: Style.space(4)
+        Text { text: "Microphone"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle }
+        Dropdown {
+          width: parent.width
+          options: [{ value: "", label: "System default" }].concat(root.service ? root.service.audioInputs : [])
+          value: root.service ? root.service.voiceInput : ""
+          onChanged: function(v) { root.service.set("voiceInput", v) }
+        }
+      }
+      Column {
+        width: parent.width
+        spacing: Style.space(4)
+        Text { text: "Speaker"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle }
+        Dropdown {
+          width: parent.width
+          options: [{ value: "", label: "System default" }].concat(root.service ? root.service.audioOutputs : [])
+          value: root.service ? root.service.voiceOutput : ""
+          onChanged: function(v) { root.service.set("voiceOutput", v) }
+        }
+      }
+      Column {
+        width: parent.width
+        spacing: Style.space(6)
+        Button {
+          readonly property string state: root.service ? root.service.audioTest : ""
+          text: state === "recording" ? "Recording… " + (root.service ? root.service.audioTestLeft : 0)
+              : state === "playing" ? "Playing back…" : "Test: record 3 s and play it back"
+          iconText: state === "recording" ? "󰍬" : state === "playing" ? "󰕾" : "󰐊"
+          bordered: true
+          enabled: state === "" && root.service && !root.service.recording
+          onClicked: root.service.testAudio()
+        }
+        Text {
+          width: parent.width
+          wrapMode: Text.WordWrap
+          text: "Devices come from PipeWire; the system default follows Omarchy's audio menu."
+          color: root.fg; opacity: 0.55
+          font.family: root.fontFamily; font.pixelSize: Style.font.caption
+        }
+      }
+    }
+  }
+
   Text {
     width: parent.width
     wrapMode: Text.WordWrap

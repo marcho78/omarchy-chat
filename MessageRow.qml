@@ -531,9 +531,19 @@ Item {
               player.play()
             })
           }
+          MediaDevices { id: outputs }
           MediaPlayer {
             id: player
-            audioOutput: AudioOutput { volume: root.service ? root.service.voiceVolume : 1 }
+            audioOutput: AudioOutput {
+              volume: root.service ? root.service.voiceVolume : 1
+              // The chosen speaker, when it is present; else the default.
+              device: {
+                var want = root.service ? root.service.voiceOutput : ""
+                for (var i = 0; want !== "" && i < outputs.audioOutputs.length; i++)
+                  if (outputs.audioOutputs[i].id === want) return outputs.audioOutputs[i]
+                return outputs.defaultAudioOutput
+              }
+            }
             onMediaStatusChanged: if (mediaStatus === MediaPlayer.EndOfMedia) { player.stop(); player.position = 0 }
             onErrorOccurred: function(e, msg) { root.fetchError = "Could not play: " + msg }
           }

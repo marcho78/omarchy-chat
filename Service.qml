@@ -578,6 +578,78 @@ Item {
   function download(roomId, eventId, thumbnail, cb) { root.request("download", { room: roomId, event_id: eventId, thumbnail: thumbnail === true }, cb) }
   function sendVoice(roomId, path, cb) { root.request("send_voice", { room: roomId, path: String(path) }, cb) }
 
+  // ---------- audio devices ----------
+  // PipeWire sources and sinks, by node name; "" means the system default.
+  readonly property string voiceInput: String(setting("voiceInput", ""))
+  readonly property string voiceOutput: String(setting("voiceOutput", ""))
+  property var audioInputs: []    // [{ value: node name, label: description }]
+  property var audioOutputs: []
+  function refreshAudioDevices() { if (!deviceList.running) deviceList.running = true }
+  Process {
+    id: deviceList
+    property string out: ""
+    command: ["/usr/bin/bash", "-c", "pactl --format=json list sources; echo '@@'; pactl --format=json list sinks"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { deviceList.out += d } }
+    onStarted: out = ""
+    onExited: function(code) {
+      if (code !== 0) return
+      var parts = deviceList.out.split("@@")
+      function parse(text, dropMonitors) {
+        var list = []
+        try {
+          var arr = JSON.parse(text)
+          for (var i = 0; i < arr.length; i++) {
+            var d = arr[i]
+            if (dropMonitors && String(d.name).indexOf(".monitor") >= 0) continue
+            list.push({ value: String(d.name), label: String(d.description || d.name) })
+          }
+        } catch (e) { root.log("audio devices: " + e) }
+        return list
+      }
+      root.audioInputs = parse(parts[0] || "[]", true)
+      root.audioOutputs = parse(parts[1] || "[]", false)
+    }
+  }
+
+  // Record three seconds and play them back through the chosen output.
+  property string audioTest: ""     // "" | "recording" | "playing"
+  property int audioTestLeft: 0
+  function testAudio() {
+    if (root.recording || root.audioTest !== "") return
+    root.recordPath = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-yapper-test.wav"
+    var cmd = ["/usr/bin/pw-record", "--format=s16", "--rate=48000", "--channels=1"]
+    if (root.voiceInput !== "") cmd.push("--target=" + root.voiceInput)
+    cmd.push(root.recordPath)
+    testRecorder.command = cmd
+    root.audioTest = "recording"
+    root.audioTestLeft = 3
+    testRecorder.running = true
+  }
+  Process {
+    id: testRecorder
+    onStarted: testTick.start()
+    onExited: function() {
+      testTick.stop()
+      if (root.audioTest !== "recording") { root.audioTest = ""; return }
+      root.audioTest = "playing"
+      var cmd = ["/usr/bin/pw-play"]
+      if (root.voiceOutput !== "") cmd.push("--target=" + root.voiceOutput)
+      cmd.push(root.recordPath)
+      testPlayer.command = cmd
+      testPlayer.running = true
+    }
+  }
+  Process {
+    id: testPlayer
+    onExited: function() { root.audioTest = ""; Quickshell.execDetached(["/usr/bin/rm", "-f", root.recordPath]) }
+  }
+  Timer {
+    id: testTick
+    interval: 1000
+    repeat: true
+    onTriggered: { root.audioTestLeft--; if (root.audioTestLeft <= 0) { testTick.stop(); testRecorder.signal(2) } }
+  }
+
   // ---------- voice recording ----------
   // One recorder for the whole shell: pw-record writes 16-bit mono WAV to
   // the runtime dir, the daemon turns it into an Opus voice message.
@@ -594,7 +666,10 @@ Item {
     root.recordingRoom = roomId
     root.recordSeconds = 0
     root.recordSend = false
-    recorder.command = ["/usr/bin/pw-record", "--format=s16", "--rate=48000", "--channels=1", root.recordPath]
+    var cmd = ["/usr/bin/pw-record", "--format=s16", "--rate=48000", "--channels=1"]
+    if (root.voiceInput !== "") cmd.push("--target=" + root.voiceInput)
+    cmd.push(root.recordPath)
+    recorder.command = cmd
     recorder.running = true
     root.recording = true
   }
