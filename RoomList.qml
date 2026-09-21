@@ -11,6 +11,8 @@ Column {
   property var service: null
   property color fg: Color.foreground
   property color accent: service ? service.accent : Color.accent
+  property color hover: service ? service.hover : Util.alpha(Color.menu.selectedBackground, 0.5)
+  property color selection: service ? service.selection : Color.menu.selectedBackground
   property string fontFamily: Style.font.family
   property string currentRoom: ""     // highlighted row, if any
   property bool busy: false
@@ -176,6 +178,8 @@ Column {
         required property var modelData
         width: root.width
         implicitHeight: Style.space(36)
+        Rectangle { anchors.fill: parent; anchors.margins: -Style.space(4); radius: Style.space(6); color: resultMouse.containsMouse ? root.hover : "transparent" }
+        MouseArea { id: resultMouse; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
 
         Column {
           anchors.left: parent.left
@@ -300,8 +304,7 @@ Column {
     Rectangle {
       anchors.fill: parent
       radius: Style.space(6)
-      color: row.selected ? Color.menu.selectedBackground
-        : (rowMouse.containsMouse ? Util.alpha(Color.menu.selectedBackground, 0.5) : "transparent")
+      color: row.selected ? root.selection : (rowMouse.containsMouse ? root.hover : "transparent")
     }
     Row {
       anchors.fill: parent

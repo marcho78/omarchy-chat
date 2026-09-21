@@ -223,6 +223,7 @@ Item {
 
         // Settings
         Flickable {
+          id: settingsFlick
           anchors.fill: parent
           visible: root.showSettings
           contentHeight: settingsColumn.implicitHeight
@@ -261,6 +262,10 @@ Item {
               service: root.service
               fg: root.fg
               fontFamily: root.fontFamily
+              onReveal: function(y) {
+                var target = settingsView.y + y - Style.space(12)
+                settingsFlick.contentY = Math.max(0, Math.min(target, settingsFlick.contentHeight - settingsFlick.height))
+              }
             }
           }
         }

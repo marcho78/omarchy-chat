@@ -20,6 +20,7 @@ Item {
   property color fg: Color.foreground
   property color accent: Color.accent
   property color bg: Color.popups.background
+  property color hover: Util.alpha(Color.foreground, 0.05)
   property string fontFamily: Style.font.family
   property bool bubbles: false
   property bool showAvatars: true
@@ -80,7 +81,7 @@ Item {
         anchors.leftMargin: -Style.space(6)
         anchors.rightMargin: -Style.space(6)
         radius: Style.space(4)
-        color: rowMouse.containsMouse ? Util.alpha(root.fg, 0.05) : "transparent"
+        color: rowMouse.containsMouse ? root.hover : "transparent"
       }
       MouseArea {
         id: rowMouse

@@ -68,6 +68,8 @@ Item {
   readonly property color sidebarBg: pickColor("sidebarColor", bg)
   readonly property color fg: pickColor("textColor", Color.foreground)
   readonly property color accent: pickColor("accentColor", Color.accent)
+  readonly property color selection: pickColor("selectionColor", Color.menu.selectedBackground)
+  readonly property color hover: pickColor("hoverColor", Util.alpha(Color.menu.selectedBackground, 0.5))
   // Offered as swatches in the picker.
   readonly property var themeSwatches: [
     { label: "Theme background", color: Color.background },

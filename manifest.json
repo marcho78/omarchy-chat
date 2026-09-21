@@ -33,7 +33,9 @@
       "messageStyle": "flat",
       "showAvatars": true,
       "senderColors": true,
-      "fontScale": 100
+      "fontScale": 100,
+      "hoverColor": "",
+      "selectionColor": ""
     },
     "schema": [
       {
@@ -95,6 +97,24 @@
         "description": "Links, your name, unread badges, the encrypted glyph.",
         "format": "color",
         "section": "Appearance"
+      },
+      {
+        "key": "hoverColor",
+        "type": "string",
+        "format": "color",
+        "section": "Appearance",
+        "label": "Hover highlight",
+        "defaultValue": "",
+        "description": "Rows and messages under the pointer."
+      },
+      {
+        "key": "selectionColor",
+        "type": "string",
+        "format": "color",
+        "section": "Appearance",
+        "label": "Selection",
+        "defaultValue": "",
+        "description": "The open room in the list."
       },
       {
         "key": "messageStyle",

@@ -17,6 +17,9 @@ Column {
 
   spacing: Style.space(10)
 
+  // Ask the enclosing scroller to bring an unfolded row into view.
+  signal reveal(real y)
+
   readonly property bool hasTextFocus: {
     for (var i = 0; i < fields.count; i++) {
       var it = fields.itemAt(i)
@@ -30,6 +33,8 @@ Column {
     if (key === "backgroundColor") return Color.background
     if (key === "sidebarColor") return root.service ? root.service.bg : Color.background
     if (key === "textColor") return Color.foreground
+    if (key === "selectionColor") return Color.menu.selectedBackground
+    if (key === "hoverColor") return Util.alpha(Color.menu.selectedBackground, 0.5)
     return Color.accent
   }
 
@@ -60,6 +65,7 @@ Column {
       required property int index
       width: root.width
       spacing: Style.space(4)
+      onPickerOpenChanged: if (pickerOpen) Qt.callLater(function() { root.reveal(field.y) })
 
       PanelSectionHeader {
         visible: field.newSection && field.section !== ""
@@ -150,7 +156,8 @@ Column {
           Rectangle {
             anchors.fill: parent
             radius: Style.space(8)
-            color: colorMouse.containsMouse || field.pickerOpen ? Util.alpha(root.fg, 0.06) : "transparent"
+            color: field.pickerOpen ? (root.service ? root.service.selection : Util.alpha(root.fg, 0.06))
+              : colorMouse.containsMouse ? (root.service ? root.service.hover : Util.alpha(root.fg, 0.06)) : "transparent"
             border.width: 1
             border.color: field.pickerOpen ? Color.accent : Util.alpha(root.fg, 0.25)
           }

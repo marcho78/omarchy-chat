@@ -98,7 +98,7 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 | `homeserver` | `https://matrix.org` | Pre-filled on the sign-in form |
 | `notifications` | `true` | Desktop notifications for new messages in rooms not in view |
 | `autostartDaemon` | `true` | Start the daemon's user unit when the panel opens |
-| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor` | empty | Picked in the settings screen (hue bar, saturation/value square, theme swatches, hex); empty follows the Omarchy theme |
+| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor`, `hoverColor`, `selectionColor` | empty | Picked in the settings screen (hue bar, saturation/value square, theme swatches, hex); empty follows the Omarchy theme |
 | `messageStyle` | `flat` | `flat` (avatar, name, grouped runs) or `bubbles` (yours right, theirs left) |
 | `showAvatars` | `true` | Avatars in the timeline and DM list |
 | `senderColors` | `true` | A stable colour per sender's name |
