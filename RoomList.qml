@@ -10,6 +10,7 @@ Column {
   id: root
   property var service: null
   property color fg: Color.foreground
+  property color accent: service ? service.accent : Color.accent
   property string fontFamily: Style.font.family
   property string currentRoom: ""     // highlighted row, if any
   property bool busy: false
@@ -323,7 +324,7 @@ Column {
           visible: !row.direct
           anchors.centerIn: parent
           text: row.modelData.encrypted ? "󰌾" : "󰌿"
-          color: row.modelData.encrypted ? Color.accent : Color.urgent
+          color: row.modelData.encrypted ? root.accent : Color.urgent
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
         }
@@ -359,7 +360,7 @@ Column {
         width: Math.max(badgeText.implicitWidth + Style.space(10), Style.space(20))
         height: Style.space(18)
         radius: height / 2
-        color: (Number(row.modelData.highlights) || 0) > 0 ? Color.urgent : Color.accent
+        color: (Number(row.modelData.highlights) || 0) > 0 ? Color.urgent : root.accent
         Text {
           id: badgeText
           anchors.centerIn: parent

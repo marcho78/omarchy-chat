@@ -25,7 +25,16 @@
     "defaults": {
       "homeserver": "https://matrix.org",
       "notifications": true,
-      "autostartDaemon": true
+      "autostartDaemon": true,
+      "appearance": "theme",
+      "backgroundColor": "",
+      "sidebarColor": "",
+      "textColor": "",
+      "accentColor": "",
+      "messageStyle": "flat",
+      "showAvatars": true,
+      "senderColors": true,
+      "fontScale": 100
     },
     "schema": [
       {
@@ -47,6 +56,89 @@
         "label": "Start omarchy-yapperd when the panel opens",
         "defaultValue": true,
         "description": "Runs 'systemctl --user start omarchy-yapperd' if the daemon is installed but not running."
+      },
+      {
+        "key": "appearance",
+        "type": "enum",
+        "label": "Appearance",
+        "defaultValue": "theme",
+        "options": [
+          {
+            "value": "theme",
+            "label": "Follow the Omarchy theme"
+          },
+          {
+            "value": "custom",
+            "label": "Custom colours (below)"
+          }
+        ],
+        "description": "With the theme, colours change when you switch themes. Custom uses the hex values below; leave one empty to keep the theme's."
+      },
+      {
+        "key": "backgroundColor",
+        "type": "string",
+        "label": "Window background",
+        "defaultValue": "",
+        "description": "Hex, e.g. #101315. Empty = theme."
+      },
+      {
+        "key": "sidebarColor",
+        "type": "string",
+        "label": "Sidebar background",
+        "defaultValue": "",
+        "description": "Hex. Empty = same as the window."
+      },
+      {
+        "key": "textColor",
+        "type": "string",
+        "label": "Text",
+        "defaultValue": "",
+        "description": "Hex. Empty = theme foreground."
+      },
+      {
+        "key": "accentColor",
+        "type": "string",
+        "label": "Accent",
+        "defaultValue": "",
+        "description": "Links, your name, unread badges, the encrypted glyph. Hex. Empty = theme accent."
+      },
+      {
+        "key": "messageStyle",
+        "type": "enum",
+        "label": "Message style",
+        "defaultValue": "flat",
+        "options": [
+          {
+            "value": "flat",
+            "label": "Flat (Element / Slack: avatar, name, grouped)"
+          },
+          {
+            "value": "bubbles",
+            "label": "Bubbles (yours on the right, theirs on the left)"
+          }
+        ]
+      },
+      {
+        "key": "showAvatars",
+        "type": "boolean",
+        "label": "Show avatars",
+        "defaultValue": true
+      },
+      {
+        "key": "senderColors",
+        "type": "boolean",
+        "label": "Colour each sender's name",
+        "defaultValue": true,
+        "description": "Off: names use the text colour, yours the accent."
+      },
+      {
+        "key": "fontScale",
+        "type": "integer",
+        "label": "Chat text size (%)",
+        "min": 80,
+        "max": 150,
+        "step": 5,
+        "defaultValue": 100
       }
     ]
   },

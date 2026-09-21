@@ -57,6 +57,21 @@ Item {
     return fallback
   }
 
+  // ---------- appearance ----------
+  // Theme by default; "custom" lets hex values from the settings override
+  // each colour, and an empty value keeps the theme's.
+  function isHex(v) { return /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(String(v || "").trim()) }
+  function pickColor(key, fallback) { var v = setting(key, ""); return isHex(v) ? Qt.color(String(v).trim()) : fallback }
+  readonly property bool customColors: String(setting("appearance", "theme")) === "custom"
+  readonly property color bg: customColors ? pickColor("backgroundColor", Color.popups.background) : Color.popups.background
+  readonly property color sidebarBg: customColors ? pickColor("sidebarColor", bg) : bg
+  readonly property color fg: customColors ? pickColor("textColor", Color.foreground) : Color.foreground
+  readonly property color accent: customColors ? pickColor("accentColor", Color.accent) : Color.accent
+  readonly property bool bubbles: String(setting("messageStyle", "flat")) === "bubbles"
+  readonly property bool showAvatars: flag("showAvatars", true)
+  readonly property bool senderColors: flag("senderColors", true)
+  readonly property real fontScale: Math.max(0.8, Math.min(1.5, (Number(setting("fontScale", 100)) || 100) / 100))
+
   readonly property string defaultHomeserver: String(setting("homeserver", "https://matrix.org"))
   readonly property bool notificationsEnabled: flag("notifications", true)
   readonly property bool autostartDaemon: flag("autostartDaemon", true)

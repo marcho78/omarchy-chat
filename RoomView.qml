@@ -138,6 +138,12 @@ Item {
         header: model.header
         dayLabel: model.dayLabel
         fg: root.fg
+        accent: root.service ? root.service.accent : Color.accent
+        bg: root.service ? root.service.bg : Color.popups.background
+        bubbles: root.service ? root.service.bubbles : false
+        showAvatars: root.service ? root.service.showAvatars : true
+        senderColors: root.service ? root.service.senderColors : true
+        scale: root.service ? root.service.fontScale : 1.0
         fontFamily: root.fontFamily
       }
     }

@@ -93,6 +93,14 @@ Set from Omarchy's bar settings or in `~/.config/omarchy/shell.json`:
 | `homeserver` | `https://matrix.org` | Pre-filled on the sign-in form |
 | `notifications` | `true` | Desktop notifications for new messages in rooms not in view |
 | `autostartDaemon` | `true` | Start the daemon's user unit when the panel opens |
+| `appearance` | `theme` | `theme` follows the Omarchy theme; `custom` uses the colours below |
+| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor` | empty | Hex (`#rrggbb`), used with `custom`; empty keeps the theme's value |
+| `messageStyle` | `flat` | `flat` (avatar, name, grouped runs) or `bubbles` (yours right, theirs left) |
+| `showAvatars` | `true` | Avatars in the timeline and DM list |
+| `senderColors` | `true` | A stable colour per sender's name |
+| `fontScale` | `100` | Chat text size in percent, 80–150 |
+
+From the CLI, e.g. `omarchy bar set marcho78.yapper messageStyle bubbles`; changes apply live.
 
 ## IPC
 

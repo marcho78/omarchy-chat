@@ -20,7 +20,9 @@ Item {
   property bool closingFromHost: false
 
   readonly property bool loggedIn: service ? service.loggedIn : false
-  readonly property color fg: Color.foreground
+  readonly property color fg: service ? service.fg : Color.foreground
+  readonly property color bg: service ? service.bg : Color.popups.background
+  readonly property color sidebarBg: service ? service.sidebarBg : bg
   readonly property string fontFamily: Style.font.family
   readonly property bool inRoom: roomView.roomId !== ""
   readonly property bool opened: window.visible
@@ -64,7 +66,7 @@ Item {
   FloatingWindow {
     id: window
     title: root.inRoom ? roomView.roomName + " – Yapper" : "Yapper"
-    color: Color.popups.background
+    color: root.bg
     implicitWidth: 960
     implicitHeight: 640
     minimumSize: Qt.size(640, 420)
@@ -126,6 +128,11 @@ Item {
         anchors.bottom: parent.bottom
         width: Math.max(Style.space(300), Math.min(Style.space(380), parent.width * 0.34))
 
+        Rectangle {
+          anchors.fill: parent
+          visible: root.sidebarBg !== root.bg
+          color: root.sidebarBg
+        }
         Rectangle {
           anchors.right: parent.right
           anchors.top: parent.top
