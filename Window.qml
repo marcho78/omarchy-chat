@@ -4,13 +4,13 @@ import Quickshell
 import qs.Commons
 import qs.Ui
 
-// Chat as an app: a real window Hyprland tiles like any other, with the
+// Yapper as an app: a real window Hyprland tiles like any other, with the
 // room list on the left and the conversation on the right. Same
 // Service.qml as the bar popup, so both stay in step.
 //
-//   omarchy-shell shell summon marcho78.chat '{}'   # open
-//   omarchy-shell shell toggle marcho78.chat '{}'   # toggle
-//   omarchy-shell shell hide marcho78.chat          # close
+//   omarchy-shell shell summon marcho78.yapper '{}'   # open
+//   omarchy-shell shell toggle marcho78.yapper '{}'   # toggle
+//   omarchy-shell shell hide marcho78.yapper          # close
 //
 // The payload may carry { room: "!id:server" } to open straight into a room.
 Item {
@@ -55,7 +55,7 @@ Item {
 
   // User-initiated close (window close button): keep the shell's open map right.
   function requestClose() {
-    if (shell && typeof shell.hide === "function") shell.hide("marcho78.chat")
+    if (shell && typeof shell.hide === "function") shell.hide("marcho78.yapper")
     else window.visible = false
   }
 
@@ -63,7 +63,7 @@ Item {
 
   FloatingWindow {
     id: window
-    title: root.inRoom ? roomView.roomName + " – Chat" : "Chat"
+    title: root.inRoom ? roomView.roomName + " – Yapper" : "Yapper"
     color: Color.popups.background
     implicitWidth: 960
     implicitHeight: 640
@@ -71,7 +71,7 @@ Item {
 
     onVisibleChanged: {
       if (!visible && !root.closingFromHost && root.shell && typeof root.shell.hide === "function")
-        root.shell.hide("marcho78.chat")
+        root.shell.hide("marcho78.yapper")
       if (!visible) gate.clearSecrets()
     }
 
@@ -98,7 +98,7 @@ Item {
           Column {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(2)
-            Text { text: "Chat"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
+            Text { text: "Yapper"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
             Text { text: root.service ? root.service.stateText : ""; color: root.fg; opacity: 0.7; font.family: root.fontFamily; font.pixelSize: Style.font.caption }
           }
         }
@@ -154,7 +154,7 @@ Item {
               anchors.rightMargin: Style.space(8)
               anchors.verticalCenter: parent.verticalCenter
               spacing: Style.space(2)
-              Text { text: "Chat"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
+              Text { text: "Yapper"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
               Text {
                 width: parent.width
                 text: root.service ? root.service.userId : ""

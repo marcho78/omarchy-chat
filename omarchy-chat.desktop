@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Chat
-Comment=End-to-end encrypted Matrix chat for Omarchy
-Exec=omarchy-shell shell summon marcho78.chat {}
-Icon=internet-chat
-Terminal=false
-Categories=Network;InstantMessaging;
-StartupWMClass=org.quickshell

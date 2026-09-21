@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Yapper
+Comment=Yapper: end-to-end encrypted Matrix chat for Omarchy
+Exec=omarchy-shell shell summon marcho78.yapper {}
+Icon=omarchy-yapper
+Terminal=false
+Categories=Network;InstantMessaging;
+StartupWMClass=org.quickshell

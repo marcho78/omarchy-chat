@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Yapper: a speech bubble with a padlock. Flat, single colour, transparent background. -->
+  <defs>
+    <mask id="cut">
+      <rect width="256" height="256" fill="#fff"/>
+      <!-- padlock body -->
+      <rect x="98" y="112" width="60" height="50" rx="8" fill="#000"/>
+      <!-- padlock shackle (stroke, then re-open the inside) -->
+      <path d="M110 112 V98 a18 18 0 0 1 36 0 V112" fill="none" stroke="#000" stroke-width="12" stroke-linecap="round"/>
+      <!-- keyhole re-filled so it shows as bubble colour -->
+      <circle cx="128" cy="132" r="7" fill="#fff"/>
+      <rect x="124.5" y="132" width="7" height="14" rx="3" fill="#fff"/>
+    </mask>
+  </defs>
+  <!-- bubble with a tail bottom-left -->
+  <path fill="#22b8a8" mask="url(#cut)"
+        d="M128 30c-60 0-108 40-108 90 0 27 14 51 37 68l-9 38 46-22c11 3 22 5 34 5 60 0 108-40 108-89S188 30 128 30z"/>
+</svg>

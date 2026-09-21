@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 
-// Chat service: the single connection to omarchy-chatd, the session state,
+// Yapper service: the single connection to omarchy-yapperd, the session state,
 // the room and invitation lists, and desktop notifications. Mounted when
 // the shell starts. The bar popup (Panel.qml) and the app window
 // (Window.qml) are views over this object and never talk to the socket.
@@ -15,17 +15,17 @@ Item {
   property var shell: null
   property var manifest: null
 
-  readonly property string pluginId: "marcho78.chat"
+  readonly property string pluginId: "marcho78.yapper"
   readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR")
-  readonly property string socketPath: runtimeDir + "/omarchy-chat.sock"
-  readonly property string daemonRepo: "https://github.com/marcho78/omarchy-chatd"
+  readonly property string socketPath: runtimeDir + "/omarchy-yapper.sock"
+  readonly property string daemonRepo: "https://github.com/marcho78/omarchy-yapperd"
   // Shown to the user verbatim: clone, read, build, install. No binary download.
-  readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-chatd/packaging && makepkg -si"
+  readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-yapperd/packaging && makepkg -si"
   // Same thing for the terminal button, in a scratch dir so nothing is left behind.
-  readonly property string installScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-chatd\" && cd \"$d/omarchy-chatd/packaging\" && makepkg -si; cd; rm -rf \"$d\""
+  readonly property string installScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd/packaging\" && makepkg -si; cd; rm -rf \"$d\""
   readonly property string glyph: "󰭹"
 
-  function log(msg) { console.log("[chat] " + msg) }
+  function log(msg) { console.log("[yapper] " + msg) }
 
   // ---------- settings (bar layout entry over manifest defaults) ----------
 
@@ -63,7 +63,7 @@ Item {
 
   // ---------- state ----------
 
-  property bool checked: false          // `which omarchy-chatd` has answered once
+  property bool checked: false          // `which omarchy-yapperd` has answered once
   property bool installed: false
   property bool starting: false
   property bool connected: false
@@ -85,7 +85,7 @@ Item {
     return n
   }
   readonly property string stateText: !checked ? "Checking…"
-    : !installed ? "omarchy-chatd not installed"
+    : !installed ? "omarchy-yapperd not installed"
     : !connected ? (starting ? "Starting daemon…" : "Daemon not running")
     : pendingLogin ? "Waiting for the browser…"
     : !loggedIn ? "Signed out"
@@ -102,7 +102,7 @@ Item {
 
   Process {
     id: whichProc
-    command: ["/usr/bin/which", "omarchy-chatd"]
+    command: ["/usr/bin/which", "omarchy-yapperd"]
     onExited: function(code) {
       root.installed = (code === 0)
       root.checked = true
@@ -126,11 +126,11 @@ Item {
 
   Process {
     id: startProc
-    command: ["/usr/bin/systemctl", "--user", "start", "omarchy-chatd.service"]
+    command: ["/usr/bin/systemctl", "--user", "start", "omarchy-yapperd.service"]
     onExited: function(code) {
       if (code !== 0) {
         root.starting = false
-        root.startError = "Could not start omarchy-chatd (systemctl exited " + code + "). Try: systemctl --user start omarchy-chatd"
+        root.startError = "Could not start omarchy-yapperd (systemctl exited " + code + "). Try: systemctl --user start omarchy-yapperd"
       }
     }
   }
@@ -141,7 +141,7 @@ Item {
     onTriggered: {
       if (root.connected) return
       root.starting = false
-      root.startError = "omarchy-chatd started but its socket did not appear. Check: journalctl --user -u omarchy-chatd"
+      root.startError = "omarchy-yapperd started but its socket did not appear. Check: journalctl --user -u omarchy-yapperd"
     }
   }
 
@@ -224,7 +224,7 @@ Item {
       root.refreshInvites()
       root.invitationReceived(ev)
       if (root.notificationsEnabled)
-        Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Chat", "-i", "dialog-information", "--",
+        Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Yapper", "-i", "dialog-information", "--",
           "Invitation from " + (ev.inviter_name || ev.inviter || "someone"), ev.direct ? "wants to chat with you" : String(ev.name)])
     } else if (ev.event === "rooms_changed") {
       root.refresh()
@@ -309,7 +309,7 @@ Item {
   function notify(m) {
     var title = (m.sender_name || m.sender) + " · " + root.roomName(m.room)
     var body = String(m.body).slice(0, 300)
-    Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Chat", "-i", "dialog-information", "--", title, body])
+    Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Yapper", "-i", "dialog-information", "--", title, body])
   }
 
   function timeText(ts) {

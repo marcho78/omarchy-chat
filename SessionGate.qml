@@ -33,7 +33,7 @@ Column {
     Text {
       width: parent.width
       wrapMode: Text.WordWrap
-      text: "Chat needs the omarchy-chatd daemon. It is built from source on your machine with makepkg — read the PKGBUILD first if you like. The first build takes a few minutes."
+      text: "Yapper needs the omarchy-yapperd daemon. It is built from source on your machine with makepkg — read the PKGBUILD first if you like. The first build takes a few minutes."
       color: root.fg
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
@@ -64,7 +64,7 @@ Column {
     Text {
       width: parent.width
       wrapMode: Text.WordWrap
-      text: root.service && root.service.starting ? "Starting omarchy-chatd…" : "The daemon is installed but not running."
+      text: root.service && root.service.starting ? "Starting omarchy-yapperd…" : "The daemon is installed but not running."
       color: root.fg
       font.family: root.fontFamily
       font.pixelSize: Style.font.body

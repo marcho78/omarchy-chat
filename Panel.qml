@@ -5,16 +5,16 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
-// Chat: the bar widget and its popup. A view over Service.qml — the socket,
+// Yapper: the bar widget and its popup. A view over Service.qml — the socket,
 // session and room state live there and are shared with the app window.
 Panel {
   id: root
-  moduleName: "marcho78.chat"
-  ipcTarget: "marcho78.chat"
+  moduleName: "marcho78.yapper"
+  ipcTarget: "marcho78.yapper"
   manageIpc: false
 
   readonly property var service: (bar && bar.shell && typeof bar.shell.serviceFor === "function")
-    ? bar.shell.serviceFor("marcho78.chat") : null
+    ? bar.shell.serviceFor("marcho78.yapper") : null
   readonly property bool loggedIn: service ? service.loggedIn : false
   readonly property int unreadTotal: service ? service.unreadTotal : 0
   readonly property string stateText: service ? service.stateText : "Starting…"
@@ -65,7 +65,7 @@ Panel {
     bar: root.bar
     text: root.unreadTotal > 0 ? root.glyph + " " + root.unreadTotal : root.glyph
     dimmed: !root.loggedIn
-    tooltipText: "Chat: " + root.stateText + (root.unreadTotal > 0 ? " · " + root.unreadTotal + " unread" : "")
+    tooltipText: "Yapper: " + root.stateText + (root.unreadTotal > 0 ? " · " + root.unreadTotal + " unread" : "")
     onPressed: function(b) {
       if (b === Qt.MiddleButton) { if (root.service) root.service.openWindow() }
       else root.toggle()
@@ -127,7 +127,7 @@ Panel {
             spacing: Style.space(2)
 
             Text {
-              text: root.inRoom ? roomView.roomName : "Chat"
+              text: root.inRoom ? roomView.roomName : "Yapper"
               color: root.bar.foreground
               font.family: root.bar.fontFamily
               font.pixelSize: Style.font.title

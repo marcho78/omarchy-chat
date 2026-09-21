@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "id": "marcho78.chat",
-  "name": "Chat",
+  "id": "marcho78.yapper",
+  "name": "Yapper",
   "version": "0.1.0",
   "author": "marcho78",
   "license": "MIT",
-  "description": "End-to-end encrypted chat from the bar or as a window. Matrix (Olm/Megolm) via the omarchy-chatd daemon; the shell never touches a key.",
+  "description": "End-to-end encrypted chat from the bar or as a window. Matrix (Olm/Megolm) via the omarchy-yapperd daemon; the shell never touches a key.",
   "kinds": [
     "service",
     "bar-widget",
@@ -17,7 +17,7 @@
     "panel": "Window.qml"
   },
   "barWidget": {
-    "displayName": "Chat",
+    "displayName": "Yapper",
     "description": "Encrypted Matrix chat: rooms, unread count and a composer in a bar panel; middle-click or the App button opens the full window.",
     "category": "Communication",
     "allowMultiple": false,
@@ -44,9 +44,9 @@
       {
         "key": "autostartDaemon",
         "type": "boolean",
-        "label": "Start omarchy-chatd when the panel opens",
+        "label": "Start omarchy-yapperd when the panel opens",
         "defaultValue": true,
-        "description": "Runs 'systemctl --user start omarchy-chatd' if the daemon is installed but not running."
+        "description": "Runs 'systemctl --user start omarchy-yapperd' if the daemon is installed but not running."
       }
     ]
   },
