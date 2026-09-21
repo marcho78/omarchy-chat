@@ -139,15 +139,15 @@ Test against a throwaway daemon without touching your real session:
 
 ```bash
 omarchy-chatd --socket /tmp/chat-test.sock --data-dir /tmp/chat-test-data
-# then, temporarily, socketPath: "/tmp/chat-test.sock" in Panel.qml
+# then, temporarily, socketPath: "/tmp/chat-test.sock" in Service.qml
 ```
 
 ## Not yet
 
 Device verification and key backup, attachments, reactions, edits, replies,
-invites, starting a DM from the panel. Until verification lands, other
-clients show this device as unverified and history from before you signed in
-here is not readable. See the daemon's roadmap.
+typing indicators, member lists. Until verification lands, other clients
+show this device as unverified and history from before you signed in here
+is not readable. See the daemon's roadmap.
 
 ## License
 
