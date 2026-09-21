@@ -427,6 +427,21 @@ Item {
     root.request("mark_read", { room: roomId, event_id: eventId }, function(r) { root.refreshRooms(); if (cb) cb(r) })
   }
 
+  // Avatars: mxc:// URL -> local path, resolved once and shared by every
+  // view. Reassigning the map is what makes bindings notice.
+  property var avatars: ({})
+  property var avatarPending: ({})
+  function resolveAvatar(mxc) {
+    if (!mxc || root.avatars[mxc] !== undefined || root.avatarPending[mxc]) return
+    var p = root.avatarPending; p[mxc] = true; root.avatarPending = p
+    root.request("avatar", { url: mxc }, function(r) {
+      var a = root.avatars; a[mxc] = r.ok ? r.result.path : ""; root.avatars = a
+      var q = root.avatarPending; delete q[mxc]; root.avatarPending = q
+    })
+  }
+  function roomDetails(roomId, cb) { root.request("room_details", { room: roomId }, cb) }
+  function members(roomId, query, limit, cb) { root.request("members", { room: roomId, query: query || "", limit: limit || 200 }, cb) }
+
   // Attachments. The daemon fetches and decrypts into a cache and returns
   // a local path; thumbnails the same way.
   function download(roomId, eventId, thumbnail, cb) { root.request("download", { room: roomId, event_id: eventId, thumbnail: thumbnail === true }, cb) }

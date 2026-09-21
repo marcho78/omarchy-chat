@@ -11,6 +11,7 @@ Item {
   id: root
   property string sender: ""
   property string senderName: ""
+  property string senderAvatar: ""
   property string body: ""
   property string html: ""
   property string msgtype: "m.text"
@@ -57,6 +58,7 @@ Item {
   readonly property bool avatar: showAvatars && !(bubbles && mine)
   readonly property real gutter: avatar ? avatarSize + Style.space(12) : 0
   readonly property color nameColor: mine ? accent : (senderColors ? Qt.hsla(Format.hueFor(sender) / 360, 0.6, 0.62, 1) : fg)
+  readonly property bool isSystem: msgtype === "system"
   readonly property bool isAttachment: attachment !== null && attachment !== undefined
   readonly property bool isImage: isAttachment && attachment.kind === "image"
   property string thumbPath: ""
@@ -86,10 +88,31 @@ Item {
     })
   }
 
-  implicitHeight: column.implicitHeight + (header ? Style.space(8) : (isAttachment ? Style.space(6) : Style.space(2)))
+  implicitHeight: isSystem ? systemLine.implicitHeight + Style.space(6) : column.implicitHeight + (header ? Style.space(8) : (isAttachment ? Style.space(6) : Style.space(2)))
+
+  // Membership changes: one quiet centred line, no avatar or header.
+  Item {
+    id: systemLine
+    visible: root.isSystem
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.topMargin: Style.space(3)
+    implicitHeight: sysText.implicitHeight
+    Text {
+      id: sysText
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: Math.min(parent.width, implicitWidth)
+      text: root.body
+      color: root.fg; opacity: 0.45
+      elide: Text.ElideRight
+      font.family: root.fontFamily; font.pixelSize: root.captionSize
+    }
+  }
 
   Column {
     id: column
+    visible: !root.isSystem
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
@@ -260,6 +283,8 @@ Item {
         anchors.top: parent.top
         userId: root.sender
         name: root.senderName
+        mxc: root.senderAvatar
+        service: root.service
         size: root.avatarSize
         fontFamily: root.fontFamily
       }
@@ -500,8 +525,8 @@ Item {
               text: root.deleted ? "<i>Message deleted</i>"
                 : root.msgtype === "unable_to_decrypt"
                 ? "<i>󰌾 Unable to decrypt — this device did not have the key. It fills in once backup or another device shares it.</i>"
-                : (root.isAttachment ? Format.linkify(root.attachment.caption || "")
-                  : (root.html !== "" ? Format.cleanHtml(root.html) : Format.linkify(root.body)))
+                : (root.isAttachment ? Format.linkify(root.attachment.caption || "", linkColor)
+                  : (root.html !== "" ? Format.cleanHtml(root.html, linkColor) : Format.linkify(root.body, linkColor)))
               wrapMode: Text.Wrap
               opacity: root.msgtype === "unable_to_decrypt" || root.deleted ? 0.6 : 1
               color: root.bubbles && root.mine ? root.bg : root.fg

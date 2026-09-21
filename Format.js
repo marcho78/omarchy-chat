@@ -29,18 +29,20 @@ function escapeHtml(s) {
 var URL_RE = /((?:https?:\/\/|www\.)[^\s<>"']+[^\s<>"'.,;:!?)])/g
 
 // Plain text -> rich text with clickable links and preserved line breaks.
-function linkify(plain) {
+function linkify(plain, linkColor) {
+  var style = linkColor ? ' style="color:' + linkColor + '"' : ""
   var out = escapeHtml(plain).replace(URL_RE, function(m) {
     var href = m.indexOf("://") === -1 ? "https://" + m : m
-    return '<a href="' + href + '">' + m + '</a>'
+    return '<a href="' + href + '"' + style + '>' + m + '</a>'
   })
   return out.replace(/\n/g, "<br>")
 }
 
 // Matrix formatted_body -> something Qt's rich text can show. Qt handles a
 // small HTML subset; strip what it cannot and neutralise mx-reply quotes.
-function cleanHtml(html) {
+function cleanHtml(html, linkColor) {
   var s = String(html)
+  if (linkColor) s = s.replace(/<a\s/gi, '<a style="color:' + linkColor + '" ')
   s = s.replace(/<mx-reply>[\s\S]*?<\/mx-reply>/gi, "")
   s = s.replace(/<img[^>]*>/gi, "[image]")
   s = s.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")

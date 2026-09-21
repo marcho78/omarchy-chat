@@ -301,8 +301,6 @@ Column {
 
     readonly property int unread: Number(modelData.unread) || 0
     readonly property bool selected: modelData.id === root.currentRoom
-    // For a DM the room name is the other person; derive an id-ish key for the colour.
-    readonly property string avatarKey: String(modelData.name)
 
     Rectangle {
       anchors.fill: parent
@@ -316,29 +314,38 @@ Column {
       spacing: Style.space(10)
 
       Item {
-        width: Style.space(26)
+        width: Style.space(30)
         height: parent.height
         Avatar {
-          visible: row.direct
           anchors.centerIn: parent
-          size: Style.space(26)
-          userId: row.avatarKey
+          size: Style.space(30)
+          userId: row.modelData.id
           name: row.modelData.name
+          mxc: row.modelData.avatar || ""
+          service: root.service
           fontFamily: root.fontFamily
         }
-        Text {
-          visible: !row.direct
-          anchors.centerIn: parent
-          text: row.modelData.encrypted ? "󰌾" : "󰌿"
-          color: row.modelData.encrypted ? root.accent : Color.urgent
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
+        // Encryption badge on the avatar's corner
+        Rectangle {
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          anchors.rightMargin: -2
+          anchors.bottomMargin: Style.space(2)
+          width: Style.space(13); height: width
+          radius: width / 2
+          color: root.service ? root.service.sidebarBg : Color.background
+          Text {
+            anchors.centerIn: parent
+            text: row.modelData.encrypted ? "󰌾" : "󰌿"
+            color: row.modelData.encrypted ? root.accent : Color.urgent
+            font.family: root.fontFamily; font.pixelSize: Style.space(9)
+          }
         }
       }
       Column {
         id: labels
         anchors.verticalCenter: parent.verticalCenter
-        width: parent.width - Style.space(26) - Style.space(10) - (badge.visible ? badge.width + Style.space(10) : 0)
+        width: parent.width - Style.space(30) - Style.space(10) - (badge.visible ? badge.width + Style.space(10) : 0)
         spacing: Style.space(1)
         Text {
           width: parent.width

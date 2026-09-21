@@ -21,12 +21,13 @@ Panel {
   readonly property string glyph: "󰭹"
   readonly property bool inRoom: roomView.roomId !== ""
   property bool showSettings: false
+  property bool showInfo: false
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
   function openRoom(r) { roomView.open(r) }
-  function backToList() { roomView.close() }
+  function backToList() { root.showInfo = false; roomView.close() }
 
   onOpenedChanged: {
     if (opened) {
@@ -98,8 +99,8 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: roomView.hasTextFocus || roomList.hasTextFocus || gate.hasTextFocus || settingsView.hasTextFocus || verifyView.hasTextFocus
-      onCloseRequested: { if (root.showSettings) root.showSettings = false; else if (root.inRoom) root.backToList(); else root.close() }
+      blocked: roomView.hasTextFocus || roomList.hasTextFocus || gate.hasTextFocus || settingsView.hasTextFocus || verifyView.hasTextFocus || infoView.hasTextFocus
+      onCloseRequested: { if (root.showInfo) root.showInfo = false; else if (root.showSettings) root.showSettings = false; else if (root.inRoom) root.backToList(); else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Column {
@@ -114,7 +115,7 @@ Panel {
 
           Text {
             id: heroIcon
-            text: (root.inRoom || root.showSettings) ? "󰁍" : root.glyph
+            text: (root.inRoom || root.showSettings || root.showInfo) ? "󰁍" : root.glyph
             color: root.loggedIn ? Color.accent : root.bar.foreground
             font.family: root.bar.fontFamily
             font.pixelSize: Style.font.display
@@ -122,9 +123,9 @@ Panel {
             anchors.verticalCenter: parent.verticalCenter
             MouseArea {
               anchors.fill: parent
-              enabled: root.inRoom || root.showSettings
+              enabled: root.inRoom || root.showSettings || root.showInfo
               cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-              onClicked: { if (root.showSettings) root.showSettings = false; else root.backToList() }
+              onClicked: { if (root.showInfo) root.showInfo = false; else if (root.showSettings) root.showSettings = false; else root.backToList() }
             }
           }
 
@@ -147,7 +148,8 @@ Panel {
               width: parent.width
             }
             Text {
-              text: root.showSettings ? "Applied as you change them"
+              text: root.showInfo ? roomView.roomName
+                : root.showSettings ? "Applied as you change them"
                 : root.inRoom ? (roomView.encrypted ? "󰌾 End-to-end encrypted" : "󰌿 Not encrypted")
                 : root.stateText
               color: root.inRoom && !roomView.encrypted ? Color.urgent : root.bar.foreground
@@ -164,6 +166,13 @@ Panel {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.spacing.controlGap
+            Button {
+              visible: root.inRoom && !root.showSettings
+              iconText: "󰋽"
+              text: ""
+              bordered: root.showInfo
+              onClicked: root.showInfo = !root.showInfo
+            }
             Button {
               iconText: "󰒓"
               text: ""
@@ -226,11 +235,25 @@ Panel {
           onRoomChosen: function(r) { root.openRoom(r) }
         }
 
+        RoomInfo {
+          id: infoView
+          width: parent.width
+          height: visible ? Style.space(440) : 0
+          visible: root.loggedIn && root.inRoom && root.showInfo && !root.showSettings
+          compact: true
+          service: root.service
+          fg: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          roomId: (root.inRoom && root.showInfo) ? roomView.roomId : ""
+          onCloseRequested: root.showInfo = false
+          onMemberChosen: function(m) { root.showInfo = false; root.backToList(); roomList.openDm(m.id) }
+        }
+
         RoomView {
           id: roomView
           width: parent.width
           height: visible ? implicitHeight : 0
-          visible: root.loggedIn && root.inRoom && root.opened && !root.showSettings
+          visible: root.loggedIn && root.inRoom && root.opened && !root.showSettings && !root.showInfo
           service: root.service
           viewId: "popup"
           fg: root.bar.foreground

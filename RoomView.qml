@@ -153,8 +153,9 @@ Item {
   function metaFor(prev, m) {
     var ts = Number(m.ts) || 0
     var newDay = !prev || !Format.isSameDay(prev.ts, ts)
+    var sys = m.msgtype === "system" || (prev && prev.msgtype === "system")
     return {
-      header: newDay || !prev || prev.sender !== m.sender || (ts - prev.ts) > groupWindowMs,
+      header: newDay || !prev || sys || prev.sender !== m.sender || (ts - prev.ts) > groupWindowMs,
       dayLabel: newDay ? Format.dayLabel(ts, Date.now()) : ""
     }
   }
@@ -174,6 +175,7 @@ Item {
       eventId: m.event_id,
       sender: m.sender,
       senderName: m.sender_name || m.sender,
+      senderAvatar: m.sender_avatar || "",
       body: m.body,
       html: m.html || "",
       msgtype: m.msgtype || "m.text",
@@ -203,12 +205,12 @@ Item {
     for (var i = 0; i < list.length; i++) {
       var meta = root.metaFor(prev, list[i])
       msgModel.insert(i, root.entryFor(list[i], meta))
-      prev = { ts: Number(list[i].ts) || 0, sender: list[i].sender }
+      prev = { ts: Number(list[i].ts) || 0, sender: list[i].sender, msgtype: list[i].msgtype }
     }
     // The item that used to be first is now preceded by real history.
     if (msgModel.count > list.length) {
       var first = msgModel.get(list.length)
-      var m2 = root.metaFor(prev, { ts: first.ts, sender: first.sender })
+      var m2 = root.metaFor(prev, { ts: first.ts, sender: first.sender, msgtype: first.msgtype })
       msgModel.setProperty(list.length, "header", m2.header)
       msgModel.setProperty(list.length, "dayLabel", m2.dayLabel)
     }
@@ -220,11 +222,13 @@ Item {
     var ts = Number(m.ts) || 0
     var prev = msgModel.count > 0 ? msgModel.get(msgModel.count - 1) : null
     var newDay = !prev || !Format.isSameDay(prev.ts, ts)
-    var header = newDay || !prev || prev.sender !== m.sender || (ts - prev.ts) > groupWindowMs
+    var sys = m.msgtype === "system" || (prev && prev.msgtype === "system")
+    var header = newDay || !prev || sys || prev.sender !== m.sender || (ts - prev.ts) > groupWindowMs
     msgModel.append({
       eventId: m.event_id,
       sender: m.sender,
       senderName: m.sender_name || m.sender,
+      senderAvatar: m.sender_avatar || "",
       body: m.body,
       html: m.html || "",
       msgtype: m.msgtype || "m.text",
@@ -534,6 +538,7 @@ Item {
         width: msgList.width
         sender: model.sender
         senderName: model.senderName
+        senderAvatar: model.senderAvatar
         body: model.body
         html: model.html
         msgtype: model.msgtype

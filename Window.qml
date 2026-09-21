@@ -30,6 +30,7 @@ Item {
   readonly property bool opened: window.visible
   property bool showSettings: false
   onShowSettingsChanged: if (showSettings) settingsFlick.contentY = 0
+  property bool showInfo: false
 
   // ---- plugin lifecycle ----------------------------------------------------
 
@@ -44,6 +45,7 @@ Item {
         if (p && typeof p.room === "string") wanted = p.room
         if (p && p.settings === true) root.showSettings = true
         if (p && typeof p.pick === "string") { root.showSettings = true; settingsView.pickKey = p.pick }
+        if (p && p.info === true) root.showInfo = true
       } catch (e) { /* ignore */ }
     }
     Qt.callLater(function() {
@@ -318,20 +320,69 @@ Item {
           }
         }
 
+        // Room info: slides over the right side of the conversation
+        Rectangle {
+          id: infoPane
+          visible: false
+          height: 0
+        }
+        Rectangle {
+          id: infoOverlay
+          visible: root.showInfo && root.inRoom && !root.showSettings
+          z: 3
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.bottom: parent.bottom
+          width: Math.min(parent.width, Style.space(360))
+          color: root.bg
+          border.width: 1
+          border.color: Util.alpha(root.fg, 0.2)
+          radius: Style.space(8)
+          RoomInfo {
+            anchors.fill: parent
+            anchors.margins: Style.space(14)
+            service: root.service
+            fg: root.fg
+            fontFamily: root.fontFamily
+            roomId: root.showInfo ? roomView.roomId : ""
+            onCloseRequested: root.showInfo = false
+            onMemberChosen: function(m) { root.showInfo = false; roomList.openDm(m.id) }
+          }
+        }
+
         Column {
           anchors.fill: parent
           visible: root.inRoom && !root.showSettings
           spacing: Style.space(10)
 
-          // Room header
+          // Room header (click for room info)
           Item {
             id: roomHeader
             width: parent.width
-            implicitHeight: Math.max(headerLabels.implicitHeight, Style.space(28))
+            implicitHeight: Math.max(headerLabels.implicitHeight, infoButton.implicitHeight, Style.space(28))
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.showInfo = !root.showInfo
+            }
+            Avatar {
+              id: headerAvatar
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              size: Style.space(34)
+              userId: roomView.roomId
+              name: roomView.roomName
+              mxc: roomView.room && roomView.room.avatar ? roomView.room.avatar : ""
+              service: root.service
+              fontFamily: root.fontFamily
+            }
             Column {
               id: headerLabels
-              anchors.left: parent.left
-              anchors.right: parent.right
+              anchors.left: headerAvatar.right
+              anchors.leftMargin: Style.space(10)
+              anchors.right: infoButton.left
+              anchors.rightMargin: Style.space(8)
+              anchors.verticalCenter: parent.verticalCenter
               spacing: Style.space(2)
               Text {
                 width: parent.width
@@ -350,6 +401,15 @@ Item {
                 elide: Text.ElideRight
               }
             }
+            Button {
+              id: infoButton
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              iconText: "󰋽"
+              text: ""
+              bordered: root.showInfo
+              onClicked: root.showInfo = !root.showInfo
+            }
           }
 
           PanelSeparator { width: parent.width }
@@ -357,7 +417,7 @@ Item {
           RoomView {
             id: roomView
             width: parent.width
-            height: parent.height - roomHeader.height - parent.spacing * 2 - 1
+            height: parent.height - roomHeader.height - parent.spacing * 2 - 1 - (infoPane.visible ? infoPane.height + parent.spacing : 0)
             fillHeight: true
             service: root.service
             viewId: "window"
