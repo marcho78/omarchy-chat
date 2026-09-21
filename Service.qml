@@ -332,7 +332,8 @@ Item {
       root.messageReceived(ev)
       if (!root.isViewed(ev.room)) {
         root.refreshRooms()
-        if (root.notificationsEnabled && ev.sender !== root.userId) root.notify(ev)
+        var mode = (root.roomById(ev.room) || {}).notification_mode || "all"
+        if (root.notificationsEnabled && ev.sender !== root.userId && mode === "all") root.notify(ev)
       }
     } else if (ev.event === "invite") {
       root.refreshInvites()
@@ -440,6 +441,12 @@ Item {
     })
   }
   function roomDetails(roomId, cb) { root.request("room_details", { room: roomId }, cb) }
+  function invite(roomId, userId, cb) { root.request("invite", { room: roomId, user: userId }, cb) }
+  function kick(roomId, userId, reason, cb) { root.request("kick", { room: roomId, user: userId, reason: reason || null }, cb) }
+  function ban(roomId, userId, reason, cb) { root.request("ban", { room: roomId, user: userId, reason: reason || null }, cb) }
+  function setRoomName(roomId, name, cb) { root.request("set_name", { room: roomId, name: name }, function(r) { root.refreshRooms(); cb(r) }) }
+  function setRoomTopic(roomId, topic, cb) { root.request("set_topic", { room: roomId, topic: topic }, function(r) { root.refreshRooms(); cb(r) }) }
+  function setNotificationMode(roomId, mode, cb) { root.request("set_notification_mode", { room: roomId, mode: mode }, function(r) { root.refreshRooms(); cb(r) }) }
   function members(roomId, query, limit, cb) { root.request("members", { room: roomId, query: query || "", limit: limit || 200 }, cb) }
 
   // Attachments. The daemon fetches and decrypts into a cache and returns

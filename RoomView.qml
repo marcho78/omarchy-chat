@@ -781,12 +781,26 @@ Item {
       font.pixelSize: Style.font.caption
     }
 
-    Button {
+    Row {
       id: leaveButton
       visible: root.showLeave && root.roomId !== ""
-      text: "Leave room"
-      enabled: !root.busy
-      onClicked: root.leave()
+      spacing: Style.spacing.controlGap
+      property bool confirm: false
+      Button {
+        visible: !leaveButton.confirm
+        text: "Leave room"
+        enabled: !root.busy
+        onClicked: leaveButton.confirm = true
+      }
+      Text {
+        visible: leaveButton.confirm
+        anchors.verticalCenter: parent.verticalCenter
+        text: "Leave " + root.roomName + "?"
+        color: root.fg
+        font.family: root.fontFamily; font.pixelSize: Style.font.caption
+      }
+      Button { visible: leaveButton.confirm; text: root.busy ? "…" : "Leave"; bordered: true; enabled: !root.busy; onClicked: { leaveButton.confirm = false; root.leave() } }
+      Button { visible: leaveButton.confirm; text: "Stay"; onClicked: leaveButton.confirm = false }
     }
   }
 }

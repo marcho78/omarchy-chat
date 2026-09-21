@@ -247,6 +247,7 @@ Panel {
           roomId: (root.inRoom && root.showInfo) ? roomView.roomId : ""
           onCloseRequested: root.showInfo = false
           onMemberChosen: function(m) { root.showInfo = false; root.backToList(); roomList.openDm(m.id) }
+          onLeftRoom: root.backToList()
         }
 
         RoomView {

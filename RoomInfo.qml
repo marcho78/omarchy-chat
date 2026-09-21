@@ -21,8 +21,15 @@ Item {
 
   signal closeRequested()
   signal memberChosen(var member)
+  signal leftRoom()
 
-  readonly property bool hasTextFocus: search.activeFocus
+  property string editing: ""         // "" | "name" | "topic" | "invite"
+  property var member: null           // member sheet
+  property bool confirmLeave: false
+  property bool busy: false
+  function fail(msg) { root.errorText = msg }
+
+  readonly property bool hasTextFocus: search.activeFocus || editField.activeFocus || reasonField.activeFocus
   readonly property color accent: service ? service.accent : Color.accent
 
   onRoomIdChanged: reload()
@@ -30,6 +37,9 @@ Item {
     root.details = null
     root.members = []
     root.errorText = ""
+    root.editing = ""
+    root.member = null
+    root.confirmLeave = false
     if (!root.roomId || !root.service) return
     root.loading = true
     var id = root.roomId
@@ -50,6 +60,39 @@ Item {
     })
   }
   Timer { id: searchDebounce; interval: 250; onTriggered: root.loadMembers() }
+
+  function startEdit(kind) {
+    root.editing = kind
+    root.errorText = ""
+    editField.text = kind === "name" ? (root.details ? root.details.name : "") : kind === "topic" ? (root.details ? (root.details.topic || "") : "") : ""
+    Qt.callLater(function() { editField.forceActiveFocus(); editField.selectAll() })
+  }
+  function commitEdit() {
+    if (root.busy) return
+    var v = editField.text
+    root.busy = true
+    var done = function(r) { root.busy = false; if (!r.ok) { root.fail(r.error || "That did not work"); return } root.editing = ""; root.reload() }
+    if (root.editing === "name") root.service.setRoomName(root.roomId, v, done)
+    else if (root.editing === "topic") root.service.setRoomTopic(root.roomId, v, done)
+    else root.service.invite(root.roomId, v, done)
+  }
+  function act(kind) {
+    if (root.busy || !root.member) return
+    root.busy = true
+    var done = function(r) { root.busy = false; if (!r.ok) { root.fail(r.error || "That did not work"); return } root.member = null; root.loadMembers() }
+    if (kind === "kick") root.service.kick(root.roomId, root.member.id, reasonField.text, done)
+    else root.service.ban(root.roomId, root.member.id, reasonField.text, done)
+  }
+  function doLeave() {
+    if (root.busy) return
+    root.busy = true
+    root.service.leave(root.roomId, function(r) {
+      root.busy = false
+      if (!r.ok) { root.fail(r.error || "Could not leave"); return }
+      root.confirmLeave = false
+      root.leftRoom()
+    })
+  }
 
   Column {
     id: column
@@ -111,10 +154,35 @@ Item {
       }
     }
 
+    // Inline editor for name / topic / invite
+    Column {
+      width: parent.width
+      spacing: Style.space(6)
+      visible: root.editing !== ""
+      Text {
+        text: root.editing === "name" ? "Room name" : root.editing === "topic" ? "Topic" : "Invite by Matrix ID"
+        color: root.fg
+        font.family: root.fontFamily; font.pixelSize: Style.font.subtitle
+      }
+      TextField {
+        id: editField
+        width: parent.width
+        maximumLength: root.editing === "topic" ? 2000 : 256
+        placeholderText: root.editing === "invite" ? "@user:server" : ""
+        enabled: !root.busy
+        onAccepted: root.commitEdit()
+      }
+      Row {
+        spacing: Style.spacing.controlGap
+        Button { text: root.busy ? "…" : (root.editing === "invite" ? "Invite" : "Save"); bordered: true; enabled: !root.busy; onClicked: root.commitEdit() }
+        Button { text: "Cancel"; enabled: !root.busy; onClicked: root.editing = "" }
+      }
+    }
+
     // Topic + alias
     Text {
       width: parent.width
-      visible: root.details && !!root.details.topic
+      visible: root.details && !!root.details.topic && root.editing === ""
       wrapMode: Text.WordWrap
       maximumLineCount: root.compact ? 3 : 6
       elide: Text.ElideRight
@@ -135,6 +203,125 @@ Item {
         color: root.fg; opacity: 0.5
         font.family: root.fontFamily; font.pixelSize: Style.font.caption
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.service.copyText(root.details.alias) }
+      }
+    }
+
+    // Actions
+    Flow {
+      width: parent.width
+      spacing: Style.spacing.controlGap
+      visible: root.details !== null && root.editing === "" && root.member === null
+      Button { visible: root.details && root.details.can_invite; text: "Invite"; iconText: "󰀖"; bordered: true; onClicked: root.startEdit("invite") }
+      Button { visible: root.details && root.details.can_set_name; text: "Rename"; iconText: "󰏫"; onClicked: root.startEdit("name") }
+      Button { visible: root.details && root.details.can_set_topic; text: "Topic"; iconText: "󰏫"; onClicked: root.startEdit("topic") }
+      Button { visible: !root.confirmLeave; text: "Leave"; iconText: "󰗼"; onClicked: root.confirmLeave = true }
+    }
+
+    // Leave confirmation
+    Rectangle {
+      width: parent.width
+      visible: root.confirmLeave
+      implicitHeight: visible ? leaveRow.implicitHeight + Style.space(12) : 0
+      radius: Style.space(8)
+      color: Util.alpha(Color.urgent, 0.12)
+      border.width: 1
+      border.color: Color.urgent
+      Row {
+        id: leaveRow
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.leftMargin: Style.space(12)
+        anchors.rightMargin: Style.space(8)
+        spacing: Style.space(10)
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          width: parent.width - Style.space(10) - leaveButtons.width
+          wrapMode: Text.WordWrap
+          text: "Leave " + (root.details ? root.details.name : "this room") + "? " + (root.details && root.details.join_rule === "public" ? "You can rejoin any time." : "You will need a new invitation to come back.")
+          color: root.fg
+          font.family: root.fontFamily; font.pixelSize: Style.font.caption
+        }
+        Row {
+          id: leaveButtons
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.spacing.controlGap
+          Button { text: root.busy ? "…" : "Leave"; bordered: true; enabled: !root.busy; onClicked: root.doLeave() }
+          Button { text: "Stay"; enabled: !root.busy; onClicked: root.confirmLeave = false }
+        }
+      }
+    }
+
+    // Notifications for this room
+    Row {
+      width: parent.width
+      spacing: Style.space(10)
+      visible: root.details !== null && root.editing === "" && root.member === null
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: "Notify"
+        color: root.fg
+        font.family: root.fontFamily; font.pixelSize: Style.font.caption
+      }
+      Dropdown {
+        width: parent.width - Style.space(10) - Style.space(52)
+        options: [{ value: "all", label: "All messages" }, { value: "mentions", label: "Mentions and keywords only" }, { value: "mute", label: "Muted" }]
+        value: root.details ? root.details.notification_mode : "all"
+        onChanged: function(v) { root.service.setNotificationMode(root.roomId, v, function(r) { if (!r.ok) root.fail(r.error || "Could not change notifications"); else root.details = r.result }) }
+      }
+    }
+
+    // Member sheet
+    Rectangle {
+      width: parent.width
+      visible: root.member !== null
+      implicitHeight: visible ? sheet.implicitHeight + Style.space(24) : 0
+      radius: Style.space(8)
+      color: Util.alpha(root.fg, 0.05)
+      border.width: 1
+      border.color: Util.alpha(root.fg, 0.2)
+      Column {
+        id: sheet
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Style.space(12)
+        spacing: Style.space(8)
+        Row {
+          width: parent.width
+          spacing: Style.space(10)
+          Avatar {
+            anchors.verticalCenter: parent.verticalCenter
+            size: Style.space(40)
+            userId: root.member ? root.member.id : ""
+            name: root.member ? root.member.name : ""
+            mxc: root.member && root.member.avatar ? root.member.avatar : ""
+            service: root.service
+            fontFamily: root.fontFamily
+          }
+          Column {
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width - Style.space(40) - Style.space(10) - sheetClose.width - Style.space(10)
+            Text { width: parent.width; text: root.member ? root.member.name : ""; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true; elide: Text.ElideRight }
+            Text { width: parent.width; text: root.member ? root.member.id + (root.member.role !== "member" ? "  ·  " + (root.member.role === "admin" ? "Admin" : "Moderator") : "") : ""; color: root.fg; opacity: 0.6; font.family: root.fontFamily; font.pixelSize: Style.font.caption; elide: Text.ElideMiddle }
+          }
+          Button { id: sheetClose; anchors.verticalCenter: parent.verticalCenter; iconText: "󰅖"; text: ""; onClicked: root.member = null }
+        }
+        TextField {
+          id: reasonField
+          width: parent.width
+          visible: root.details && (root.details.can_kick || root.details.can_ban) && root.member && root.member.id !== root.service.userId
+          placeholderText: "Reason (optional)"
+          maximumLength: 256
+        }
+        Flow {
+          width: parent.width
+          spacing: Style.spacing.controlGap
+          Button { text: "Message"; iconText: "󰭹"; bordered: true; visible: root.member && root.member.id !== root.service.userId; onClicked: root.memberChosen(root.member) }
+          Button { text: "Copy ID"; iconText: "󰆏"; onClicked: root.service.copyText(root.member.id) }
+          Button { visible: root.details && root.details.can_kick && root.member && root.member.id !== root.service.userId; text: root.busy ? "…" : "Remove"; enabled: !root.busy; onClicked: root.act("kick") }
+          Button { visible: root.details && root.details.can_ban && root.member && root.member.id !== root.service.userId; text: root.busy ? "…" : "Ban"; enabled: !root.busy; onClicked: root.act("ban") }
+        }
       }
     }
 
@@ -240,7 +427,7 @@ Item {
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: root.memberChosen(row.modelData)
+          onClicked: root.member = row.modelData
         }
       }
       Text {

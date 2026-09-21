@@ -347,6 +347,7 @@ Item {
             roomId: root.showInfo ? roomView.roomId : ""
             onCloseRequested: root.showInfo = false
             onMemberChosen: function(m) { root.showInfo = false; roomList.openDm(m.id) }
+            onLeftRoom: { root.showInfo = false; roomView.close() }
           }
         }
 
