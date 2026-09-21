@@ -38,7 +38,8 @@
       "selectionColor": "",
       "checkUpdates": true,
       "roomSort": "activity",
-      "linkPreviews": true
+      "linkPreviews": true,
+      "voiceVolume": 100
     },
     "schema": [
       {
@@ -168,6 +169,17 @@
         "label": "Link previews",
         "defaultValue": true,
         "description": "Show a card for the first link in a message. Your homeserver fetches the page, not this machine."
+      },
+      {
+        "key": "voiceVolume",
+        "type": "integer",
+        "section": "Messages",
+        "label": "Voice playback volume",
+        "defaultValue": 100,
+        "min": 20,
+        "max": 100,
+        "step": 5,
+        "description": "Volume for voice messages, relative to the system output. Voice notes are loudness-normalised on the way in and out."
       },
       {
         "key": "roomSort",

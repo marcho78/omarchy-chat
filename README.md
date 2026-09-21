@@ -134,6 +134,7 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 | `senderColors` | `true` | A stable colour per sender's name |
 | `fontScale` | `100` | Chat text size in percent, 80–150 |
 | `linkPreviews` | `true` | Preview card for the first link in a message (your homeserver fetches the page, not this machine) |
+| `voiceVolume` | `100` | Playback volume for voice messages, 20–100 % of the system output; notes are loudness-normalised on the way in and out |
 | `roomSort` | `activity` | Room list order: `activity` or `name` |
 | `checkUpdates` | `true` | Look for plugin and daemon updates when the panel opens |
 

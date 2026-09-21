@@ -533,7 +533,7 @@ Item {
           }
           MediaPlayer {
             id: player
-            audioOutput: AudioOutput {}
+            audioOutput: AudioOutput { volume: root.service ? root.service.voiceVolume : 1 }
             onMediaStatusChanged: if (mediaStatus === MediaPlayer.EndOfMedia) { player.stop(); player.position = 0 }
             onErrorOccurred: function(e, msg) { root.fetchError = "Could not play: " + msg }
           }
