@@ -80,3 +80,11 @@ function compareVersions(a, b) {
 function oneLine(s) {
   return String(s || "").replace(/\s+/g, " ").trim()
 }
+
+function fileSize(bytes) {
+  var n = Number(bytes) || 0
+  if (n < 1024) return n + " B"
+  if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB"
+  if (n < 1024 * 1024 * 1024) return (n / 1048576).toFixed(1) + " MB"
+  return (n / 1073741824).toFixed(2) + " GB"
+}

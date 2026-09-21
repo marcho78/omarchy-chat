@@ -393,6 +393,12 @@ Item {
     root.request("mark_read", { room: roomId, event_id: eventId }, function(r) { root.refreshRooms(); if (cb) cb(r) })
   }
 
+  // Attachments. The daemon fetches and decrypts into a cache and returns
+  // a local path; thumbnails the same way.
+  function download(roomId, eventId, thumbnail, cb) { root.request("download", { room: roomId, event_id: eventId, thumbnail: thumbnail === true }, cb) }
+  function sendFile(roomId, path, caption, cb) { root.request("send_file", { room: roomId, path: String(path), caption: caption || null }, cb) }
+  function openPath(path) { Quickshell.execDetached(["/usr/bin/xdg-open", String(path)]) }
+
   function searchRooms(query, cb) { root.request("search_rooms", { query: String(query) }, cb) }
   function searchUsers(query, cb) { root.request("search_users", { query: String(query) }, cb) }
   function join(idOrAlias, cb) { root.request("join", { room: String(idOrAlias) }, function(r) { root.refreshRooms(); cb(r) }) }

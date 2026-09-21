@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Commons
+import qs.Ui
 import "Format.js" as Format
 
 // One message. `header` shows avatar, name and time; a follow-up from the
@@ -13,6 +14,10 @@ Item {
   property string body: ""
   property string html: ""
   property string msgtype: "m.text"
+  property var attachment: null
+  property string roomId: ""
+  property string eventId: ""
+  property var service: null
   property real ts: 0
   property bool mine: false
   property bool encrypted: true
@@ -34,6 +39,34 @@ Item {
   readonly property bool avatar: showAvatars && !(bubbles && mine)
   readonly property real gutter: avatar ? avatarSize + Style.space(12) : 0
   readonly property color nameColor: mine ? accent : (senderColors ? Qt.hsla(Format.hueFor(sender) / 360, 0.6, 0.62, 1) : fg)
+  readonly property bool isAttachment: attachment !== null && attachment !== undefined
+  readonly property bool isImage: isAttachment && attachment.kind === "image"
+  property string thumbPath: ""
+  property bool fetching: false
+  property string fetchError: ""
+
+  // Thumbnails load lazily; the daemon caches so re-created rows are cheap.
+  function loadThumb() {
+    if (!root.isImage || root.thumbPath !== "" || root.fetching || !root.service) return
+    root.fetching = true
+    root.service.download(root.roomId, root.eventId, true, function(r) {
+      root.fetching = false
+      if (r.ok) root.thumbPath = r.result.path
+      else root.fetchError = r.error || "Could not load"
+    })
+  }
+  Component.onCompleted: loadThumb()
+  onEventIdChanged: { thumbPath = ""; loadThumb() }
+
+  function openFull() {
+    if (!root.service) return
+    root.fetching = true
+    root.service.download(root.roomId, root.eventId, false, function(r) {
+      root.fetching = false
+      if (r.ok) root.service.openPath(r.result.path)
+      else root.fetchError = r.error || "Could not download"
+    })
+  }
 
   implicitHeight: column.implicitHeight + (header ? Style.space(8) : Style.space(2))
 
@@ -144,10 +177,142 @@ Item {
           }
         }
 
+        // Image attachment: thumbnail sized by the sender's dimensions
+        Item {
+          visible: root.isImage
+          width: parent.width
+          implicitHeight: visible ? imageFrame.height : 0
+
+          Rectangle {
+            id: imageFrame
+            readonly property real maxW: Math.min(parent.width, Style.space(420))
+            readonly property real srcW: root.isImage && root.attachment.width ? Number(root.attachment.width) : 4
+            readonly property real srcH: root.isImage && root.attachment.height ? Number(root.attachment.height) : 3
+            readonly property real ratio: Math.max(0.2, Math.min(3, srcH / srcW))
+            anchors.right: root.bubbles && root.mine ? parent.right : undefined
+            anchors.left: root.bubbles && root.mine ? undefined : parent.left
+            width: Math.min(maxW, thumb.status === Image.Ready ? Math.max(Style.space(120), thumb.implicitWidth) : maxW)
+            height: Math.min(Style.space(420), Math.round(width * ratio))
+            radius: Style.space(10)
+            color: Util.alpha(root.fg, 0.08)
+            clip: true
+
+            Image {
+              id: thumb
+              anchors.fill: parent
+              source: root.thumbPath !== "" ? "file://" + root.thumbPath : ""
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+              sourceSize.width: 1280
+            }
+            Column {
+              anchors.centerIn: parent
+              visible: thumb.status !== Image.Ready
+              spacing: Style.space(4)
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.fetchError !== "" ? "󰋩" : "󰋩"
+                color: root.fg; opacity: 0.4
+                font.family: root.fontFamily; font.pixelSize: Style.font.display
+              }
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.fetchError !== "" ? root.fetchError : (root.fetching || root.thumbPath === "" ? "Loading…" : "")
+                color: root.fg; opacity: 0.5
+                font.family: root.fontFamily; font.pixelSize: Style.font.caption
+              }
+            }
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.openFull()
+              hoverEnabled: true
+              onEntered: caption.opacity = 1
+              onExited: caption.opacity = 0
+            }
+            // Filename + size on hover
+            Rectangle {
+              id: caption
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              height: captionText.implicitHeight + Style.space(10)
+              color: Util.alpha("#000000", 0.55)
+              opacity: 0
+              Behavior on opacity { NumberAnimation { duration: 120 } }
+              Text {
+                id: captionText
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.attachment ? root.attachment.name + (root.attachment.size ? "  ·  " + Format.fileSize(root.attachment.size) : "") : ""
+                color: "#ffffff"
+                elide: Text.ElideRight
+                font.family: root.fontFamily; font.pixelSize: Style.font.caption
+              }
+            }
+          }
+        }
+
+        // File / video / audio attachment: a card with name, size and Open
+        Rectangle {
+          visible: root.isAttachment && !root.isImage
+          anchors.right: root.bubbles && root.mine ? parent.right : undefined
+          anchors.left: root.bubbles && root.mine ? undefined : parent.left
+          width: Math.min(parent.width, Style.space(360))
+          implicitHeight: visible ? Style.space(56) : 0
+          radius: Style.space(10)
+          color: Util.alpha(root.fg, 0.08)
+          border.width: 1
+          border.color: Util.alpha(root.fg, 0.15)
+          Row {
+            anchors.fill: parent
+            anchors.margins: Style.space(10)
+            spacing: Style.space(10)
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.attachment && root.attachment.kind === "video" ? "󰕧" : (root.attachment && root.attachment.kind === "audio" ? "󰝚" : "󰈔")
+              color: root.accent
+              font.family: root.fontFamily; font.pixelSize: Style.font.iconLarge
+            }
+            Column {
+              anchors.verticalCenter: parent.verticalCenter
+              width: parent.width - Style.space(10) * 2 - Style.space(28) - openButton.width
+              spacing: Style.space(1)
+              Text {
+                width: parent.width
+                text: root.attachment ? root.attachment.name : ""
+                color: root.fg
+                elide: Text.ElideMiddle
+                font.family: root.fontFamily; font.pixelSize: root.bodySize
+              }
+              Text {
+                width: parent.width
+                text: root.attachment ? ((root.attachment.size ? Format.fileSize(root.attachment.size) : "") + (root.attachment.mime ? "  ·  " + root.attachment.mime : "")) : ""
+                color: root.fg; opacity: 0.55
+                elide: Text.ElideRight
+                font.family: root.fontFamily; font.pixelSize: root.captionSize
+              }
+            }
+            Button {
+              id: openButton
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.fetching ? "…" : "Open"
+              iconText: "󰈔"
+              bordered: true
+              enabled: !root.fetching
+              onClicked: root.openFull()
+            }
+          }
+        }
+
         // Body: plain in flat style, inside a rounded bubble in bubble style.
         Item {
+          // An attachment's body is just its filename; show it only when it is a caption.
+          visible: !root.isAttachment || (root.attachment && root.body !== root.attachment.name)
           width: parent.width
-          implicitHeight: bubble.implicitHeight
+          implicitHeight: visible ? bubble.implicitHeight : 0
 
           Rectangle {
             id: bubble

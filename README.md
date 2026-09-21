@@ -17,6 +17,7 @@ you build from source on your own machine. **No binary is downloaded, ever.**
 | Dimmed while signed out | **Room** creates one — end-to-end encrypted and private by default |
 | Notifications for rooms no view is showing | Invitations with Accept / Decline; Leave room |
 | | Recent history, live messages, composer; Enter sends |
+| | Images inline (click to open), files as cards with Open; send with 📎, drag-and-drop, or Ctrl+V an image — encrypted in encrypted rooms |
 | | Sign in with the browser (Google, GitHub, a password — whatever the homeserver offers) or with a password |
 
 The popup is for a quick reply from the bar. The window is a normal
@@ -204,7 +205,7 @@ omarchy-yapperd --socket /tmp/chat-test.sock --data-dir /tmp/chat-test-data
 
 ## Not yet
 
-Attachments, scrollback, read markers, replies and edits (in progress);
+Scrollback, read markers, replies and edits (in progress);
 then reactions, typing indicators, member lists and more. See the daemon's
 roadmap.
 

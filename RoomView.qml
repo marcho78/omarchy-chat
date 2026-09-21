@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "Format.js" as Format
@@ -71,6 +73,7 @@ Item {
       body: m.body,
       html: m.html || "",
       msgtype: m.msgtype || "m.text",
+      attachmentJson: m.attachment ? JSON.stringify(m.attachment) : "",
       ts: ts,
       mine: m.sender === root.service.userId,
       encrypted: m.encrypted === true,
@@ -100,6 +103,43 @@ Item {
     })
   }
 
+  // ---------- attachments ----------
+
+  property int uploads: 0
+  function sendFiles(paths) {
+    for (var i = 0; i < paths.length; i++) {
+      var p = String(paths[i]).replace(/^file:\/\//, "")
+      if (p === "") continue
+      root.uploads++
+      root.service.sendFile(root.roomId, p, "", function(r) {
+        root.uploads--
+        if (!r.ok) root.errorText = r.error || "Could not send the file"
+      })
+    }
+  }
+
+  FileDialog {
+    id: fileDialog
+    title: "Send a file"
+    fileMode: FileDialog.OpenFiles
+    onAccepted: root.sendFiles(selectedFiles)
+  }
+
+  // Ctrl+V with an image on the clipboard sends it; otherwise it pastes text.
+  Process {
+    id: pasteProc
+    property string out: ""
+    command: ["/usr/bin/bash", "-c",
+      "if wl-paste -l 2>/dev/null | grep -q '^image/'; then f=\"${XDG_RUNTIME_DIR:-/tmp}/yapper-paste-$(date +%s%N).png\"; wl-paste -t image/png > \"$f\" && echo \"$f\"; fi"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { pasteProc.out += d } }
+    onStarted: out = ""
+    onExited: function() {
+      var p = pasteProc.out.trim()
+      if (p !== "") root.sendFiles([p])
+      else composer.paste()
+    }
+  }
+
   function leave() {
     if (!root.roomId || root.busy) return
     root.busy = true
@@ -109,6 +149,29 @@ Item {
       root.close()
       root.roomLeft()
     })
+  }
+
+  DropArea {
+    id: drop
+    anchors.fill: parent
+    enabled: root.roomId !== ""
+    onDropped: function(d) { if (d.hasUrls) { root.sendFiles(d.urls); d.accept() } }
+  }
+  Rectangle {
+    anchors.fill: parent
+    visible: drop.containsDrag
+    z: 10
+    radius: Style.space(8)
+    color: Util.alpha(root.service ? root.service.accent : Color.accent, 0.12)
+    border.width: 2
+    border.color: root.service ? root.service.accent : Color.accent
+    Text {
+      anchors.centerIn: parent
+      text: "󰁦  Drop to send" + (root.encrypted ? " (encrypted)" : "")
+      color: root.fg
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.title
+    }
   }
 
   Column {
@@ -134,6 +197,10 @@ Item {
         body: model.body
         html: model.html
         msgtype: model.msgtype
+        attachment: model.attachmentJson !== "" ? JSON.parse(model.attachmentJson) : null
+        roomId: root.roomId
+        eventId: model.eventId
+        service: root.service
         ts: model.ts
         mine: model.mine
         encrypted: model.encrypted
@@ -155,13 +222,27 @@ Item {
       id: composerRow
       width: parent.width
       spacing: Style.spacing.controlGap
+      Button {
+        id: attachButton
+        iconText: "󰁦"
+        text: ""
+        enabled: !root.busy && root.roomId !== ""
+        onClicked: fileDialog.open()
+      }
       TextField {
         id: composer
-        width: parent.width - sendButton.width - Style.spacing.controlGap
+        width: parent.width - sendButton.width - attachButton.width - 2 * Style.spacing.controlGap
         maximumLength: 4000
-        placeholderText: root.encrypted ? "Encrypted message…" : "Message (not encrypted)…"
+        placeholderText: root.uploads > 0 ? "Sending " + root.uploads + " file" + (root.uploads === 1 ? "" : "s") + "…"
+          : (root.encrypted ? "Encrypted message…" : "Message (not encrypted)…")
         enabled: !root.busy && root.roomId !== ""
         onAccepted: root.send()
+        Keys.onPressed: function(event) {
+          if (event.key === Qt.Key_V && (event.modifiers & Qt.ControlModifier)) {
+            event.accepted = true
+            if (!pasteProc.running) pasteProc.running = true
+          }
+        }
       }
       Button {
         id: sendButton
