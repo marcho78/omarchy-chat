@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
+import "Format.js" as Format
 
 // One room: recent history, live messages, composer. Set `room` (an object
 // from the service's room list or a command result) to show it; clear it
@@ -55,15 +56,25 @@ Item {
   // Visibility toggles whether we count as "viewing" for notifications.
   onVisibleChanged: if (root.service) root.service.setViewing(root.viewId, visible ? root.roomId : "")
 
+  // Group a message under the previous header when it is the same sender
+  // within five minutes on the same day; start a day divider on a new day.
+  readonly property int groupWindowMs: 5 * 60 * 1000
   function append(m) {
+    var ts = Number(m.ts) || 0
+    var prev = msgModel.count > 0 ? msgModel.get(msgModel.count - 1) : null
+    var newDay = !prev || !Format.isSameDay(prev.ts, ts)
+    var header = newDay || !prev || prev.sender !== m.sender || (ts - prev.ts) > groupWindowMs
     msgModel.append({
       eventId: m.event_id,
       sender: m.sender,
       senderName: m.sender_name || m.sender,
       body: m.body,
-      ts: Number(m.ts) || 0,
+      html: m.html || "",
+      ts: ts,
       mine: m.sender === root.service.userId,
-      encrypted: m.encrypted === true
+      encrypted: m.encrypted === true,
+      header: header,
+      dayLabel: newDay ? Format.dayLabel(ts, Date.now()) : ""
     })
     Qt.callLater(function() { msgList.positionViewAtEnd() })
   }
@@ -112,42 +123,22 @@ Item {
       width: parent.width
       height: root.fillHeight ? column.height - composerRow.height - (leaveButton.visible ? leaveButton.height : 0) - errorLabel.height - column.spacing * 3 : root.timelineHeight
       clip: true
-      spacing: Style.space(6)
+      spacing: 0
       model: msgModel
-      delegate: Column {
-        required property string senderName
-        required property string body
-        required property real ts
-        required property bool mine
-        required property bool encrypted
+      delegate: MessageRow {
+        required property var model
         width: msgList.width
-        spacing: Style.space(1)
-
-        Row {
-          spacing: Style.space(6)
-          Text {
-            text: senderName
-            color: mine ? Color.accent : root.fg
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            font.bold: true
-          }
-          Text {
-            text: root.service.timeText(ts) + (encrypted ? "" : " 󰌿")
-            color: root.fg
-            opacity: 0.5
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-          }
-        }
-        Text {
-          width: parent.width
-          text: body
-          wrapMode: Text.Wrap
-          color: root.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-        }
+        sender: model.sender
+        senderName: model.senderName
+        body: model.body
+        html: model.html
+        ts: model.ts
+        mine: model.mine
+        encrypted: model.encrypted
+        header: model.header
+        dayLabel: model.dayLabel
+        fg: root.fg
+        fontFamily: root.fontFamily
       }
     }
 

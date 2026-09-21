@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
+import "Format.js" as Format
 
 // Find / create / invitations / rooms. Emits roomChosen(room) when the user
 // picks or lands in a room; the parent decides where to show it.
@@ -279,12 +280,124 @@ Column {
     }
   }
 
+  readonly property var directRooms: root.service ? root.service.rooms.filter(function(r) { return r.direct === true }) : []
+  readonly property var groupRooms: root.service ? root.service.rooms.filter(function(r) { return r.direct !== true }) : []
+
+  // A row in either section.
+  component RoomRow: Item {
+    id: row
+    required property var modelData
+    property bool direct: false
+    width: root.width
+    implicitHeight: Style.space(38)
+
+    readonly property int unread: Number(modelData.unread) || 0
+    readonly property bool selected: modelData.id === root.currentRoom
+    // For a DM the room name is the other person; derive an id-ish key for the colour.
+    readonly property string avatarKey: String(modelData.name)
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Style.space(6)
+      color: row.selected ? Color.menu.selectedBackground
+        : (rowMouse.containsMouse ? Util.alpha(Color.menu.selectedBackground, 0.5) : "transparent")
+    }
+    Row {
+      anchors.fill: parent
+      anchors.leftMargin: Style.space(8)
+      anchors.rightMargin: Style.space(8)
+      spacing: Style.space(10)
+
+      Item {
+        width: Style.space(26)
+        height: parent.height
+        Avatar {
+          visible: row.direct
+          anchors.centerIn: parent
+          size: Style.space(26)
+          userId: row.avatarKey
+          name: row.modelData.name
+          fontFamily: root.fontFamily
+        }
+        Text {
+          visible: !row.direct
+          anchors.centerIn: parent
+          text: row.modelData.encrypted ? "󰌾" : "󰌿"
+          color: row.modelData.encrypted ? Color.accent : Color.urgent
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+        }
+      }
+      Column {
+        anchors.verticalCenter: parent.verticalCenter
+        width: parent.width - Style.space(26) - Style.space(10) - (badge.visible ? badge.width + Style.space(10) : 0)
+        spacing: Style.space(1)
+        Text {
+          width: parent.width
+          text: row.modelData.name
+          color: row.selected ? Color.menu.selectedText : root.fg
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: row.unread > 0
+          elide: Text.ElideRight
+        }
+        Text {
+          visible: !row.direct && !!row.modelData.topic
+          width: parent.width
+          text: row.modelData.topic || ""
+          color: root.fg
+          opacity: 0.45
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          elide: Text.ElideRight
+        }
+      }
+      Rectangle {
+        id: badge
+        anchors.verticalCenter: parent.verticalCenter
+        visible: row.unread > 0
+        width: Math.max(badgeText.implicitWidth + Style.space(10), Style.space(20))
+        height: Style.space(18)
+        radius: height / 2
+        color: (Number(row.modelData.highlights) || 0) > 0 ? Color.urgent : Color.accent
+        Text {
+          id: badgeText
+          anchors.centerIn: parent
+          text: row.unread > 99 ? "99+" : String(row.unread)
+          color: Color.background
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+      }
+    }
+    MouseArea {
+      id: rowMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.roomChosen(row.modelData)
+    }
+  }
+
+  // Direct messages
+  Column {
+    width: parent.width
+    spacing: Style.space(2)
+    visible: root.directRooms.length > 0
+    PanelSectionHeader { text: "Direct messages" }
+    Repeater {
+      model: root.directRooms
+      delegate: RoomRow { direct: true }
+    }
+  }
+
   // Rooms
   Column {
     width: parent.width
     spacing: Style.space(2)
 
-    PanelSectionHeader { text: "Rooms"; visible: root.service && root.service.rooms.length > 0 }
+    PanelSectionHeader { text: "Rooms"; visible: root.groupRooms.length > 0 }
 
     Text {
       width: parent.width
@@ -300,60 +413,8 @@ Column {
     }
 
     Repeater {
-      model: root.service ? root.service.rooms : []
-      delegate: Item {
-        id: roomRow
-        required property var modelData
-        width: root.width
-        implicitHeight: Style.space(34)
-
-        Rectangle {
-          anchors.fill: parent
-          radius: Style.space(6)
-          color: roomRow.modelData.id === root.currentRoom ? Color.menu.selectedBackground
-            : (rowMouse.containsMouse ? Util.alpha(Color.menu.selectedBackground, 0.5) : "transparent")
-        }
-        Row {
-          anchors.fill: parent
-          anchors.leftMargin: Style.space(8)
-          anchors.rightMargin: Style.space(8)
-          spacing: Style.space(8)
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: roomRow.modelData.direct ? "󰭹" : (roomRow.modelData.encrypted ? "󰌾" : "󰌿")
-            color: roomRow.modelData.encrypted ? Color.accent : Color.urgent
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-          }
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - Style.space(60)
-            text: roomRow.modelData.name
-            color: root.fg
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-            font.bold: (Number(roomRow.modelData.unread) || 0) > 0
-            elide: Text.ElideRight
-          }
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: (Number(roomRow.modelData.unread) || 0) > 0
-            text: String(roomRow.modelData.unread)
-            color: (Number(roomRow.modelData.highlights) || 0) > 0 ? Color.urgent : Color.accent
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            font.bold: true
-          }
-        }
-        MouseArea {
-          id: rowMouse
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.roomChosen(roomRow.modelData)
-        }
-      }
+      model: root.groupRooms
+      delegate: RoomRow {}
     }
   }
 
