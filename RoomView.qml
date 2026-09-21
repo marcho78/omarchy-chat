@@ -67,11 +67,12 @@ Item {
   property string lastEventId: ""
   readonly property bool atEnd: msgList.atYEnd || msgList.contentHeight <= msgList.height
   function maybeMarkRead() {
-    if (root.inThread || !root.roomId || !root.visible || !root.atEnd || root.lastEventId === "") return
+    if (!root.roomId || !root.visible || !root.atEnd || root.lastEventId === "") return
     if (root.pendingNew === 0 && root.readUpTo === root.lastEventId) return
     root.pendingNew = 0
     root.readUpTo = root.lastEventId
-    root.service.markRead(root.roomId, root.lastEventId)
+    if (root.inThread) root.service.markThreadRead(root.roomId, root.threadRoot, root.lastEventId)
+    else root.service.markRead(root.roomId, root.lastEventId)
   }
   property string readUpTo: ""
   onAtEndChanged: if (atEnd) maybeMarkRead()
@@ -324,6 +325,7 @@ Item {
     var cur = msgModel.get(i).threadJson
     var t = cur !== "" ? JSON.parse(cur) : { replies: 0 }
     t.replies = (t.replies || 0) + 1
+    if (m.sender !== root.service.userId) t.unread = (t.unread || 0) + 1
     t.latest_ts = Number(m.ts) || Date.now()
     t.latest_sender = m.sender
     t.latest_sender_name = m.sender_name || m.sender
@@ -436,6 +438,15 @@ Item {
       msgModel.setProperty(i, "body", e.body)
       msgModel.setProperty(i, "html", e.html || "")
       msgModel.setProperty(i, "edited", true)
+    }
+    function onThreadRead(roomId, rootId) {
+      if (root.inThread || roomId !== root.roomId) return
+      var i = root.indexOfEvent(rootId)
+      if (i < 0) return
+      var cur = msgModel.get(i).threadJson
+      if (cur === "") return
+      var t = JSON.parse(cur); t.unread = 0
+      msgModel.setProperty(i, "threadJson", JSON.stringify(t))
     }
     function onMessageReceived(m) {
       if (!root.roomId || m.room !== root.roomId) return

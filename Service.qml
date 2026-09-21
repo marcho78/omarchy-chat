@@ -495,6 +495,13 @@ Item {
     if (!roomId || !eventId) return
     root.request("mark_read", { room: roomId, event_id: eventId }, function(r) { root.refreshRooms(); if (cb) cb(r) })
   }
+  // A thread read up to `eventId`: a threaded receipt; the room view is
+  // told so the root's chip drops its "new" count.
+  signal threadRead(string roomId, string rootId)
+  function markThreadRead(roomId, rootId, eventId) {
+    if (!roomId || !rootId || !eventId) return
+    root.request("mark_read", { room: roomId, event_id: eventId, thread: rootId }, function(r) { if (r.ok) root.threadRead(roomId, rootId) })
+  }
 
   // Avatars: mxc:// URL -> local path, resolved once and shared by every
   // view. Reassigning the map is what makes bindings notice.

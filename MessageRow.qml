@@ -669,6 +669,7 @@ Item {
         // Thread summary under a root: click opens the thread
         Item {
           readonly property int replies: root.threadInfo ? Number(root.threadInfo.replies) || 0 : 0
+          readonly property int unread: root.threadInfo ? Number(root.threadInfo.unread) || 0 : 0
           visible: !root.inThread && replies > 0
           width: parent.width
           implicitHeight: visible ? Style.space(26) : 0
@@ -699,6 +700,22 @@ Item {
                   + (root.threadInfo && root.threadInfo.latest_ts ? Format.timeOf(Number(root.threadInfo.latest_ts)) : "")
                 color: root.fg; opacity: 0.6
                 font.family: root.fontFamily; font.pixelSize: Style.font.caption
+              }
+              // Unread replies: a small accent pill
+              Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: parent.parent.parent.unread > 0
+                width: threadNewText.implicitWidth + Style.space(12)
+                height: Style.space(18)
+                radius: height / 2
+                color: root.accent
+                Text {
+                  id: threadNewText
+                  anchors.centerIn: parent
+                  text: parent.parent.parent.parent.unread + " new"
+                  color: root.bg
+                  font.family: root.fontFamily; font.pixelSize: Style.font.caption - 1; font.bold: true
+                }
               }
             }
             MouseArea { id: threadMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.threadRequested() }
