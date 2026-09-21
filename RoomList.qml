@@ -30,7 +30,11 @@ Column {
   spacing: Style.space(8)
 
   function fail(msg) { root.errorText = msg }
-  function clearResults() { root.results = []; root.resultsKind = ""; searchField.text = "" }
+  // Results take the list's place until cleared: the ✕ in the field, Esc,
+  // emptying the field, the header's Back, or picking a result.
+  readonly property bool showingResults: results.length > 0
+  property string resultsQuery: ""
+  function clearResults() { root.results = []; root.resultsKind = ""; root.resultsQuery = ""; root.errorText = ""; searchField.text = "" }
   function focusSearch() { searchField.forceActiveFocus() }
   readonly property bool hasTextFocus: searchField.activeFocus || newRoomName.activeFocus
 
@@ -49,7 +53,7 @@ Column {
       root.service.searchUsers(text.substring(1), function(r) {
         root.searching = false
         if (!r.ok) { root.fail(r.error || "Search failed"); return }
-        root.results = r.result; root.resultsKind = "users"
+        root.results = r.result; root.resultsKind = "users"; root.resultsQuery = text
         if (r.result.length === 0) root.fail("No one found for " + text)
       })
       return
@@ -58,7 +62,7 @@ Column {
     root.service.searchRooms(text, function(r) {
       root.searching = false
       if (!r.ok) { root.fail(r.error || "Search failed"); return }
-      root.results = r.result; root.resultsKind = "rooms"
+      root.results = r.result; root.resultsKind = "rooms"; root.resultsQuery = text
       if (r.result.length === 0) root.fail("No public rooms match \"" + text + "\"")
     })
   }
@@ -107,7 +111,30 @@ Column {
       maximumLength: 256
       placeholderText: "Find rooms · #alias · @user"
       enabled: !root.searching
+      rightPadding: clearGlyph.visible ? clearGlyph.width + Style.space(12) : Style.spacing.controlPaddingX
       onAccepted: root.search(searchField.text)
+      onTextChanged: if (text === "" && root.showingResults) root.clearResults()
+      Keys.onEscapePressed: function(event) { if (searchField.text !== "" || root.showingResults) { event.accepted = true; root.clearResults() } }
+      // ✕ inside the field once there is something to clear.
+      Text {
+        id: clearGlyph
+        visible: searchField.text !== "" || root.showingResults
+        anchors.right: parent.right
+        anchors.rightMargin: Style.space(8)
+        anchors.verticalCenter: parent.verticalCenter
+        text: "󰅖"
+        color: root.fg
+        opacity: clearMouse.containsMouse ? 1 : 0.5
+        font.family: root.fontFamily; font.pixelSize: Style.font.body
+        MouseArea {
+          id: clearMouse
+          anchors.fill: parent
+          anchors.margins: -Style.space(6)
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: { root.clearResults(); searchField.forceActiveFocus() }
+        }
+      }
     }
     Button {
       id: findButton
@@ -176,9 +203,25 @@ Column {
 
     Item {
       width: parent.width
-      implicitHeight: resultsHeader.implicitHeight
-      PanelSectionHeader { id: resultsHeader; text: root.resultsKind === "users" ? "People" : "Public rooms" }
-      Button { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Clear"; onClicked: root.clearResults() }
+      implicitHeight: Math.max(resultsHeader.implicitHeight, backButton.implicitHeight)
+      PanelSectionHeader {
+        id: resultsHeader
+        anchors.left: parent.left
+        anchors.right: backButton.left
+        anchors.rightMargin: Style.space(8)
+        anchors.verticalCenter: parent.verticalCenter
+        elide: Text.ElideRight
+        text: (root.resultsKind === "users" ? "People" : "Public rooms") + " · " + root.results.length + " for \"" + root.resultsQuery + "\""
+      }
+      Button {
+        id: backButton
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        iconText: "󰅖"
+        text: "Back to rooms"
+        bordered: true
+        onClicked: root.clearResults()
+      }
     }
 
     Repeater {
@@ -441,7 +484,7 @@ Column {
   Flow {
     width: parent.width
     spacing: Style.space(6)
-    visible: root.service && root.service.spaces.length > 0
+    visible: !root.showingResults && root.service && root.service.spaces.length > 0
     component SpaceChip: Rectangle {
       property string spaceId: ""
       property string label: ""
@@ -488,7 +531,7 @@ Column {
   Column {
     width: parent.width
     spacing: Style.space(2)
-    visible: root.favouriteRooms.length > 0
+    visible: !root.showingResults && root.favouriteRooms.length > 0
     PanelSectionHeader { text: "Favourites" }
     Repeater {
       model: root.favouriteRooms
@@ -500,7 +543,7 @@ Column {
   Column {
     width: parent.width
     spacing: Style.space(2)
-    visible: root.directRooms.length > 0
+    visible: !root.showingResults && root.directRooms.length > 0
     PanelSectionHeader { text: "Direct messages" }
     Repeater {
       model: root.directRooms
@@ -512,6 +555,7 @@ Column {
   Column {
     width: parent.width
     spacing: Style.space(2)
+    visible: !root.showingResults
 
     PanelSectionHeader { text: "Rooms"; visible: root.groupRooms.length > 0 }
 
