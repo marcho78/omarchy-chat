@@ -23,6 +23,9 @@ Column {
   property bool showNewRoom: false
 
   signal roomChosen(var room)
+  signal searchRequested()
+  // The window shows a message-search button; the popup has no room for it.
+  property bool showSearchButton: false
 
   spacing: Style.space(8)
 
@@ -100,7 +103,7 @@ Column {
     spacing: Style.spacing.controlGap
     TextField {
       id: searchField
-      width: parent.width - findButton.width - newRoomButton.width - 2 * Style.spacing.controlGap
+      width: parent.width - findButton.width - newRoomButton.width - (msgSearchButton.visible ? msgSearchButton.width + Style.spacing.controlGap : 0) - 2 * Style.spacing.controlGap
       maximumLength: 256
       placeholderText: "Find rooms · #alias · @user"
       enabled: !root.searching
@@ -108,15 +111,22 @@ Column {
     }
     Button {
       id: findButton
-      text: root.searching ? "…" : "Find"
-      iconText: "󰍉"
+      text: root.searching ? "…" : (root.showSearchButton ? "" : "Find")
+      iconText: "󰊫"
       enabled: !root.searching
       onClicked: root.search(searchField.text)
     }
     Button {
+      id: msgSearchButton
+      visible: root.showSearchButton
+      iconText: "󰍉"
+      text: ""
+      onClicked: root.searchRequested()
+    }
+    Button {
       id: newRoomButton
       iconText: "󰐕"
-      text: "Room"
+      text: root.showSearchButton ? "" : "Room"
       bordered: true
       onClicked: { root.showNewRoom = !root.showNewRoom; if (root.showNewRoom) Qt.callLater(function() { newRoomName.forceActiveFocus() }) }
     }

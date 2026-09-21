@@ -90,3 +90,21 @@ function fileSize(bytes) {
   if (n < 1024 * 1024 * 1024) return (n / 1048576).toFixed(1) + " MB"
   return (n / 1073741824).toFixed(2) + " GB"
 }
+
+// Escape for rich text and mark the query's words in the accent colour.
+function highlightMatch(text, query, color) {
+  var plain = String(text).replace(/\s+/g, " ")
+  // Keep the snippet around the first match so long messages stay short.
+  var first = String(query || "").split(/\s+/)[0] || ""
+  var at = first ? plain.toLowerCase().indexOf(first.toLowerCase()) : -1
+  var start = at > 120 ? at - 80 : 0
+  if (plain.length - start > 260) plain = (start > 0 ? "…" : "") + plain.substr(start, 260) + "…"
+  else if (start > 0) plain = "…" + plain.substr(start)
+  var out = escapeHtml(plain)
+  var words = String(query || "").split(/\s+/).filter(function(w) { return w.length > 1 })
+  for (var i = 0; i < words.length; i++) {
+    var re = new RegExp("(" + words[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig")
+    out = out.replace(re, '<span style="color:' + color + '"><b>$1</b></span>')
+  }
+  return out
+}

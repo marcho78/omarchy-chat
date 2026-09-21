@@ -31,6 +31,12 @@ Item {
   property bool showSettings: false
   onShowSettingsChanged: if (showSettings) settingsFlick.contentY = 0
   property bool showInfo: false
+  property bool showSearch: false
+  function openSearch(scoped) {
+    root.showSearch = true
+    searchView.inRoom = scoped && root.inRoom
+    Qt.callLater(searchView.focusField)
+  }
 
   // ---- plugin lifecycle ----------------------------------------------------
 
@@ -46,6 +52,7 @@ Item {
         if (p && p.settings === true) root.showSettings = true
         if (p && typeof p.pick === "string") { root.showSettings = true; settingsView.pickKey = p.pick }
         if (p && p.info === true) root.showInfo = true
+        if (p && typeof p.search === "string") { root.openSearch(false); searchView.reset(); }
         if (p && typeof p.space === "string" && service) service.currentSpace = p.space
       } catch (e) { /* ignore */ }
     }
@@ -54,7 +61,8 @@ Item {
         var r = service.roomById(wanted)
         if (r) root.openRoom(r)
       }
-      if (roomView.roomId !== "") roomView.focusComposer()
+      if (root.showSearch) searchView.focusField()
+      else if (roomView.roomId !== "") roomView.focusComposer()
       else if (gate.visible) gate.focusFirst()
       else roomList.focusSearch()
     })
@@ -237,7 +245,9 @@ Item {
               fg: root.fg
               fontFamily: root.fontFamily
               currentRoom: roomView.roomId
+              showSearchButton: true
               onRoomChosen: function(r) { root.openRoom(r) }
+              onSearchRequested: root.openSearch(false)
             }
           }
         }
@@ -305,7 +315,7 @@ Item {
         // Empty state
         Column {
           anchors.centerIn: parent
-          visible: !root.inRoom && !root.showSettings
+          visible: !root.inRoom && !root.showSettings && !root.showSearch
           spacing: Style.space(6)
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -318,6 +328,31 @@ Item {
             text: "Pick a room, or find one on the left."
             color: root.fg; opacity: 0.5
             font.family: root.fontFamily; font.pixelSize: Style.font.body
+          }
+        }
+
+        // Search pane: takes the conversation area
+        Item {
+          anchors.fill: parent
+          visible: root.showSearch && !root.showSettings
+          z: 2
+          Rectangle { anchors.fill: parent; color: root.bg }
+          SearchView {
+            id: searchView
+            anchors.fill: parent
+            service: root.service
+            fg: root.fg
+            fontFamily: root.fontFamily
+            roomId: roomView.roomId
+            roomName: roomView.roomName
+            onCloseRequested: root.showSearch = false
+            onOpenMessage: function(rid, eid) {
+              root.showSearch = false
+              var r = root.service.roomById(rid)
+              if (!r) return
+              if (roomView.roomId === rid) roomView.jumpTo(eid)
+              else roomView.openAt(r, eid)
+            }
           }
         }
 
@@ -354,7 +389,7 @@ Item {
 
         Column {
           anchors.fill: parent
-          visible: root.inRoom && !root.showSettings
+          visible: root.inRoom && !root.showSettings && !root.showSearch
           spacing: Style.space(10)
 
           // Room header (click for room info)
@@ -403,14 +438,13 @@ Item {
                 elide: Text.ElideRight
               }
             }
-            Button {
+            Row {
               id: infoButton
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              iconText: "󰋽"
-              text: ""
-              bordered: root.showInfo
-              onClicked: root.showInfo = !root.showInfo
+              spacing: Style.spacing.controlGap
+              Button { iconText: "󰍉"; text: ""; bordered: root.showSearch; onClicked: root.openSearch(true) }
+              Button { iconText: "󰋽"; text: ""; bordered: root.showInfo; onClicked: root.showInfo = !root.showInfo }
             }
           }
 
@@ -425,7 +459,7 @@ Item {
             viewId: "window"
             fg: root.fg
             fontFamily: root.fontFamily
-            visible: root.inRoom && !root.showSettings && window.visible
+            visible: root.inRoom && !root.showSettings && !root.showSearch && window.visible
           }
         }
       }

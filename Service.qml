@@ -481,6 +481,7 @@ Item {
     })
   }
   function roomDetails(roomId, cb) { root.request("room_details", { room: roomId }, cb) }
+  function searchMessages(query, roomId, cb) { root.request("search", { query: String(query), room: roomId || null, limit: 60 }, cb) }
   function invite(roomId, userId, cb) { root.request("invite", { room: roomId, user: userId }, cb) }
   function kick(roomId, userId, reason, cb) { root.request("kick", { room: roomId, user: userId, reason: reason || null }, cb) }
   function ban(roomId, userId, reason, cb) { root.request("ban", { room: roomId, user: userId, reason: reason || null }, cb) }

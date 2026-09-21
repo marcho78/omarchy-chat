@@ -81,9 +81,18 @@ Item {
     }
   }
 
+  // Open a room and land on a specific message (from search).
+  function openAt(r, eventId) {
+    root.open(r)
+    root.pendingJump = eventId
+  }
+  property string pendingJump: ""
+
   function open(r) {
     root.room = r
     root.errorText = ""
+    root.pendingJump = ""
+    root.jumpTarget = ""
     root.nextToken = ""
     root.loadingOlder = false
     root.pendingNew = 0
@@ -110,7 +119,12 @@ Item {
       }
       root.lastEventId = list[list.length - 1].event_id
       root.readUpTo = marker
-      if (dividerAt > 0) {
+      if (root.pendingJump !== "") {
+        var target = root.pendingJump
+        root.pendingJump = ""
+        root.stickToEnd = false
+        Qt.callLater(function() { root.jumpTo(target) })
+      } else if (dividerAt > 0) {
         msgModel.setProperty(dividerAt, "newDivider", true)
         msgModel.setProperty(dividerAt, "header", true)
         root.stickToEnd = false
@@ -134,6 +148,12 @@ Item {
       if (!res.ok) { root.errorText = res.error || "Could not load earlier messages"; return }
       root.nextToken = res.result.next || ""
       root.prepend(res.result.messages)
+      if (root.jumpTarget !== "") {
+        var t = root.jumpTarget
+        var idx = root.indexOfEvent(t)
+        if (idx >= 0) { root.jumpTarget = ""; Qt.callLater(function() { root.jumpTo(t) }) }
+        else Qt.callLater(root.loadOlderForJump)
+      }
     })
   }
 
@@ -391,7 +411,18 @@ Item {
 
   function jumpTo(eventId) {
     var i = root.indexOfEvent(eventId)
-    if (i >= 0) { msgList.positionViewAtIndex(i, ListView.Center); root.flashIndex = i; flashTimer.restart() }
+    if (i >= 0) { root.stickToEnd = false; msgList.positionViewAtIndex(i, ListView.Center); root.flashIndex = i; flashTimer.restart(); return }
+    // Not loaded yet: page back until it is, within reason.
+    root.jumpTarget = eventId
+    root.jumpPagesLeft = 15
+    root.loadOlderForJump()
+  }
+  property string jumpTarget: ""
+  property int jumpPagesLeft: 0
+  function loadOlderForJump() {
+    if (root.jumpTarget === "" || root.jumpPagesLeft <= 0 || !root.hasOlder || root.loadingOlder) { if (root.jumpTarget !== "" && !root.loadingOlder) { root.jumpTarget = ""; root.errorText = "That message is further back than could be loaded" } return }
+    root.jumpPagesLeft--
+    root.loadOlder()
   }
   property int flashIndex: -1
   Timer { id: flashTimer; interval: 1200; onTriggered: root.flashIndex = -1 }
