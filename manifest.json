@@ -5,16 +5,20 @@
   "version": "0.1.0",
   "author": "marcho78",
   "license": "MIT",
-  "description": "End-to-end encrypted chat from the bar. Matrix (Olm/Megolm) via the omarchy-chatd daemon; the shell never touches a key.",
+  "description": "End-to-end encrypted chat from the bar or as a window. Matrix (Olm/Megolm) via the omarchy-chatd daemon; the shell never touches a key.",
   "kinds": [
-    "bar-widget"
+    "service",
+    "bar-widget",
+    "panel"
   ],
   "entryPoints": {
-    "barWidget": "Panel.qml"
+    "service": "Service.qml",
+    "barWidget": "Panel.qml",
+    "panel": "Window.qml"
   },
   "barWidget": {
     "displayName": "Chat",
-    "description": "Encrypted Matrix chat: rooms, unread count and a composer in a bar panel.",
+    "description": "Encrypted Matrix chat: rooms, unread count and a composer in a bar panel; middle-click or the App button opens the full window.",
     "category": "Communication",
     "allowMultiple": false,
     "defaultSection": "right",
@@ -45,5 +49,6 @@
         "description": "Runs 'systemctl --user start omarchy-chatd' if the daemon is installed but not running."
       }
     ]
-  }
+  },
+  "keepLoaded": true
 }

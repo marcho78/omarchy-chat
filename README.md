@@ -1,8 +1,8 @@
 # Chat for Omarchy
 
-End-to-end encrypted chat from the bar. It speaks Matrix, so it talks to
-Element and everyone else on the network; encryption is Olm/Megolm via
-matrix-rust-sdk, the same stack as Element X.
+End-to-end encrypted chat, in the bar and as a window. It speaks Matrix, so
+it talks to Element and everyone else on the network; encryption is
+Olm/Megolm via matrix-rust-sdk, the same stack as Element X.
 
 The plugin is QML only. Everything that touches keys or the network lives in
 [omarchy-chatd](https://github.com/marcho78/omarchy-chatd), a small daemon
@@ -10,12 +10,19 @@ you build from source on your own machine. **No binary is downloaded, ever.**
 
 ## What you get
 
-| In the bar | In the panel |
+| In the bar | In the popup and the window |
 |---|---|
-| Chat glyph with the unread count | Room list, unread and highlight counts, encrypted rooms marked 󰌾 |
-| Left click opens the panel, middle click refreshes | One room at a time: recent history, live messages, composer |
-| Dimmed while signed out | Enter sends, Escape goes back to the list, Escape again closes |
-| Notifications for rooms you are not looking at | Sign in and sign out; the daemon keeps a token, never the password |
+| Chat glyph with the unread count | Rooms with unread and highlight counts; encrypted rooms marked 󰌾, DMs 󰭹 |
+| Left click opens the popup, middle click opens the window | **Find**: a word searches the public directory, `#alias:server` joins, `@user:server` opens a DM, `@name` finds people |
+| Dimmed while signed out | **Room** creates one — end-to-end encrypted and private by default |
+| Notifications for rooms no view is showing | Invitations with Accept / Decline; Leave room |
+| | Recent history, live messages, composer; Enter sends |
+| | Sign in with the browser (Google, GitHub, a password — whatever the homeserver offers) or with a password |
+
+The popup is for a quick reply from the bar. The window is a normal
+Hyprland toplevel — tiled, resizable, title `Chat` — with the room list on
+the left and the conversation on the right. Both are views over one
+connection to the daemon and stay in step.
 
 ## Install
 
@@ -39,6 +46,29 @@ the package.
 Back in the panel, **Check again** finds the daemon, the plugin starts it
 (`systemctl --user start omarchy-chatd`) and shows the sign-in form. Any
 Matrix homeserver works; `matrix.org` is pre-filled.
+
+## The window
+
+```bash
+omarchy-shell shell summon marcho78.chat '{}'                       # open
+omarchy-shell shell toggle marcho78.chat '{}'                       # toggle
+omarchy-shell shell summon marcho78.chat '{"room":"!id:server"}'    # open into a room
+```
+
+A keybinding, in `~/.config/hypr/bindings.lua`:
+
+```lua
+o.bind("SUPER SHIFT", "C", "omarchy-shell shell toggle marcho78.chat '{}'", { desc = "Chat" })
+```
+
+A launcher entry, so it shows up next to your other apps:
+
+```bash
+ln -s ~/.config/omarchy/plugins/marcho78.chat/omarchy-chat.desktop ~/.local/share/applications/
+```
+
+Window rules match on `title:^Chat` (the class is `org.quickshell`, shared
+with the shell's other windows).
 
 ## Remove
 
@@ -73,17 +103,24 @@ Panel.qml ──── $XDG_RUNTIME_DIR/omarchy-chat.sock ──── omarchy-c
  renders            JSON lines, 0600, uid-checked        keys, store, sync
 ```
 
-`Panel.qml` connects to the socket, sends `rooms` / `timeline` / `send`
-requests and renders the replies, and listens for `state` and `message`
-events. The one secret that passes through the shell is the password at sign
-in: it goes straight to the socket and the field is cleared. The protocol is
-documented in the [daemon's README](https://github.com/marcho78/omarchy-chatd#socket-protocol).
+The plugin has three kinds:
 
-Panel states, top to bottom in the file: checking → daemon not installed
-(command + buttons) → installed but not running (start button) → signed out
-(form) → room list → one room. Reconnection is a timer: the socket does not
-reconnect by itself, so the panel retries every 1.5 s while open and every
-10 s while closed.
+| Kind | File | Role |
+|---|---|---|
+| `service` | `Service.qml` | The socket, session state, room and invitation lists, notifications. Mounted when the shell starts. |
+| `bar-widget` | `Panel.qml` | The bar glyph and its popup. |
+| `panel` | `Window.qml` | The app window (`FloatingWindow`), summoned by `omarchy-shell shell summon`. |
+
+Shared pieces: `SessionGate.qml` (daemon missing → not running → sign in →
+waiting for the browser), `RoomList.qml` (find, create, invitations, rooms)
+and `RoomView.qml` (timeline and composer). Views register the room they are
+showing with the service, which only notifies for rooms nobody is looking at.
+
+The one secret that passes through the shell is the password on a password
+sign-in: it goes straight to the socket and the field is cleared. The
+protocol is documented in the [daemon's README](https://github.com/marcho78/omarchy-chatd#socket-protocol).
+The socket does not reconnect by itself; the service retries every 5 s
+while the daemon is absent.
 
 ## Development
 
@@ -94,7 +131,8 @@ plugin code on save:
 git clone https://github.com/marcho78/omarchy-chat ~/.config/omarchy/plugins/marcho78.chat
 omarchy plugin enable marcho78.chat
 omarchy plugin validate ~/.config/omarchy/plugins/marcho78.chat
-journalctl --user -u omarchy-shell -f | grep '\[chat\]'
+omarchy restart shell        # the QML cache survives the file watcher; restart after edits
+journalctl --user -f -o cat | grep -i 'chat'
 ```
 
 Test against a throwaway daemon without touching your real session:
