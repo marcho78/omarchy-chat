@@ -87,11 +87,69 @@ Column {
     }
   }
 
+  // A saved session the daemon could not open: the keyring is locked or
+  // its entry is gone. Offer to try again (with the unlock prompt) or to
+  // drop it and sign in afresh.
+  Column {
+    width: parent.width
+    spacing: Style.space(8)
+    visible: root.service && root.service.savedSession && !root.service.pendingLogin
+    property bool busy: false
+    property bool confirmForget: false
+
+    Text {
+      width: parent.width
+      wrapMode: Text.WordWrap
+      text: "Your saved session could not be opened."
+      color: root.fg
+      font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true
+    }
+    Text {
+      width: parent.width
+      wrapMode: Text.WordWrap
+      text: (root.service ? root.service.daemonError.replace(/^Could not read the saved session: /, "") : "")
+        + ". Its secrets are in your keyring; unlocking it brings the session back without signing in again."
+      color: root.fg; opacity: 0.8
+      font.family: root.fontFamily; font.pixelSize: Style.font.body
+    }
+    Flow {
+      id: savedActions
+      width: parent.width
+      spacing: Style.spacing.controlGap
+      visible: !parent.confirmForget
+      Button {
+        text: parent.parent.busy ? "Opening…" : "Unlock and continue"
+        iconText: "󰌾"
+        bordered: true
+        enabled: !parent.parent.busy
+        onClicked: {
+          var card = parent.parent
+          card.busy = true; root.errorText = ""
+          root.service.retrySession(function(r) { card.busy = false; if (!r.ok) root.errorText = r.error || "Could not open the session" })
+        }
+      }
+      Button { text: "Forget this session"; enabled: !parent.parent.busy; onClicked: parent.parent.confirmForget = true }
+    }
+    Flow {
+      width: parent.width
+      spacing: Style.spacing.controlGap
+      visible: parent.confirmForget
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: "Forget it? Encrypted history on this device is lost unless you have your recovery key."
+        color: root.fg; opacity: 0.8
+        font.family: root.fontFamily; font.pixelSize: Style.font.caption
+      }
+      Button { text: "Forget"; bordered: true; onClicked: { var card = parent.parent; card.confirmForget = false; root.service.forgetSession(function(r) { if (!r.ok) root.errorText = r.error || "Could not forget the session" }) } }
+      Button { text: "Keep"; onClicked: parent.parent.confirmForget = false }
+    }
+  }
+
   // Signed out: browser sign-in first, password as the fallback
   Column {
     width: parent.width
     spacing: Style.space(8)
-    visible: root.service && root.service.connected && !root.service.loggedIn && !root.service.pendingLogin
+    visible: root.service && root.service.connected && !root.service.loggedIn && !root.service.pendingLogin && !root.service.savedSession
 
     Text {
       width: parent.width

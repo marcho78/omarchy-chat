@@ -164,6 +164,13 @@ Item {
 
   readonly property bool loggedIn: connected && status.logged_in === true
   readonly property bool pendingLogin: connected && status.pending_login === true
+  // A session is saved but could not be restored (keyring locked or gone).
+  readonly property bool savedSession: connected && !loggedIn && status.saved_session === true
+  readonly property string daemonError: connected && status.error ? String(status.error) : ""
+  // Where the daemon keeps the session's secrets: "keyring", "file" or "".
+  readonly property string secretsBackend: loggedIn && status.secrets ? String(status.secrets) : ""
+  function retrySession(cb) { root.request("retry_session", {}, cb || function() {}) }
+  function forgetSession(cb) { root.request("forget_session", {}, cb || function() {}) }
   readonly property string userId: (status && status.user_id) ? String(status.user_id) : ""
   readonly property int unreadTotal: {
     var n = 0

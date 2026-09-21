@@ -155,9 +155,11 @@ Rectangle {
           visible: root.mode === "menu"
           width: parent.width
           wrapMode: Text.WordWrap
-          text: root.verified
+          text: (root.verified
             ? "Encrypted history is backed up" + (root.status ? " · " + root.otherDevices + " other device" + (root.otherDevices === 1 ? "" : "s") : "")
-            : "Other people's clients show it as untrusted until you do."
+            : "Other people's clients show it as untrusted until you do.")
+            + (root.inSettings && root.service && root.service.secretsBackend === "keyring" ? " · Session secrets in your keyring"
+               : root.inSettings && root.service && root.service.secretsBackend === "file" ? " · Session secrets in session.json (no keyring found)" : "")
           color: root.fg; opacity: 0.7
           font.family: root.fontFamily; font.pixelSize: Style.font.caption
         }
