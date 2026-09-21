@@ -41,22 +41,57 @@ Item {
   property bool loadingOlder: false
   readonly property bool hasOlder: nextToken !== ""
 
+  // ---------- read state ----------
+  // A message counts as read only when this view is visible and the list
+  // is at its end. Otherwise it stays unread and the pill offers to jump.
+  property int pendingNew: 0
+  property string lastEventId: ""
+  readonly property bool atEnd: msgList.atYEnd || msgList.contentHeight <= msgList.height
+  function maybeMarkRead() {
+    if (!root.roomId || !root.visible || !root.atEnd || root.lastEventId === "") return
+    if (root.pendingNew === 0 && root.readUpTo === root.lastEventId) return
+    root.pendingNew = 0
+    root.readUpTo = root.lastEventId
+    root.service.markRead(root.roomId, root.lastEventId)
+  }
+  property string readUpTo: ""
+  onAtEndChanged: if (atEnd) maybeMarkRead()
+  onVisibleChanged: { if (root.service) root.service.setViewing(root.viewId, visible ? root.roomId : ""); if (visible) Qt.callLater(maybeMarkRead) }
+  function jumpToNew() { msgList.positionViewAtEnd(); Qt.callLater(function() { msgList.positionViewAtEnd(); root.maybeMarkRead() }) }
+
   function open(r) {
     root.room = r
     root.errorText = ""
     root.nextToken = ""
     root.loadingOlder = false
+    root.pendingNew = 0
+    root.lastEventId = ""
+    root.readUpTo = ""
     msgModel.clear()
     root.service.setViewing(root.viewId, root.roomId)
     var id = root.roomId
+    var marker = r.read_marker || ""
     root.service.timeline(id, 60, "", function(res) {
       if (root.roomId !== id) return
       if (!res.ok) { root.errorText = res.error || "Could not load messages"; return }
       var list = res.result.messages
       root.nextToken = res.result.next || ""
       if (list.length === 0) return
-      for (var i = 0; i < list.length; i++) root.append(list[i])
-      root.service.markRead(root.roomId, list[list.length - 1].event_id)
+      var dividerAt = -1
+      for (var i = 0; i < list.length; i++) {
+        root.append(list[i])
+        // First message after our marker, from someone else, starts the unread run.
+        if (dividerAt === -1 && marker !== "" && i > 0 && list[i - 1].event_id === marker && list[i].sender !== root.service.userId) dividerAt = i
+      }
+      root.lastEventId = list[list.length - 1].event_id
+      root.readUpTo = marker
+      if (dividerAt > 0) {
+        msgModel.setProperty(dividerAt, "newDivider", true)
+        msgModel.setProperty(dividerAt, "header", true)
+        Qt.callLater(function() { msgList.positionViewAtIndex(dividerAt, ListView.Beginning); Qt.callLater(root.maybeMarkRead) })
+      } else {
+        Qt.callLater(function() { msgList.positionViewAtEnd(); Qt.callLater(root.maybeMarkRead) })
+      }
       Qt.callLater(function() { composer.forceActiveFocus() })
     })
   }
@@ -77,12 +112,11 @@ Item {
 
   function close() {
     root.room = null
+    root.replyTo = null
+    root.editing = null
     msgModel.clear()
     root.service.setViewing(root.viewId, "")
   }
-
-  // Visibility toggles whether we count as "viewing" for notifications.
-  onVisibleChanged: if (root.service) root.service.setViewing(root.viewId, visible ? root.roomId : "")
 
   // Group a message under the previous header when it is the same sender
   // within five minutes on the same day; start a day divider on a new day.
@@ -104,11 +138,14 @@ Item {
       html: m.html || "",
       msgtype: m.msgtype || "m.text",
       attachmentJson: m.attachment ? JSON.stringify(m.attachment) : "",
+      replyJson: m.reply_to ? JSON.stringify(m.reply_to) : "",
+      edited: m.edited === true,
       ts: Number(m.ts) || 0,
       mine: m.sender === root.service.userId,
       encrypted: m.encrypted === true,
       header: meta.header,
-      dayLabel: meta.dayLabel
+      dayLabel: meta.dayLabel,
+      newDivider: false
     }
   }
 
@@ -147,32 +184,78 @@ Item {
       html: m.html || "",
       msgtype: m.msgtype || "m.text",
       attachmentJson: m.attachment ? JSON.stringify(m.attachment) : "",
+      replyJson: m.reply_to ? JSON.stringify(m.reply_to) : "",
+      edited: m.edited === true,
       ts: ts,
       mine: m.sender === root.service.userId,
       encrypted: m.encrypted === true,
       header: header,
-      dayLabel: newDay ? Format.dayLabel(ts, Date.now()) : ""
+      dayLabel: newDay ? Format.dayLabel(ts, Date.now()) : "",
+      newDivider: false
     })
-    Qt.callLater(function() { msgList.positionViewAtEnd() })
   }
 
   Connections {
     target: root.service
+    function onMessageEdited(e) {
+      if (!root.roomId || e.room !== root.roomId) return
+      var i = root.indexOfEvent(e.event_id)
+      if (i < 0) return
+      msgModel.setProperty(i, "body", e.body)
+      msgModel.setProperty(i, "html", e.html || "")
+      msgModel.setProperty(i, "edited", true)
+    }
     function onMessageReceived(m) {
       if (!root.roomId || m.room !== root.roomId) return
+      var wasAtEnd = root.atEnd
       root.append(m)
-      if (root.visible) root.service.markRead(root.roomId, m.event_id)
+      root.lastEventId = m.event_id
+      if (m.sender === root.service.userId || (wasAtEnd && root.visible)) {
+        Qt.callLater(function() { msgList.positionViewAtEnd(); root.maybeMarkRead() })
+      } else {
+        root.pendingNew++
+      }
     }
   }
+
+  // ---------- reply / edit ----------
+  // One of these at a time; the strip above the composer shows which.
+  property var replyTo: null      // {event_id, sender_name, body}
+  property var editing: null      // {event_id, body}
+  function startReply(m) { root.editing = null; root.replyTo = m; composer.forceActiveFocus() }
+  function startEdit(m) { root.replyTo = null; root.editing = m; composer.text = m.body; composer.forceActiveFocus(); composer.cursorPosition = composer.text.length }
+  function cancelCompose() { if (root.editing) composer.text = ""; root.replyTo = null; root.editing = null }
+  function indexOfEvent(eventId) {
+    for (var i = 0; i < msgModel.count; i++) if (msgModel.get(i).eventId === eventId) return i
+    return -1
+  }
+  function jumpTo(eventId) {
+    var i = root.indexOfEvent(eventId)
+    if (i >= 0) { msgList.positionViewAtIndex(i, ListView.Center); root.flashIndex = i; flashTimer.restart() }
+  }
+  property int flashIndex: -1
+  Timer { id: flashTimer; interval: 1200; onTriggered: root.flashIndex = -1 }
 
   function send() {
     var text = composer.text
     if (text.trim() === "" || !root.roomId || root.busy) return
     root.busy = true
-    root.service.send(root.roomId, text, function(r) {
+    if (root.editing) {
+      var target = root.editing.event_id
+      root.service.edit(root.roomId, target, text, function(r) {
+        root.busy = false
+        if (!r.ok) { root.errorText = r.error || "Edit failed"; return }
+        composer.text = ""; root.errorText = ""; root.editing = null
+        var i = root.indexOfEvent(target)
+        if (i >= 0) { msgModel.setProperty(i, "body", text); msgModel.setProperty(i, "html", ""); msgModel.setProperty(i, "edited", true) }
+      })
+      return
+    }
+    var reply = root.replyTo ? root.replyTo.event_id : ""
+    root.service.send(root.roomId, text, reply, function(r) {
       root.busy = false
       if (!r.ok) root.errorText = r.error || "Send failed"
-      else { composer.text = ""; root.errorText = "" }
+      else { composer.text = ""; root.errorText = ""; root.replyTo = null; Qt.callLater(function() { msgList.positionViewAtEnd() }) }
     })
   }
 
@@ -288,6 +371,7 @@ Item {
       }
       delegate: MessageRow {
         required property var model
+        required property int index
         width: msgList.width
         sender: model.sender
         senderName: model.senderName
@@ -304,6 +388,14 @@ Item {
         roomEncrypted: root.encrypted
         header: model.header
         dayLabel: model.dayLabel
+        newDivider: model.newDivider
+        replyTo: model.replyJson !== "" ? JSON.parse(model.replyJson) : null
+        edited: model.edited
+        highlighted: index === root.flashIndex
+        canEdit: model.mine && !model.attachmentJson
+        onReplyRequested: root.startReply({ event_id: model.eventId, sender_name: model.senderName, body: model.body })
+        onEditRequested: root.startEdit({ event_id: model.eventId, body: model.body })
+        onJumpRequested: function(id) { root.jumpTo(id) }
         fg: root.fg
         accent: root.service ? root.service.accent : Color.accent
         bg: root.service ? root.service.bg : Color.popups.background
@@ -313,6 +405,74 @@ Item {
         senderColors: root.service ? root.service.senderColors : true
         scale: root.service ? root.service.fontScale : 1.0
         fontFamily: root.fontFamily
+      }
+    }
+
+    // "N new messages" pill when new messages arrived below the fold
+    Item {
+      width: parent.width
+      height: 0
+      Rectangle {
+        visible: root.pendingNew > 0 && !root.atEnd
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Style.space(10)
+        width: pillText.implicitWidth + Style.space(28)
+        height: Style.space(32)
+        radius: height / 2
+        color: root.service ? root.service.accent : Color.accent
+        Text {
+          id: pillText
+          anchors.centerIn: parent
+          text: "󰁅  " + root.pendingNew + " new message" + (root.pendingNew === 1 ? "" : "s")
+          color: root.service ? root.service.bg : Color.background
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.jumpToNew() }
+      }
+    }
+
+    // Replying to / editing strip
+    Rectangle {
+      width: parent.width
+      visible: root.replyTo !== null || root.editing !== null
+      implicitHeight: visible ? stripRow.implicitHeight + Style.space(12) : 0
+      radius: Style.space(8)
+      color: Util.alpha(root.service ? root.service.accent : Color.accent, 0.1)
+      Row {
+        id: stripRow
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.leftMargin: Style.space(12)
+        anchors.rightMargin: Style.space(6)
+        spacing: Style.space(10)
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.editing ? "󰏫" : "󰑚"
+          color: root.service ? root.service.accent : Color.accent
+          font.family: root.fontFamily; font.pixelSize: Style.font.icon
+        }
+        Column {
+          anchors.verticalCenter: parent.verticalCenter
+          width: parent.width - Style.space(10) * 2 - Style.space(24) - stripClose.width
+          spacing: Style.space(1)
+          Text {
+            text: root.editing ? "Editing message" : ("Replying to " + (root.replyTo ? root.replyTo.sender_name : ""))
+            color: root.service ? root.service.accent : Color.accent
+            font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.bold: true
+          }
+          Text {
+            width: parent.width
+            text: root.editing ? root.editing.body : (root.replyTo ? root.replyTo.body : "")
+            color: root.fg; opacity: 0.7
+            elide: Text.ElideRight
+            font.family: root.fontFamily; font.pixelSize: Style.font.caption
+          }
+        }
+        Button { id: stripClose; anchors.verticalCenter: parent.verticalCenter; iconText: "󰅖"; text: ""; onClicked: root.cancelCompose() }
       }
     }
 
@@ -332,6 +492,7 @@ Item {
         width: parent.width - sendButton.width - attachButton.width - 2 * Style.spacing.controlGap
         maximumLength: 4000
         placeholderText: root.uploads > 0 ? "Sending " + root.uploads + " file" + (root.uploads === 1 ? "" : "s") + "…"
+          : root.editing ? "Edit your message…" : root.replyTo ? "Write a reply…"
           : (root.encrypted ? "Encrypted message…" : "Message (not encrypted)…")
         enabled: !root.busy && root.roomId !== ""
         onAccepted: root.send()
@@ -339,13 +500,22 @@ Item {
           if (event.key === Qt.Key_V && (event.modifiers & Qt.ControlModifier)) {
             event.accepted = true
             if (!pasteProc.running) pasteProc.running = true
+          } else if (event.key === Qt.Key_Escape && (root.replyTo || root.editing)) {
+            event.accepted = true
+            root.cancelCompose()
+          } else if (event.key === Qt.Key_Up && composer.text === "" && !root.editing) {
+            // Up in an empty composer edits your last message, like Slack/Element.
+            for (var i = msgModel.count - 1; i >= 0; i--) {
+              var it = msgModel.get(i)
+              if (it.mine && it.attachmentJson === "") { event.accepted = true; root.startEdit({ event_id: it.eventId, body: it.body }); break }
+            }
           }
         }
       }
       Button {
         id: sendButton
-        text: root.busy ? "…" : "Send"
-        iconText: "󰒊"
+        text: root.busy ? "…" : (root.editing ? "Save" : "Send")
+        iconText: root.editing ? "󰄬" : "󰒊"
         enabled: !root.busy && root.roomId !== ""
         onClicked: root.send()
       }

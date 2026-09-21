@@ -24,6 +24,15 @@ Item {
   property bool roomEncrypted: false
   property bool header: true
   property string dayLabel: ""
+  property bool newDivider: false
+  property var replyTo: null
+  property bool edited: false
+  property bool highlighted: false
+  property bool canEdit: false
+
+  signal replyRequested()
+  signal editRequested()
+  signal jumpRequested(string eventId)
   property color fg: Color.foreground
   property color accent: Color.accent
   property color bg: Color.popups.background
@@ -79,6 +88,31 @@ Item {
     anchors.topMargin: root.header ? Style.space(6) : 0
     spacing: Style.space(2)
 
+    // "New messages" line: where you left off
+    Item {
+      width: parent.width
+      visible: root.newDivider
+      implicitHeight: visible ? Style.space(24) : 0
+      Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 1; color: root.accent; opacity: 0.7 }
+      Rectangle {
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: newText.implicitWidth + Style.space(14)
+        height: newText.implicitHeight + Style.space(4)
+        radius: Style.space(4)
+        color: root.accent
+        Text {
+          id: newText
+          anchors.centerIn: parent
+          text: "New"
+          color: root.bg
+          font.family: root.fontFamily
+          font.pixelSize: root.captionSize
+          font.bold: true
+        }
+      }
+    }
+
     // Day divider
     Item {
       width: parent.width
@@ -111,18 +145,57 @@ Item {
       implicitHeight: Math.max(root.avatar && root.header ? root.avatarSize : 0, textColumn.implicitHeight)
 
       Rectangle {
-        visible: !root.bubbles
         anchors.fill: parent
         anchors.leftMargin: -Style.space(6)
         anchors.rightMargin: -Style.space(6)
         radius: Style.space(4)
-        color: rowMouse.containsMouse ? root.hover : "transparent"
+        color: root.highlighted ? Util.alpha(root.accent, 0.18) : (rowMouse.containsMouse && !root.bubbles ? root.hover : "transparent")
+        Behavior on color { ColorAnimation { duration: 200 } }
       }
       MouseArea {
         id: rowMouse
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
+      }
+
+      // Hover actions: Reply, and Edit on your own text messages
+      Rectangle {
+        id: actions
+        visible: (rowMouse.containsMouse || actionsMouse.containsMouse) && root.msgtype !== "unable_to_decrypt"
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: -Style.space(10)
+        z: 5
+        width: actionsRow.implicitWidth + Style.space(8)
+        height: Style.space(30)
+        radius: Style.space(6)
+        color: root.bg
+        border.width: 1
+        border.color: Util.alpha(root.fg, 0.25)
+        MouseArea { id: actionsMouse; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+        Row {
+          id: actionsRow
+          anchors.centerIn: parent
+          spacing: Style.space(2)
+          Repeater {
+            model: root.canEdit ? [{ icon: "󰑚", tip: "Reply", act: "reply" }, { icon: "󰏫", tip: "Edit", act: "edit" }] : [{ icon: "󰑚", tip: "Reply", act: "reply" }]
+            delegate: Rectangle {
+              required property var modelData
+              width: Style.space(26); height: Style.space(26)
+              radius: Style.space(5)
+              color: aMouse.containsMouse ? root.hover : "transparent"
+              Text { anchors.centerIn: parent; text: parent.modelData.icon; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.icon }
+              MouseArea {
+                id: aMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: { if (parent.modelData.act === "reply") root.replyRequested(); else root.editRequested() }
+              }
+            }
+          }
+        }
       }
 
       Avatar {
@@ -171,12 +244,48 @@ Item {
           Text {
             anchors.baseline: parent.children[0].baseline
             readonly property bool flag: root.roomEncrypted && !root.encrypted
-            text: Qt.formatTime(new Date(root.ts), "HH:mm") + (flag ? "  󰌿 unencrypted" : "")
+            text: Qt.formatTime(new Date(root.ts), "HH:mm") + (root.edited ? "  (edited)" : "") + (flag ? "  󰌿 unencrypted" : "")
             color: flag ? Color.urgent : root.fg
             opacity: flag ? 0.8 : 0.45
             font.family: root.fontFamily
             font.pixelSize: root.captionSize
           }
+        }
+
+        // Quoted original, for replies
+        Rectangle {
+          visible: root.replyTo !== null && root.replyTo !== undefined
+          anchors.right: root.bubbles && root.mine ? parent.right : undefined
+          anchors.left: root.bubbles && root.mine ? undefined : parent.left
+          width: Math.min(parent.width, Math.max(Style.space(160), quoteCol.implicitWidth + Style.space(24)))
+          implicitHeight: visible ? quoteCol.implicitHeight + Style.space(12) : 0
+          radius: Style.space(6)
+          color: Util.alpha(root.fg, 0.06)
+          Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 3; radius: 2; color: root.replyTo ? Qt.hsla(Format.hueFor(root.replyTo.sender) / 360, 0.6, 0.62, 1) : root.accent }
+          Column {
+            id: quoteCol
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: Style.space(12)
+            anchors.rightMargin: Style.space(10)
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Style.space(1)
+            Text {
+              text: root.replyTo ? root.replyTo.sender_name : ""
+              color: root.replyTo ? Qt.hsla(Format.hueFor(root.replyTo.sender) / 360, 0.6, 0.62, 1) : root.fg
+              font.family: root.fontFamily; font.pixelSize: root.captionSize; font.bold: true
+            }
+            Text {
+              width: parent.width
+              text: root.replyTo ? root.replyTo.body : ""
+              color: root.fg; opacity: 0.75
+              elide: Text.ElideRight
+              maximumLineCount: 2
+              wrapMode: Text.Wrap
+              font.family: root.fontFamily; font.pixelSize: root.captionSize
+            }
+          }
+          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.jumpRequested(root.replyTo.event_id) }
         }
 
         // Image attachment: thumbnail sized by the sender's dimensions
@@ -352,11 +461,12 @@ Item {
           }
         }
 
-        // Bubble style: time under your own bubbles on the first of a run
+        // Bubble style: time under your own bubbles on the first of a run,
+        // and whenever the bubble was edited so the change is acknowledged
         Text {
-          visible: root.bubbles && root.mine && root.header
+          visible: root.bubbles && root.mine && (root.header || root.edited)
           anchors.right: parent.right
-          text: Qt.formatTime(new Date(root.ts), "HH:mm") + (root.roomEncrypted && !root.encrypted ? "  󰌿" : "")
+          text: Qt.formatTime(new Date(root.ts), "HH:mm") + (root.edited ? "  (edited)" : "") + (root.roomEncrypted && !root.encrypted ? "  󰌿" : "")
           color: root.roomEncrypted && !root.encrypted ? Color.urgent : root.fg
           opacity: 0.45
           font.family: root.fontFamily

@@ -318,6 +318,8 @@ Item {
       root.status = ev
       if (root.loggedIn && (!wasLoggedIn || ev.syncing)) root.refresh()
       if (!root.loggedIn) { root.rooms = []; root.invites = []; root.verification = null; root.activeFlow = null }
+    } else if (ev.event === "message_edited") {
+      root.messageEdited(ev)
     } else if (ev.event === "message") {
       root.messageReceived(ev)
       if (!root.isViewed(ev.room)) {
@@ -398,7 +400,12 @@ Item {
       cb(r)
     })
   }
-  function send(roomId, body, cb) { root.request("send", { room: roomId, body: String(body) }, cb) }
+  function send(roomId, body, replyTo, cb) {
+    if (typeof replyTo === "function") { cb = replyTo; replyTo = "" }
+    root.request("send", { room: roomId, body: String(body), reply_to: replyTo || null }, cb)
+  }
+  function edit(roomId, eventId, body, cb) { root.request("edit", { room: roomId, event_id: eventId, body: String(body) }, cb) }
+  signal messageEdited(var edit)
   function markRead(roomId, eventId, cb) {
     if (!roomId || !eventId) return
     root.request("mark_read", { room: roomId, event_id: eventId }, function(r) { root.refreshRooms(); if (cb) cb(r) })
