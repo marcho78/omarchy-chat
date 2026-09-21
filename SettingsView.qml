@@ -225,7 +225,7 @@ Column {
           Item { width: parent.width - parent.children[0].implicitWidth - valueLabel.implicitWidth; height: 1 }
           Text {
             id: valueLabel
-            text: String(Number(field.value) || field.modelData.defaultValue || 0) + (field.key === "fontScale" ? "%" : "")
+            text: String(slider.dragging ? Math.round(slider.liveValue) : (Number(field.value) || field.modelData.defaultValue || 0)) + (field.key === "fontScale" ? "%" : "")
             color: Color.accent
             font.family: root.fontFamily
             font.pixelSize: Style.font.subtitle
@@ -237,8 +237,10 @@ Column {
           minimum: Number(field.modelData.min !== undefined ? field.modelData.min : 0)
           maximum: Number(field.modelData.max !== undefined ? field.modelData.max : 100)
           step: Number(field.modelData.step || 1)
-          integer: true
+          // The knob follows the pointer continuously; only the stored value is whole.
+          integer: false
           value: Number(field.value) || 0
+          onMoved: function(v) { root.service.previewSetting(field.key, Math.round(v)) }
           onReleased: function(v) { root.service.set(field.key, Math.round(v)) }
         }
       }

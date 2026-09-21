@@ -61,7 +61,20 @@ Item {
     }
     return null
   }
+  // Values applied ahead of the shell.json round-trip (a slider mid-drag, a
+  // change just written) so controls never snap back to the stored value.
+  property var overrides: ({})
+  onLayoutEntryChanged: {
+    var e = layoutEntry, o = root.overrides, keep = {}, changed = false
+    for (var k in o) { if (e && e[k] === o[k]) changed = true; else keep[k] = o[k] }
+    if (changed) root.overrides = keep
+  }
+  function previewSetting(key, value) {
+    var o = Object.assign({}, root.overrides); o[key] = value; root.overrides = o
+  }
   function setting(key, fallback) {
+    var o = root.overrides
+    if (o[key] !== undefined) return o[key]
     var e = layoutEntry
     if (e && e[key] !== undefined && e[key] !== null) return e[key]
     if (defaults && defaults[key] !== undefined) return defaults[key]
@@ -125,7 +138,7 @@ Item {
       Quickshell.execDetached(argv)
     }
   }
-  function set(key, value) { var c = ({}); c[key] = value; writeSettings(c) }
+  function set(key, value) { previewSetting(key, value); var c = ({}); c[key] = value; writeSettings(c) }
 
   readonly property string defaultHomeserver: String(setting("homeserver", "https://matrix.org"))
   readonly property bool notificationsEnabled: flag("notifications", true)
