@@ -11,6 +11,7 @@ Rectangle {
   id: root
   property var service: null
   property color fg: Color.foreground
+  readonly property color accent: service ? service.accent : Color.accent
   property string fontFamily: Style.font.family
   property bool compact: false           // popup: fewer words
   property bool inSettings: false        // always visible; offers key reset when verified
@@ -121,7 +122,7 @@ Rectangle {
       Text {
         id: headerIcon
         text: root.mode === "done" || (root.verified && root.mode === "menu") ? "󰄬" : (root.mode === "key" ? "󰌆" : "󰌾")
-        color: root.mode === "done" || root.verified ? root.service.accent : Color.urgent
+        color: root.mode === "done" || root.verified ? root.accent : Color.urgent
         font.family: root.fontFamily
         font.pixelSize: Style.font.iconLarge
         anchors.verticalCenter: parent.verticalCenter
@@ -364,7 +365,7 @@ Rectangle {
           horizontalAlignment: Text.AlignHCenter
           wrapMode: Text.WrapAnywhere
           text: root.recoveryKey
-          color: root.service.accent
+          color: root.accent
           font.family: root.fontFamily; font.pixelSize: Style.font.subtitle
         }
       }

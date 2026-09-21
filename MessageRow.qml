@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import qs.Commons
 import qs.Ui
@@ -33,6 +34,17 @@ Item {
   property bool canEdit: false
   property bool canDelete: false
   property bool mention: false
+  property bool linkPreviews: true
+  property var preview: null
+  property bool previewAsked: false
+  readonly property string firstUrl: root.deleted || root.isAttachment ? "" : Format.firstUrl(root.body)
+  function loadPreview() {
+    if (!root.linkPreviews || root.previewAsked || root.firstUrl === "" || !root.service) return
+    root.previewAsked = true
+    root.service.preview(root.firstUrl, function(p) { root.preview = p })
+  }
+  onFirstUrlChanged: { previewAsked = false; preview = null; loadPreview() }
+  onLinkPreviewsChanged: loadPreview()
   property var reactions: []
   property var readBy: []
   property bool paletteOpen: false
@@ -76,7 +88,7 @@ Item {
       else root.fetchError = r.error || "Could not load"
     })
   }
-  Component.onCompleted: loadThumb()
+  Component.onCompleted: { loadThumb(); loadPreview() }
   onEventIdChanged: { thumbPath = ""; loadThumb() }
 
   function openFull() {
@@ -551,6 +563,94 @@ Item {
                 acceptedButtons: Qt.NoButton
                 cursorShape: parent.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.IBeamCursor
               }
+            }
+          }
+        }
+
+        // Link preview card
+        Item {
+          visible: root.linkPreviews && root.preview !== null && !!(root.preview.title || root.preview.description)
+          width: parent.width
+          implicitHeight: visible ? previewCard.implicitHeight : 0
+          Rectangle {
+            id: previewCard
+            anchors.right: root.bubbles && root.mine ? parent.right : undefined
+            anchors.left: root.bubbles && root.mine ? undefined : parent.left
+            width: Math.min(root.bubbles ? parent.width * 0.78 : parent.width, Style.space(440))
+            implicitHeight: Math.max(previewCol.implicitHeight + Style.space(20), previewThumb.visible ? previewThumb.height + Style.space(20) : 0)
+            radius: Style.space(10)
+            color: Util.alpha(root.fg, 0.06)
+            border.width: 1
+            border.color: Util.alpha(root.fg, 0.14)
+            clip: true
+            Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: Style.space(3); color: root.accent }
+            Column {
+              id: previewCol
+              anchors.left: parent.left
+              anchors.right: previewThumb.visible ? previewThumb.left : parent.right
+              anchors.leftMargin: Style.space(14)
+              anchors.rightMargin: Style.space(12)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(2)
+              Text {
+                width: parent.width
+                visible: root.preview && !!root.preview.site
+                text: root.preview ? String(root.preview.site) : ""
+                color: root.fg; opacity: 0.55
+                elide: Text.ElideRight
+                font.family: root.fontFamily; font.pixelSize: root.captionSize
+              }
+              Text {
+                width: parent.width
+                text: root.preview ? String(root.preview.title || root.firstUrl) : ""
+                color: root.fg
+                elide: Text.ElideRight
+                maximumLineCount: 2
+                wrapMode: Text.Wrap
+                font.family: root.fontFamily; font.pixelSize: root.bodySize; font.bold: true
+              }
+              Text {
+                width: parent.width
+                visible: root.preview && !!root.preview.description
+                text: root.preview ? String(root.preview.description) : ""
+                color: root.fg; opacity: 0.78
+                elide: Text.ElideRight
+                maximumLineCount: 3
+                wrapMode: Text.Wrap
+                font.family: root.fontFamily; font.pixelSize: root.captionSize
+              }
+            }
+            // Rounded-square thumbnail from the page's og:image.
+            Item {
+              id: previewThumb
+              readonly property string key: root.preview && root.preview.image ? root.preview.image + "@320" : ""
+              readonly property string path: key !== "" && root.service && root.service.avatars[key] ? root.service.avatars[key] : ""
+              visible: path !== "" && previewImage.status === Image.Ready
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.rightMargin: Style.space(10)
+              width: Style.space(72)
+              height: Style.space(72)
+              function fetch() { if (key !== "" && root.service) root.service.resolveAvatar(root.preview.image, 320) }
+              onKeyChanged: fetch()
+              Component.onCompleted: fetch()
+              Image {
+                id: previewImage
+                anchors.fill: parent
+                source: previewThumb.path !== "" ? "file://" + previewThumb.path : ""
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                sourceSize.width: 320
+                sourceSize.height: 320
+                visible: false
+              }
+              Rectangle { id: previewMask; anchors.fill: parent; radius: Style.space(8); visible: false; layer.enabled: true }
+              MultiEffect { anchors.fill: parent; source: previewImage; maskEnabled: true; maskSource: previewMask }
+            }
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: Quickshell.execDetached(["omarchy-launch-browser", root.firstUrl])
             }
           }
         }

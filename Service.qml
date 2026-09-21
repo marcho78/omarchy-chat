@@ -472,15 +472,62 @@ Item {
   // view. Reassigning the map is what makes bindings notice.
   property var avatars: ({})
   property var avatarPending: ({})
-  function resolveAvatar(mxc) {
-    if (!mxc || root.avatars[mxc] !== undefined || root.avatarPending[mxc]) return
-    var p = root.avatarPending; p[mxc] = true; root.avatarPending = p
-    root.request("avatar", { url: mxc }, function(r) {
-      var a = root.avatars; a[mxc] = r.ok ? r.result.path : ""; root.avatars = a
-      var q = root.avatarPending; delete q[mxc]; root.avatarPending = q
+  // `size` picks a larger thumbnail (keyed separately) for preview images.
+  function resolveAvatar(mxc, size) {
+    var key = size ? mxc + "@" + size : mxc
+    if (!mxc || root.avatars[key] !== undefined || root.avatarPending[key]) return
+    var p = root.avatarPending; p[key] = true; root.avatarPending = p
+    root.request("avatar", size ? { url: mxc, size: size } : { url: mxc }, function(r) {
+      // Assign a copy: re-assigning the same object does not notify bindings.
+      var a = Object.assign({}, root.avatars); a[key] = r.ok ? r.result.path : ""; root.avatars = a
+      var q = root.avatarPending; delete q[key]; root.avatarPending = q
     })
   }
   function roomDetails(roomId, cb) { root.request("room_details", { room: roomId }, cb) }
+  // Link previews, cached per URL for the session.
+  property var previews: ({})
+  function preview(url, cb) {
+    if (root.previews[url] !== undefined) { cb(root.previews[url]); return }
+    root.request("preview", { url: url }, function(r) {
+      var p = Object.assign({}, root.previews); p[url] = r.ok ? r.result : null; root.previews = p
+      cb(p[url])
+    })
+  }
+
+  // Emoji keywords from Omarchy's own table, loaded once.
+  property var emojiTable: []
+  Process {
+    id: emojiLoad
+    property string out: ""
+    command: ["/usr/bin/cat", "/usr/share/omarchy/shell/plugins/emojis/emojis.json"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { emojiLoad.out += d } }
+    onExited: function(code) { if (code === 0) { try { root.emojiTable = JSON.parse(emojiLoad.out) } catch (e) { root.log("emoji table: " + e) } } }
+    running: true
+  }
+  // Up to `max` emoji for a typed word: exact keyword, then keywords that
+  // start with it, then ones that merely contain it. `k` is the keyword
+  // that matched, so the hint explains why the emoji is offered.
+  function emojiSuggestions(word, max) {
+    var w = String(word).toLowerCase().replace(/-/g, "_")
+    if (w.length < 2) return []
+    var tiers = [[], [], []]
+    for (var i = 0; i < root.emojiTable.length; i++) {
+      var e = root.emojiTable[i]
+      var keys = String(e.k).split(" ")
+      var best = -1, matched = ""
+      for (var j = 0; j < keys.length; j++) {
+        var k = keys[j]
+        var tier = k === w ? 0 : k.indexOf(w) === 0 ? 1 : k.indexOf(w) > 0 ? 2 : -1
+        if (tier >= 0 && (best < 0 || tier < best)) { best = tier; matched = k }
+        if (best === 0) break
+      }
+      if (best >= 0 && tiers[best].length < max) tiers[best].push({ e: e.e, k: matched })
+      if (tiers[0].length >= max) break
+    }
+    return tiers[0].concat(tiers[1], tiers[2]).slice(0, max)
+  }
+  function openEmojiPicker() { Quickshell.execDetached(["omarchy-shell", "shell", "toggle", "omarchy.emojis"]) }
+
   function searchMessages(query, roomId, cb) { root.request("search", { query: String(query), room: roomId || null, limit: 60 }, cb) }
   function invite(roomId, userId, cb) { root.request("invite", { room: roomId, user: userId }, cb) }
   function kick(roomId, userId, reason, cb) { root.request("kick", { room: roomId, user: userId, reason: reason || null }, cb) }
@@ -559,6 +606,7 @@ Item {
   // startup and every six hours; nothing is installed without the user.
 
   readonly property string roomSort: String(setting("roomSort", "activity"))
+  readonly property bool linkPreviews: flag("linkPreviews", true)
   readonly property bool checkUpdates: flag("checkUpdates", true)
   property bool checking: false
   property int pluginUpdateCount: 0

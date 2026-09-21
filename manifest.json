@@ -37,7 +37,8 @@
       "hoverColor": "",
       "selectionColor": "",
       "checkUpdates": true,
-      "roomSort": "activity"
+      "roomSort": "activity",
+      "linkPreviews": true
     },
     "schema": [
       {
@@ -159,6 +160,14 @@
         "step": 5,
         "defaultValue": 100,
         "section": "Messages"
+      },
+      {
+        "key": "linkPreviews",
+        "type": "boolean",
+        "section": "Messages",
+        "label": "Link previews",
+        "defaultValue": true,
+        "description": "Show a card for the first link in a message. Your homeserver fetches the page, not this machine."
       },
       {
         "key": "roomSort",

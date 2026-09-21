@@ -48,7 +48,16 @@ function cleanHtml(html, linkColor) {
   s = s.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
   s = s.replace(/<blockquote>/gi, '<blockquote style="margin-left:12px">')
   s = s.replace(/<code>/gi, '<code style="font-family:monospace">')
-  return s
+  // Bare URLs in text nodes (markdown leaves them alone) become links too,
+  // but never inside an existing <a> or <code>.
+  var parts = s.split(/(<a\s[\s\S]*?<\/a>|<code[\s\S]*?<\/code>|<[^>]+>)/i)
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i].charAt(0) === "<") continue
+    parts[i] = parts[i].replace(/(https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)])/g, function(u) {
+      return '<a href="' + u + '"' + (linkColor ? ' style="color:' + linkColor + '"' : '') + '>' + u + '</a>'
+    })
+  }
+  return parts.join("")
 }
 
 function dayLabel(ts, now) {
@@ -107,4 +116,9 @@ function highlightMatch(text, query, color) {
     out = out.replace(re, '<span style="color:' + color + '"><b>$1</b></span>')
   }
   return out
+}
+
+function firstUrl(text) {
+  var m = String(text || "").match(/https?:\/\/[^\s<>"')\]]+/)
+  return m ? m[0] : ""
 }

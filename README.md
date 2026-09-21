@@ -18,6 +18,10 @@ you build from source on your own machine. **No binary is downloaded, ever.**
 | Notifications for rooms no view is showing | Invitations with Accept / Decline; Leave room |
 | | History back to the start of the room — scroll up or press *Load earlier*; live messages; composer, Enter sends |
 | | Images inline (click to open), files as cards with Open; send with 📎, drag-and-drop, or Ctrl+V an image — encrypted in encrypted rooms |
+| | Markdown in the composer (`**bold**`, `_italic_`, `` `code` ``, lists, quotes); `:tada` offers emoji, Tab or Enter inserts; 󰞅 opens Omarchy's emoji picker |
+| | The first link in a message gets a preview card — title, description and image, fetched by your homeserver |
+| | Replies, edits (Up edits your last message), reactions, read receipts, typing indicators; room info with members, invites and moderation |
+| | Spaces, favourites, search across rooms and messages, per-room notification levels |
 | | Sign in with the browser (Google, GitHub, a password — whatever the homeserver offers) or with a password |
 
 The popup is for a quick reply from the bar. The window is a normal
@@ -124,6 +128,9 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 | `showAvatars` | `true` | Avatars in the timeline and DM list |
 | `senderColors` | `true` | A stable colour per sender's name |
 | `fontScale` | `100` | Chat text size in percent, 80–150 |
+| `linkPreviews` | `true` | Preview card for the first link in a message (your homeserver fetches the page, not this machine) |
+| `roomSort` | `activity` | Room list order: `activity` or `name` |
+| `checkUpdates` | `true` | Look for plugin and daemon updates when the panel opens |
 
 The screen is rendered from the manifest's `barWidget.schema`, so a new
 setting needs only a schema entry.
@@ -207,8 +214,7 @@ omarchy-yapperd --socket /tmp/chat-test.sock --data-dir /tmp/chat-test-data
 
 ## Not yet
 
-Read markers, replies and edits (in progress);
-then reactions, typing indicators, member lists and more. See the daemon's
+Threads, voice messages and calls, multiple accounts. See the daemon's
 roadmap.
 
 ## License

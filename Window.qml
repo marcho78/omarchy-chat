@@ -48,7 +48,8 @@ Item {
     if (payloadJson) {
       try {
         var p = JSON.parse(String(payloadJson))
-        if (p && typeof p.room === "string") wanted = p.room
+        // A room request (notification click, launcher) takes over from the settings pane.
+        if (p && typeof p.room === "string") { wanted = p.room; root.showSettings = false }
         if (p && p.settings === true) root.showSettings = true
         if (p && typeof p.pick === "string") { root.showSettings = true; settingsView.pickKey = p.pick }
         if (p && p.info === true) root.showInfo = true

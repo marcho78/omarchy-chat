@@ -390,6 +390,33 @@ Item {
     }
   }
 
+  // ---------- emoji completion ----------
+  // Typing ":smi" offers emoji; Tab/Enter inserts the highlighted one.
+  property var emojiHits: []
+  property int emojiIndex: 0
+  property int emojiStart: -1
+  function updateEmojiHints() {
+    var t = composer.text, c = composer.cursorPosition
+    var i = c - 1
+    while (i >= 0 && /[a-z0-9_+-]/i.test(t.charAt(i))) i--
+    if (i >= 0 && t.charAt(i) === ":" && (i === 0 || /\s/.test(t.charAt(i - 1)))) {
+      var word = t.substring(i + 1, c)
+      root.emojiHits = root.service.emojiSuggestions(word, 6)
+      root.emojiStart = root.emojiHits.length ? i : -1
+      root.emojiIndex = 0
+    } else { root.emojiHits = []; root.emojiStart = -1 }
+  }
+  function insertEmoji(idx) {
+    if (root.emojiStart < 0 || idx < 0 || idx >= root.emojiHits.length) return
+    var t = composer.text, c = composer.cursorPosition, start = root.emojiStart
+    var e = root.emojiHits[idx].e + " "
+    // Setting the text re-runs the hint scan (which clears emojiStart), so
+    // place the cursor from the saved start.
+    composer.text = t.substring(0, start) + e + t.substring(c)
+    composer.cursorPosition = start + e.length
+    root.emojiHits = []; root.emojiStart = -1
+  }
+
   // ---------- reply / edit ----------
   // One of these at a time; the strip above the composer shows which.
   property var replyTo: null      // {event_id, sender_name, body}
@@ -533,7 +560,15 @@ Item {
     ListView {
       id: msgList
       width: parent.width
-      height: root.fillHeight ? column.height - composerRow.height - (leaveButton.visible ? leaveButton.height : 0) - errorLabel.height - column.spacing * 3 : root.timelineHeight
+      // Fill mode: whatever the rows below leave over (a Column skips
+      // invisible and zero-height children, so count only the rest).
+      readonly property real below: {
+        var rows = [typingItem, confirmBox, replyStrip, composerRow, errorLabel, leaveButton]
+        var h = 0
+        for (var i = 0; i < rows.length; i++) if (rows[i].visible && rows[i].height > 0) h += rows[i].height + column.spacing
+        return h
+      }
+      height: root.fillHeight ? column.height - below : root.timelineHeight
       clip: true
       spacing: 0
       model: msgModel
@@ -590,6 +625,7 @@ Item {
         edited: model.edited
         deleted: model.deleted
         mention: model.mention
+        linkPreviews: root.service ? root.service.linkPreviews : true
         reactions: JSON.parse(model.reactionsJson)
         readBy: JSON.parse(model.readByJson)
         onReactRequested: function(key) { root.toggleReaction(model.eventId, key) }
@@ -614,6 +650,7 @@ Item {
 
     // Who is typing
     Item {
+      id: typingItem
       width: parent.width
       height: root.typingText !== "" ? Style.space(18) : 0
       visible: height > 0
@@ -652,6 +689,7 @@ Item {
 
     // Delete confirmation
     Rectangle {
+      id: confirmBox
       width: parent.width
       visible: root.confirmDelete !== null
       implicitHeight: visible ? delRow.implicitHeight + Style.space(12) : 0
@@ -689,34 +727,9 @@ Item {
       }
     }
 
-    // "N new messages" pill when new messages arrived below the fold
-    Item {
-      width: parent.width
-      height: 0
-      Rectangle {
-        visible: root.pendingNew > 0 && !root.atEnd
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: Style.space(10)
-        width: pillText.implicitWidth + Style.space(28)
-        height: Style.space(32)
-        radius: height / 2
-        color: root.service ? root.service.accent : Color.accent
-        Text {
-          id: pillText
-          anchors.centerIn: parent
-          text: "󰁅  " + root.pendingNew + " new message" + (root.pendingNew === 1 ? "" : "s")
-          color: root.service ? root.service.bg : Color.background
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
-          font.bold: true
-        }
-        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.jumpToNew() }
-      }
-    }
-
     // Replying to / editing strip
     Rectangle {
+      id: replyStrip
       width: parent.width
       visible: root.replyTo !== null || root.editing !== null
       implicitHeight: visible ? stripRow.implicitHeight + Style.space(12) : 0
@@ -768,17 +781,31 @@ Item {
         enabled: !root.busy && root.roomId !== ""
         onClicked: fileDialog.open()
       }
+      Button {
+        id: emojiButton
+        iconText: "󰞅"
+        text: ""
+        enabled: !root.busy && root.roomId !== ""
+        onClicked: { composer.forceActiveFocus(); root.service.openEmojiPicker() }
+      }
       TextField {
         id: composer
-        width: parent.width - sendButton.width - attachButton.width - 2 * Style.spacing.controlGap
+        width: parent.width - sendButton.width - attachButton.width - emojiButton.width - 3 * Style.spacing.controlGap
         maximumLength: 4000
         placeholderText: root.uploads > 0 ? "Sending " + root.uploads + " file" + (root.uploads === 1 ? "" : "s") + "…"
           : root.editing ? "Edit your message…" : root.replyTo ? "Write a reply…"
           : (root.encrypted ? "Encrypted message…" : "Message (not encrypted)…")
         enabled: !root.busy && root.roomId !== ""
-        onAccepted: root.send()
-        onTextChanged: root.noteTyping()
+        onAccepted: { if (root.emojiHits.length) root.insertEmoji(root.emojiIndex); else root.send() }
+        onTextChanged: { root.noteTyping(); root.updateEmojiHints() }
+        onCursorPositionChanged: root.updateEmojiHints()
         Keys.onPressed: function(event) {
+          if (root.emojiHits.length) {
+            if (event.key === Qt.Key_Tab) { event.accepted = true; root.insertEmoji(root.emojiIndex); return }
+            if (event.key === Qt.Key_Down || event.key === Qt.Key_Right) { event.accepted = true; root.emojiIndex = (root.emojiIndex + 1) % root.emojiHits.length; return }
+            if (event.key === Qt.Key_Up || event.key === Qt.Key_Left) { event.accepted = true; root.emojiIndex = (root.emojiIndex + root.emojiHits.length - 1) % root.emojiHits.length; return }
+            if (event.key === Qt.Key_Escape) { event.accepted = true; root.emojiHits = []; root.emojiStart = -1; return }
+          }
           if (event.key === Qt.Key_V && (event.modifiers & Qt.ControlModifier)) {
             event.accepted = true
             if (!pasteProc.running) pasteProc.running = true
@@ -836,5 +863,74 @@ Item {
       Button { visible: leaveButton.confirm; text: root.busy ? "…" : "Leave"; bordered: true; enabled: !root.busy; onClicked: { leaveButton.confirm = false; root.leave() } }
       Button { visible: leaveButton.confirm; text: "Stay"; onClicked: leaveButton.confirm = false }
     }
+  }
+
+  // Overlays over the bottom of the message list. They live outside the
+  // Column because a positioner does not place zero-height children.
+  Rectangle {
+    id: emojiPop
+    visible: root.emojiHits.length > 0
+    x: column.x + msgList.x
+    y: column.y + msgList.y + msgList.height - height - Style.space(8)
+    width: Math.min(msgList.width, hintRow.implicitWidth + Style.space(12))
+    height: Style.space(48)
+    radius: Style.space(10)
+    color: root.service ? root.service.bg : Color.background
+    border.width: 1
+    border.color: Util.alpha(root.fg, 0.25)
+    Row {
+      id: hintRow
+      anchors.centerIn: parent
+      spacing: Style.space(2)
+      Repeater {
+        model: root.emojiHits
+        delegate: Rectangle {
+          required property var modelData
+          required property int index
+          width: Math.max(hintLabel.implicitWidth, Style.space(40)) + Style.space(10)
+          height: Style.space(40)
+          radius: Style.space(7)
+          color: index === root.emojiIndex ? Util.alpha(root.service ? root.service.accent : Color.accent, 0.22)
+               : (hintMouse.containsMouse ? (root.service ? root.service.hover : Util.alpha(root.fg, 0.06)) : "transparent")
+          border.width: index === root.emojiIndex ? 1 : 0
+          border.color: root.service ? root.service.accent : Color.accent
+          Column {
+            id: hintCol
+            anchors.centerIn: parent
+            spacing: 0
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.e; font.pixelSize: Style.space(17) }
+            Text {
+              id: hintLabel
+              anchors.horizontalCenter: parent.horizontalCenter
+              text: ":" + (modelData.k.length > 14 ? modelData.k.substring(0, 13) + "…" : modelData.k)
+              color: root.fg; opacity: 0.6
+              font.family: root.fontFamily; font.pixelSize: Style.font.caption - 2
+            }
+          }
+          MouseArea { id: hintMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.insertEmoji(index) }
+        }
+      }
+    }
+  }
+
+  // "N new messages" pill when new messages arrived below the fold
+  Rectangle {
+    visible: root.pendingNew > 0 && !root.atEnd
+    x: column.x + msgList.x + (msgList.width - width) / 2
+    y: column.y + msgList.y + msgList.height - height - Style.space(10)
+    width: pillText.implicitWidth + Style.space(28)
+    height: Style.space(32)
+    radius: height / 2
+    color: root.service ? root.service.accent : Color.accent
+    Text {
+      id: pillText
+      anchors.centerIn: parent
+      text: "󰁅  " + root.pendingNew + " new message" + (root.pendingNew === 1 ? "" : "s")
+      color: root.service ? root.service.bg : Color.background
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      font.bold: true
+    }
+    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.jumpToNew() }
   }
 }
