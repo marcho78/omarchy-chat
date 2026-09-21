@@ -116,8 +116,12 @@ Panel {
 
   // ---------- socket ----------
 
+  // After a failed attempt Socket.connected still reports the requested
+  // state, so reset it before asking again or nothing happens.
   function connectSocket() {
-    if (root.installed && !sock.connected) sock.connected = true
+    if (!root.installed || root.connected) return
+    sock.connected = false
+    sock.connected = true
   }
 
   Socket {
