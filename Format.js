@@ -144,3 +144,10 @@ function bridgeGlyph(protocol) {
     default: return "󰌷"
   }
 }
+
+// Seconds → "m:ss".
+function clock(seconds) {
+  var t = Math.max(0, Math.floor(Number(seconds) || 0))
+  var m = Math.floor(t / 60), sec = t % 60
+  return m + ":" + (sec < 10 ? "0" : "") + sec
+}

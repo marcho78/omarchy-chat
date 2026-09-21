@@ -575,6 +575,55 @@ Item {
   // Attachments. The daemon fetches and decrypts into a cache and returns
   // a local path; thumbnails the same way.
   function download(roomId, eventId, thumbnail, cb) { root.request("download", { room: roomId, event_id: eventId, thumbnail: thumbnail === true }, cb) }
+  function sendVoice(roomId, path, cb) { root.request("send_voice", { room: roomId, path: String(path) }, cb) }
+
+  // ---------- voice recording ----------
+  // One recorder for the whole shell: pw-record writes 16-bit mono WAV to
+  // the runtime dir, the daemon turns it into an Opus voice message.
+  property bool recording: false
+  property string recordingRoom: ""
+  property int recordSeconds: 0
+  property string recordPath: ""
+  property bool recordSend: false
+  readonly property int recordLimit: 5 * 60
+  signal voiceSent(string roomId, bool ok, string error)
+  function startRecording(roomId) {
+    if (root.recording || !roomId) return
+    root.recordPath = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-yapper-voice-" + Date.now() + ".wav"
+    root.recordingRoom = roomId
+    root.recordSeconds = 0
+    root.recordSend = false
+    recorder.command = ["/usr/bin/pw-record", "--format=s16", "--rate=48000", "--channels=1", root.recordPath]
+    recorder.running = true
+    root.recording = true
+  }
+  // Stop; with `send`, the file goes to the daemon once pw-record has closed it.
+  function stopRecording(send) {
+    if (!root.recording) return
+    root.recordSend = send === true
+    root.recording = false
+    recorder.signal(2)
+  }
+  Process {
+    id: recorder
+    onExited: function(code, status) {
+      recordTick.stop()
+      var path = root.recordPath, room = root.recordingRoom, send = root.recordSend
+      root.recording = false
+      root.recordingRoom = ""
+      root.recordPath = ""
+      if (!send) { Quickshell.execDetached(["/usr/bin/rm", "-f", path]); return }
+      root.sendVoice(room, path, function(r) { root.voiceSent(room, r.ok === true, r.ok ? "" : (r.error || "Could not send the voice message")) })
+    }
+    onStarted: recordTick.start()
+  }
+  Timer {
+    id: recordTick
+    interval: 1000
+    repeat: true
+    onTriggered: { root.recordSeconds++; if (root.recordSeconds >= root.recordLimit) root.stopRecording(true) }
+  }
+
   function sendFile(roomId, path, caption, cb) { root.request("send_file", { room: roomId, path: String(path), caption: caption || null }, cb) }
   function openPath(path) { Quickshell.execDetached(["/usr/bin/xdg-open", String(path)]) }
 

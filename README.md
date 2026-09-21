@@ -19,6 +19,7 @@ you build from source on your own machine. **No binary is downloaded, ever.**
 | | History back to the start of the room — scroll up or press *Load earlier*; live messages |
 | | Multi-line composer: Enter sends, Shift+Enter (or Ctrl+Enter) starts a new line, grows to six lines then scrolls; unsent text is kept per room as a draft (shown 󰏫 in the room list) |
 | | Images inline (click to open), files as cards with Open; send with 📎, drag-and-drop, or Ctrl+V an image — encrypted in encrypted rooms |
+| | Voice messages: 󰍬 (or Ctrl+M) records from the microphone, Enter sends, Esc discards; sent as Opus with a waveform so Element shows them as voice notes; received ones play inline with a waveform scrubber |
 | | Markdown in the composer (`**bold**`, `_italic_`, `` `code` ``, lists, quotes); `:tada` offers emoji, Tab or Enter inserts; 󰞅 opens Omarchy's emoji picker |
 | | The first link in a message gets a preview card — title, description and image, fetched by your homeserver |
 | | Replies, edits (Up edits your last message), reactions, read receipts, typing indicators; room info with members, invites and moderation |
@@ -218,7 +219,8 @@ omarchy-yapperd --socket /tmp/chat-test.sock --data-dir /tmp/chat-test-data
 
 ## Not yet
 
-Voice messages and calls, multiple accounts. See the daemon's roadmap.
+Calls (Element Call in the browser), multiple accounts. See the daemon's
+roadmap.
 
 ## License
 

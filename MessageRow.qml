@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import QtMultimedia
 import Quickshell
 import qs.Commons
 import qs.Ui
@@ -84,6 +85,7 @@ Item {
   readonly property bool isSystem: msgtype === "system"
   readonly property bool isAttachment: attachment !== null && attachment !== undefined
   readonly property bool isImage: isAttachment && attachment.kind === "image"
+  readonly property bool isVoice: isAttachment && attachment.voice === true
   property string thumbPath: ""
   property bool fetching: false
   property string fetchError: ""
@@ -484,9 +486,122 @@ Item {
           }
         }
 
+        // Voice message: play/pause, the sender's waveform, elapsed / length
+        Rectangle {
+          id: voiceCard
+          visible: root.isVoice
+          anchors.right: root.bubbles && root.mine ? parent.right : undefined
+          anchors.left: root.bubbles && root.mine ? undefined : parent.left
+          width: Math.min(parent.width, Style.space(320))
+          implicitHeight: visible ? Style.space(56) : 0
+          radius: Style.space(10)
+          color: Util.alpha(root.fg, 0.08)
+          border.width: 1
+          border.color: Util.alpha(root.fg, 0.15)
+
+          readonly property int durationMs: root.attachment && root.attachment.duration_ms ? Number(root.attachment.duration_ms) : 0
+          readonly property var bars: {
+            // 40 bars from however many points the sender gave us.
+            var w = root.attachment && root.attachment.waveform ? root.attachment.waveform : []
+            var out = []
+            if (w.length === 0) { for (var i = 0; i < 40; i++) out.push(0.35); return out }
+            for (var b = 0; b < 40; b++) {
+              var from = Math.floor(b * w.length / 40), to = Math.max(from + 1, Math.floor((b + 1) * w.length / 40))
+              var peak = 0
+              for (var j = from; j < to; j++) peak = Math.max(peak, Number(w[j]) || 0)
+              out.push(Math.max(0.12, Math.min(1, peak / 1024)))
+            }
+            return out
+          }
+          property string path: ""
+          property bool loading: false
+          readonly property bool playing: player.playbackState === MediaPlayer.PlayingState
+          readonly property real progress: player.duration > 0 ? player.position / player.duration : 0
+          function toggle() {
+            if (playing) { player.pause(); return }
+            if (path !== "") { player.play(); return }
+            if (loading || !root.service) return
+            loading = true
+            root.service.download(root.roomId, root.eventId, false, function(r) {
+              if (!voiceCard) return
+              voiceCard.loading = false
+              if (!r.ok) { root.fetchError = r.error || "Could not download"; return }
+              voiceCard.path = r.result.path
+              player.source = "file://" + r.result.path
+              player.play()
+            })
+          }
+          MediaPlayer {
+            id: player
+            audioOutput: AudioOutput {}
+            onMediaStatusChanged: if (mediaStatus === MediaPlayer.EndOfMedia) { player.stop(); player.position = 0 }
+            onErrorOccurred: function(e, msg) { root.fetchError = "Could not play: " + msg }
+          }
+
+          Row {
+            anchors.fill: parent
+            anchors.margins: Style.space(10)
+            spacing: Style.space(10)
+            Rectangle {
+              id: playButton
+              anchors.verticalCenter: parent.verticalCenter
+              width: Style.space(36); height: width; radius: width / 2
+              color: playMouse.containsMouse ? Qt.lighter(root.accent, 1.15) : root.accent
+              Text {
+                anchors.centerIn: parent
+                anchors.horizontalCenterOffset: voiceCard.playing ? 0 : 1
+                text: voiceCard.loading ? "…" : (voiceCard.playing ? "󰏤" : "󰐊")
+                color: root.bg
+                font.family: root.fontFamily; font.pixelSize: Style.font.icon
+              }
+              MouseArea { id: playMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: voiceCard.toggle() }
+            }
+            Item {
+              id: waveArea
+              anchors.verticalCenter: parent.verticalCenter
+              width: parent.width - playButton.width - timeLabel.width - Style.space(20)
+              height: Style.space(30)
+              Row {
+                anchors.fill: parent
+                spacing: Math.max(1, (waveArea.width - 40 * Style.space(3)) / 39)
+                Repeater {
+                  model: voiceCard.bars
+                  delegate: Rectangle {
+                    required property real modelData
+                    required property int index
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Style.space(3)
+                    height: Math.max(Style.space(3), waveArea.height * modelData)
+                    radius: width / 2
+                    // Played part in the accent, the rest muted.
+                    color: index / 40 < voiceCard.progress ? root.accent : Util.alpha(root.fg, 0.35)
+                  }
+                }
+              }
+              // Click anywhere on the waveform to seek.
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: function(mouse) {
+                  if (voiceCard.path === "") { voiceCard.toggle(); return }
+                  player.position = Math.floor(mouse.x / width * player.duration)
+                  if (!voiceCard.playing) player.play()
+                }
+              }
+            }
+            Text {
+              id: timeLabel
+              anchors.verticalCenter: parent.verticalCenter
+              text: (voiceCard.playing || player.position > 0 ? Format.clock(player.position / 1000) + " / " : "") + Format.clock(voiceCard.durationMs / 1000)
+              color: root.fg; opacity: 0.7
+              font.family: root.fontFamily; font.pixelSize: root.captionSize
+            }
+          }
+        }
+
         // File / video / audio attachment: a card with name, size and Open
         Rectangle {
-          visible: root.isAttachment && !root.isImage
+          visible: root.isAttachment && !root.isImage && !root.isVoice
           anchors.right: root.bubbles && root.mine ? parent.right : undefined
           anchors.left: root.bubbles && root.mine ? undefined : parent.left
           width: Math.min(parent.width, Style.space(360))

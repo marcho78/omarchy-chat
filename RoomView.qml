@@ -558,6 +558,33 @@ Item {
     })
   }
 
+  // ---------- voice messages ----------
+  readonly property bool recordingHere: root.service && root.service.recording && root.service.recordingRoom === root.roomId
+  function startVoice() {
+    if (!root.service || root.roomId === "" || root.service.recording) return
+    root.errorText = ""
+    root.service.startRecording(root.roomId)
+    root.uploads++
+    Qt.callLater(function() { recordStrip.forceActiveFocus() })
+  }
+  Connections {
+    target: root.service
+    function onVoiceSent(roomId, ok, error) {
+      if (roomId !== root.roomId) return
+      root.uploads = Math.max(0, root.uploads - 1)
+      if (!ok) root.errorText = error
+      else Qt.callLater(function() { msgList.positionViewAtEnd() })
+      composer.forceActiveFocus()
+    }
+    function onRecordingChanged() {
+      if (root.service && !root.service.recording) {
+        // Cancelled (not sent): drop the pending upload marker.
+        if (!root.service.recordSend && root.uploads > 0) root.uploads = Math.max(0, root.uploads - 1)
+        composer.forceActiveFocus()
+      }
+    }
+  }
+
   // ---------- attachments ----------
 
   property int uploads: 0
@@ -874,12 +901,78 @@ Item {
         anchors.bottom: parent.bottom
         iconText: "󰞅"
         text: ""
+        visible: !root.recordingHere
         enabled: !root.busy && root.roomId !== ""
         onClicked: { composer.forceActiveFocus(); root.service.openEmojiPicker() }
       }
+      Button {
+        id: micButton
+        anchors.bottom: parent.bottom
+        iconText: "󰍬"
+        text: ""
+        visible: !root.recordingHere
+        enabled: !root.busy && root.roomId !== "" && root.service && !root.service.recording
+        onClicked: root.startVoice()
+      }
+      // Recording: a pulsing dot and the clock take the composer's place.
+      Rectangle {
+        id: recordStrip
+        visible: root.recordingHere
+        anchors.bottom: parent.bottom
+        width: parent.width - sendButton.width - attachButton.width - cancelRecord.width - 3 * Style.spacing.controlGap
+        height: composer.implicitHeight
+        radius: Style.cornerRadius
+        color: Util.alpha(Color.urgent, 0.10)
+        border.width: 1
+        border.color: Util.alpha(Color.urgent, 0.5)
+        // The composer is hidden meanwhile, so the strip takes the keys.
+        Keys.onPressed: function(event) {
+          if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { event.accepted = true; root.service.stopRecording(true) }
+          else if (event.key === Qt.Key_Escape) { event.accepted = true; root.service.stopRecording(false) }
+        }
+        Row {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.leftMargin: Style.space(12)
+          anchors.rightMargin: Style.space(10)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(10)
+          Rectangle {
+            id: recordDot
+            anchors.verticalCenter: parent.verticalCenter
+            width: Style.space(10); height: width; radius: width / 2
+            color: Color.urgent
+            SequentialAnimation on opacity {
+              loops: Animation.Infinite
+              running: root.recordingHere
+              NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
+              NumberAnimation { to: 1; duration: 600; easing.type: Easing.InOutSine }
+            }
+          }
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width - recordDot.width - parent.spacing
+            elide: Text.ElideRight
+            text: "Recording  " + Format.clock(root.service ? root.service.recordSeconds : 0)
+              + "   <font color=\"" + Util.alpha(root.fg, 0.55) + "\">Enter sends · Esc discards</font>"
+            textFormat: Text.StyledText
+            color: root.fg
+            font.family: root.fontFamily; font.pixelSize: Style.font.body
+          }
+        }
+      }
+      Button {
+        id: cancelRecord
+        anchors.bottom: parent.bottom
+        visible: root.recordingHere
+        iconText: "󰅖"
+        text: ""
+        onClicked: root.service.stopRecording(false)
+      }
       Composer {
         id: composer
-        width: parent.width - sendButton.width - attachButton.width - emojiButton.width - 3 * Style.spacing.controlGap
+        visible: !root.recordingHere
+        width: parent.width - sendButton.width - attachButton.width - emojiButton.width - micButton.width - 4 * Style.spacing.controlGap
         maximumLength: 4000
         foreground: root.fg
         accent: root.service ? root.service.accent : Color.accent
@@ -901,6 +994,10 @@ Item {
           if (event.key === Qt.Key_V && (event.modifiers & Qt.ControlModifier)) {
             event.accepted = true
             if (!pasteProc.running) pasteProc.running = true
+          } else if (event.key === Qt.Key_M && (event.modifiers & Qt.ControlModifier)) {
+            // Ctrl+M: record a voice message from the keyboard.
+            event.accepted = true
+            root.startVoice()
           } else if (event.key === Qt.Key_Escape && (root.replyTo || root.editing)) {
             event.accepted = true
             root.cancelCompose()
@@ -922,7 +1019,7 @@ Item {
         text: root.busy ? "…" : (root.editing ? "Save" : "Send")
         iconText: root.editing ? "󰄬" : "󰒊"
         enabled: !root.busy && root.roomId !== ""
-        onClicked: root.send()
+        onClicked: root.recordingHere ? root.service.stopRecording(true) : root.send()
       }
     }
 
