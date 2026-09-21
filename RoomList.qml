@@ -112,7 +112,7 @@ Column {
     Button {
       id: findButton
       text: root.searching ? "…" : (root.showSearchButton ? "" : "Find")
-      iconText: "󰊫"
+      iconText: "󰇧"
       enabled: !root.searching
       onClicked: root.search(searchField.text)
     }
