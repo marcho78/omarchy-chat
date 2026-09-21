@@ -287,8 +287,10 @@ Column {
     }
   }
 
-  readonly property var directRooms: root.service ? root.service.rooms.filter(function(r) { return r.direct === true }) : []
-  readonly property var groupRooms: root.service ? root.service.rooms.filter(function(r) { return r.direct !== true }) : []
+  readonly property var shown: root.service ? root.service.visibleRooms : []
+  readonly property var favouriteRooms: shown.filter(function(r) { return r.favourite === true })
+  readonly property var directRooms: shown.filter(function(r) { return r.direct === true && r.favourite !== true })
+  readonly property var groupRooms: shown.filter(function(r) { return r.direct !== true && r.favourite !== true })
 
   // A row in either section.
   component RoomRow: Item {
@@ -345,7 +347,7 @@ Column {
       Column {
         id: labels
         anchors.verticalCenter: parent.verticalCenter
-        width: parent.width - Style.space(30) - Style.space(10) - (badge.visible ? badge.width + Style.space(10) : 0)
+        width: parent.width - Style.space(30) - Style.space(10) - (badge.visible ? badge.width + Style.space(10) : 0) - (star.visible ? star.implicitWidth + Style.space(10) : 0)
         spacing: Style.space(1)
         Row {
           width: parent.width
@@ -379,6 +381,22 @@ Column {
           elide: Text.ElideRight
         }
       }
+      Text {
+        id: star
+        anchors.verticalCenter: parent.verticalCenter
+        visible: rowMouse.containsMouse || row.modelData.favourite === true
+        text: row.modelData.favourite === true ? "󰓎" : "󰓒"
+        color: row.modelData.favourite === true ? root.accent : root.fg
+        opacity: row.modelData.favourite === true ? 1 : 0.4
+        font.family: root.fontFamily; font.pixelSize: Style.font.caption
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -Style.space(4)
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.service.setFavourite(row.modelData.id, row.modelData.favourite !== true)
+        }
+      }
       Rectangle {
         id: badge
         anchors.verticalCenter: parent.verticalCenter
@@ -407,6 +425,65 @@ Column {
     }
   }
 
+  // Spaces: chips that filter the list
+  Flow {
+    width: parent.width
+    spacing: Style.space(6)
+    visible: root.service && root.service.spaces.length > 0
+    component SpaceChip: Rectangle {
+      property string spaceId: ""
+      property string label: ""
+      property string mxc: ""
+      readonly property bool active: root.service && root.service.currentSpace === spaceId
+      width: chipRow.implicitWidth + Style.space(16)
+      height: Style.space(28)
+      radius: height / 2
+      color: active ? Util.alpha(root.accent, 0.18) : (chipMouse.containsMouse ? root.hover : Util.alpha(root.fg, 0.06))
+      border.width: 1
+      border.color: active ? root.accent : Util.alpha(root.fg, 0.15)
+      Row {
+        id: chipRow
+        anchors.centerIn: parent
+        spacing: Style.space(6)
+        Avatar {
+          visible: mxc !== "" || spaceId !== ""
+          anchors.verticalCenter: parent.verticalCenter
+          size: Style.space(18)
+          userId: spaceId
+          name: label
+          mxc: parent.parent.mxc
+          service: root.service
+          fontFamily: root.fontFamily
+        }
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: label
+          color: active ? root.accent : root.fg
+          font.family: root.fontFamily; font.pixelSize: Style.font.caption
+          font.bold: active
+        }
+      }
+      MouseArea { id: chipMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.service.currentSpace = spaceId }
+    }
+    SpaceChip { spaceId: ""; label: "All" }
+    Repeater {
+      model: root.service ? root.service.spaces : []
+      delegate: SpaceChip { required property var modelData; spaceId: modelData.id; label: modelData.name; mxc: modelData.avatar || "" }
+    }
+  }
+
+  // Favourites
+  Column {
+    width: parent.width
+    spacing: Style.space(2)
+    visible: root.favouriteRooms.length > 0
+    PanelSectionHeader { text: "Favourites" }
+    Repeater {
+      model: root.favouriteRooms
+      delegate: RoomRow { direct: modelData.direct === true }
+    }
+  }
+
   // Direct messages
   Column {
     width: parent.width
@@ -428,9 +505,10 @@ Column {
 
     Text {
       width: parent.width
-      visible: root.service && root.service.rooms.length === 0
+      visible: root.shown.length === 0
       wrapMode: Text.WordWrap
-      text: root.service && root.service.status.syncing
+      text: root.service && root.service.currentSpace !== "" ? "No rooms in this space yet."
+        : root.service && root.service.status.syncing
         ? "No rooms yet. Search the directory above, join by #alias, or message someone by @user:server."
         : "Syncing…"
       color: root.fg

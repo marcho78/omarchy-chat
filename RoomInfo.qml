@@ -211,6 +211,13 @@ Item {
       width: parent.width
       spacing: Style.spacing.controlGap
       visible: root.details !== null && root.editing === "" && root.member === null
+      Button {
+        readonly property bool fav: (root.service && root.service.roomById(root.roomId) || {}).favourite === true
+        text: fav ? "Favourite" : "Favourite"
+        iconText: fav ? "󰓎" : "󰓒"
+        bordered: fav
+        onClicked: root.service.setFavourite(root.roomId, !fav)
+      }
       Button { visible: root.details && root.details.can_invite; text: "Invite"; iconText: "󰀖"; bordered: true; onClicked: root.startEdit("invite") }
       Button { visible: root.details && root.details.can_set_name; text: "Rename"; iconText: "󰏫"; onClicked: root.startEdit("name") }
       Button { visible: root.details && root.details.can_set_topic; text: "Topic"; iconText: "󰏫"; onClicked: root.startEdit("topic") }

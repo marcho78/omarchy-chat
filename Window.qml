@@ -46,6 +46,7 @@ Item {
         if (p && p.settings === true) root.showSettings = true
         if (p && typeof p.pick === "string") { root.showSettings = true; settingsView.pickKey = p.pick }
         if (p && p.info === true) root.showInfo = true
+        if (p && typeof p.space === "string" && service) service.currentSpace = p.space
       } catch (e) { /* ignore */ }
     }
     Qt.callLater(function() {

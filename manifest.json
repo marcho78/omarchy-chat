@@ -36,7 +36,8 @@
       "fontScale": 100,
       "hoverColor": "",
       "selectionColor": "",
-      "checkUpdates": true
+      "checkUpdates": true,
+      "roomSort": "activity"
     },
     "schema": [
       {
@@ -158,6 +159,23 @@
         "step": 5,
         "defaultValue": 100,
         "section": "Messages"
+      },
+      {
+        "key": "roomSort",
+        "type": "enum",
+        "section": "Rooms",
+        "label": "Sort rooms by",
+        "defaultValue": "activity",
+        "options": [
+          {
+            "value": "activity",
+            "label": "Unread first, then recent activity"
+          },
+          {
+            "value": "name",
+            "label": "Name"
+          }
+        ]
       },
       {
         "key": "checkUpdates",

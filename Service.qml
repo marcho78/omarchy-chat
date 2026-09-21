@@ -140,6 +140,9 @@ Item {
   property var status: ({ logged_in: false, syncing: false })
   property var rooms: []
   property var invites: []
+  property var spaces: []
+  // "" = all rooms; otherwise a space id whose children (recursively) are shown
+  property string currentSpace: ""
   property int nextId: 1
   property var pending: ({})
   // viewId -> roomId for every view currently showing a room; used to
@@ -395,7 +398,39 @@ Item {
 
   // ---------- rooms / invites ----------
 
-  function refresh() { root.refreshRooms(); root.refreshInvites(); root.refreshVerification() }
+  function refresh() { root.refreshRooms(); root.refreshInvites(); root.refreshSpaces(); root.refreshVerification() }
+  function refreshSpaces() { root.request("spaces", {}, function(r) { if (r.ok) root.spaces = r.result }) }
+  function setFavourite(roomId, on, cb) { root.request("set_favourite", { room: roomId, favourite: on === true }, function(r) { root.refreshRooms(); if (cb) cb(r) }) }
+
+  // Rooms inside a space, including sub-spaces' rooms.
+  function roomsInSpace(spaceId) {
+    var set = ({}), queue = [spaceId], seen = ({})
+    while (queue.length) {
+      var id = queue.shift()
+      if (seen[id]) continue
+      seen[id] = true
+      for (var i = 0; i < root.spaces.length; i++) {
+        if (root.spaces[i].id !== id) continue
+        var ch = root.spaces[i].children
+        for (var j = 0; j < ch.length; j++) { set[ch[j]] = true; queue.push(ch[j]) }
+      }
+    }
+    return set
+  }
+  // The rooms the sidebar should show, filtered by space and sorted by setting.
+  readonly property var visibleRooms: {
+    var list = root.rooms.slice()
+    if (root.currentSpace !== "") { var inSpace = root.roomsInSpace(root.currentSpace); list = list.filter(function(r) { return inSpace[r.id] === true }) }
+    if (root.roomSort === "name") list.sort(function(a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1 })
+    else list.sort(function(a, b) {
+      var ua = a.notification_mode === "mute" ? 0 : (Number(a.unread) || 0), ub = b.notification_mode === "mute" ? 0 : (Number(b.unread) || 0)
+      if ((ua > 0) !== (ub > 0)) return ua > 0 ? -1 : 1
+      var ta = Number(a.last_activity) || 0, tb = Number(b.last_activity) || 0
+      if (ta !== tb) return tb - ta
+      return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1
+    })
+    return list
+  }
   function refreshRooms() { root.request("rooms", {}, function(r) { if (r.ok) root.rooms = r.result }) }
   function refreshInvites() { root.request("invites", {}, function(r) { if (r.ok) root.invites = r.result }) }
 
@@ -522,6 +557,7 @@ Item {
   // on its repo vs the version the running daemon reports. Checked on
   // startup and every six hours; nothing is installed without the user.
 
+  readonly property string roomSort: String(setting("roomSort", "activity"))
   readonly property bool checkUpdates: flag("checkUpdates", true)
   property bool checking: false
   property int pluginUpdateCount: 0
