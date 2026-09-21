@@ -177,11 +177,12 @@ Column {
         id: resultRow
         required property var modelData
         width: root.width
-        implicitHeight: Style.space(36)
+        implicitHeight: Math.max(Style.space(36), resultLabels.implicitHeight + Style.space(10))
         Rectangle { anchors.fill: parent; anchors.margins: -Style.space(4); radius: Style.space(6); color: resultMouse.containsMouse ? root.hover : "transparent" }
         MouseArea { id: resultMouse; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
 
         Column {
+          id: resultLabels
           anchors.left: parent.left
           anchors.right: resultAction.left
           anchors.rightMargin: Style.space(8)
@@ -199,7 +200,7 @@ Column {
             width: parent.width
             text: root.resultsKind === "users"
               ? resultRow.modelData.id
-              : ((resultRow.modelData.alias || resultRow.modelData.id) + " · " + resultRow.modelData.members + " members")
+              : ((resultRow.modelData.alias || resultRow.modelData.id) + " · " + resultRow.modelData.members + " members" + (resultRow.modelData.topic ? " · " + Format.oneLine(resultRow.modelData.topic) : ""))
             color: root.fg
             opacity: 0.5
             font.family: root.fontFamily
@@ -238,9 +239,10 @@ Column {
         id: inviteRow
         required property var modelData
         width: root.width
-        implicitHeight: Style.space(36)
+        implicitHeight: Math.max(Style.space(36), inviteLabels.implicitHeight + Style.space(10))
 
         Column {
+          id: inviteLabels
           anchors.left: parent.left
           anchors.right: inviteButtons.left
           anchors.rightMargin: Style.space(8)
@@ -294,7 +296,8 @@ Column {
     required property var modelData
     property bool direct: false
     width: root.width
-    implicitHeight: Style.space(38)
+    // Tall enough for name + topic at any font size; never clips the next row.
+    implicitHeight: Math.max(Style.space(38), labels.implicitHeight + Style.space(12))
 
     readonly property int unread: Number(modelData.unread) || 0
     readonly property bool selected: modelData.id === root.currentRoom
@@ -333,6 +336,7 @@ Column {
         }
       }
       Column {
+        id: labels
         anchors.verticalCenter: parent.verticalCenter
         width: parent.width - Style.space(26) - Style.space(10) - (badge.visible ? badge.width + Style.space(10) : 0)
         spacing: Style.space(1)
@@ -348,7 +352,7 @@ Column {
         Text {
           visible: !row.direct && !!row.modelData.topic
           width: parent.width
-          text: row.modelData.topic || ""
+          text: Format.oneLine(row.modelData.topic)
           color: root.fg
           opacity: 0.45
           font.family: root.fontFamily

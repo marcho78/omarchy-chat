@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import qs.Commons
 import qs.Ui
+import "Format.js" as Format
 
 // Yapper as an app: a real window Hyprland tiles like any other, with the
 // room list on the left and the conversation on the right. Same
@@ -323,7 +324,7 @@ Item {
               Text {
                 width: parent.width
                 text: (roomView.encrypted ? "󰌾 End-to-end encrypted" : "󰌿 Not encrypted")
-                  + (roomView.room && roomView.room.topic ? " · " + roomView.room.topic : "")
+                  + (roomView.room && roomView.room.topic ? " · " + Format.oneLine(roomView.room.topic) : "")
                 color: roomView.encrypted ? root.fg : Color.urgent
                 opacity: 0.7
                 font.family: root.fontFamily; font.pixelSize: Style.font.caption

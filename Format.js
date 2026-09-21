@@ -74,3 +74,9 @@ function compareVersions(a, b) {
   }
   return 0
 }
+
+// Collapse newlines and runs of whitespace so a subtitle stays one line
+// and elides properly.
+function oneLine(s) {
+  return String(s || "").replace(/\s+/g, " ").trim()
+}
