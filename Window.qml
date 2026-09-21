@@ -29,6 +29,7 @@ Item {
   readonly property bool inRoom: roomView.roomId !== ""
   readonly property bool opened: window.visible
   property bool showSettings: false
+  onShowSettingsChanged: if (showSettings) settingsFlick.contentY = 0
 
   // ---- plugin lifecycle ----------------------------------------------------
 
@@ -172,6 +173,16 @@ Item {
                 color: root.fg; opacity: 0.6
                 font.family: root.fontFamily; font.pixelSize: Style.font.caption
                 elide: Text.ElideRight
+              }
+              Text {
+                width: parent.width
+                text: "v" + (root.service ? root.service.pluginVersion : "") + "  ·  daemon " + (root.service && root.service.daemonVersion ? root.service.daemonVersion : "—")
+                  + (root.service && root.service.updateAvailable ? "  ·  󰚰 update" : "")
+                color: root.service && root.service.updateAvailable ? Color.accent : root.fg
+                opacity: root.service && root.service.updateAvailable ? 1 : 0.4
+                font.family: root.fontFamily; font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.showSettings = true }
               }
             }
             Row {

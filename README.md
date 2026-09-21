@@ -120,8 +120,11 @@ and the window says what is new, with an **Update** button:
 * **Daemon** runs the same clone-and-`makepkg -si` as the install, then
   restarts the daemon's unit. Your session stays signed in.
 
-Nothing is ever installed without you confirming in that terminal. Turn the
-check off under Settings → Updates; **Check now** is there too.
+Nothing is ever installed without you confirming in that terminal. The
+About card at the top of Settings shows both versions, when the last check
+ran, and a **Check for updates** button; the daily check can be turned off
+under Settings → Updates. The version line under your account in the
+window's sidebar lights up too.
 
 ## IPC
 

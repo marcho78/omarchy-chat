@@ -29,6 +29,17 @@ Item {
   readonly property string updateScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd/packaging\" && makepkg -si && systemctl --user restart " + daemonUnit + "; cd; rm -rf \"$d\""
   readonly property string glyph: "󰭹"
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, "")
+  readonly property string pluginVersion: (manifest && manifest.version) ? String(manifest.version) : ""
+  // Short commit of the installed plugin, for the About card.
+  property string pluginCommit: ""
+  Process {
+    id: pluginRev
+    property string out: ""
+    command: ["/usr/bin/git", "-C", root.pluginDir, "log", "-1", "--format=%h %cs"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { pluginRev.out += d } }
+    onExited: function(code) { root.pluginCommit = code === 0 ? pluginRev.out.trim() : "" }
+    running: true
+  }
 
   function log(msg) { console.log("[yapper] " + msg) }
 

@@ -36,6 +36,91 @@ Column {
     return Color.accent
   }
 
+  // About & updates — first thing in Settings.
+  Rectangle {
+    width: parent.width
+    implicitHeight: aboutColumn.implicitHeight + Style.space(24)
+    radius: Style.space(8)
+    color: "transparent"
+    border.width: 1
+    border.color: Util.alpha(root.fg, 0.25)
+
+    Column {
+      id: aboutColumn
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.margins: Style.space(12)
+      spacing: Style.space(6)
+
+      Item {
+        width: parent.width
+        implicitHeight: Math.max(aboutText.implicitHeight, checkButton.implicitHeight)
+        Column {
+          id: aboutText
+          anchors.left: parent.left
+          anchors.right: checkButton.left
+          anchors.rightMargin: Style.space(10)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(2)
+          Text {
+            width: parent.width
+            elide: Text.ElideRight
+            text: "Yapper " + (root.service ? root.service.pluginVersion : "")
+              + (root.service && root.service.pluginCommit ? "  ·  " + root.service.pluginCommit : "")
+            color: root.fg
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.subtitle
+            font.bold: true
+          }
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Daemon " + (root.service && root.service.daemonVersion ? root.service.daemonVersion : "not running")
+              + (root.service && root.service.daemonLatest ? "  ·  newest " + root.service.daemonLatest : "")
+            color: root.fg
+            opacity: 0.7
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: {
+              if (!root.service) return ""
+              var s = root.service
+              if (s.checking) return "Checking…"
+              if (s.updateError) return s.updateError
+              if (!s.lastChecked) return "Not checked yet"
+              return (s.updateAvailable ? "Update available" : "Up to date") + "  ·  checked " + s.lastChecked
+            }
+            color: root.service && root.service.updateError ? Color.urgent : (root.service && root.service.updateAvailable ? Color.accent : root.fg)
+            opacity: root.service && (root.service.updateError || root.service.updateAvailable) ? 1 : 0.55
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+        }
+        Button {
+          id: checkButton
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          iconText: "󰚰"
+          text: root.service && root.service.checking ? "Checking…" : "Check for updates"
+          bordered: true
+          enabled: !(root.service && root.service.checking)
+          onClicked: root.service.checkForUpdates()
+        }
+      }
+
+      UpdateBanner {
+        width: parent.width
+        service: root.service
+        fg: root.fg
+        fontFamily: root.fontFamily
+      }
+    }
+  }
+
   Text {
     width: parent.width
     wrapMode: Text.WordWrap
@@ -273,56 +358,4 @@ Column {
     }
   }
 
-  // Updates: status and a manual check (the toggle above comes from the schema).
-  Item {
-    width: parent.width
-    implicitHeight: Math.max(updateStatus.implicitHeight, checkButton.implicitHeight)
-    Column {
-      id: updateStatus
-      anchors.left: parent.left
-      anchors.right: checkButton.left
-      anchors.rightMargin: Style.space(10)
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(2)
-      Text {
-        text: root.service && root.service.updateAvailable ? "Update available" : "Up to date"
-        color: root.service && root.service.updateAvailable ? Color.accent : root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.subtitle
-      }
-      Text {
-        width: parent.width
-        wrapMode: Text.WordWrap
-        text: {
-          if (!root.service) return ""
-          var s = root.service
-          var parts = ["Daemon " + (s.daemonVersion || "not running") + (s.daemonLatest ? " · newest " + s.daemonLatest : "")]
-          if (s.pluginUpdateCount > 0) parts.push("plugin " + s.pluginUpdateCount + " behind")
-          if (s.lastChecked) parts.push("checked " + s.lastChecked)
-          if (s.updateError) parts.push(s.updateError)
-          return parts.join(" · ")
-        }
-        color: root.service && root.service.updateError ? Color.urgent : root.fg
-        opacity: root.service && root.service.updateError ? 0.9 : 0.55
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.caption
-      }
-    }
-    Button {
-      id: checkButton
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      text: root.service && root.service.checking ? "Checking…" : "Check now"
-      bordered: true
-      enabled: !(root.service && root.service.checking)
-      onClicked: root.service.checkForUpdates()
-    }
-  }
-
-  UpdateBanner {
-    width: parent.width
-    service: root.service
-    fg: root.fg
-    fontFamily: root.fontFamily
-  }
 }
