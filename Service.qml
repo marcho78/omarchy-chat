@@ -151,28 +151,38 @@ Item {
 
   // ---------- socket ----------
 
-  // After a failed attempt Socket.connected still reports the requested
-  // state, so reset it before asking again or nothing happens.
+  // A Socket that has been connected and then dropped by the server makes
+  // no further attempts however `connected` is toggled, so every attempt
+  // gets a fresh object and the dead one is destroyed.
+  property var sock: null
+
   function connectSocket() {
     if (!root.installed || root.connected) return
-    sock.connected = false
-    sock.connected = true
+    if (root.sock) { root.sock.destroy(); root.sock = null }
+    root.sock = sockComponent.createObject(root)
+    root.sock.connected = true
   }
 
-  Socket {
-    id: sock
-    path: root.socketPath
-    parser: SplitParser { onRead: function(line) { root.onLine(line) } }
-    onConnectionStateChanged: {
-      root.connected = sock.connected
-      if (sock.connected) {
-        root.starting = false
-        root.startError = ""
-      } else {
-        root.pending = ({})
-        root.rooms = []
-        root.invites = []
-        root.status = ({ logged_in: false, syncing: false })
+  Component {
+    id: sockComponent
+    Socket {
+      path: root.socketPath
+      parser: SplitParser { onRead: function(line) { root.onLine(line) } }
+      onConnectionStateChanged: {
+        if (this !== root.sock) return
+        root.connected = connected
+        if (connected) {
+          root.starting = false
+          root.startError = ""
+        } else {
+          root.pending = ({})
+          root.rooms = []
+          root.invites = []
+          root.status = ({ logged_in: false, syncing: false })
+          var dead = root.sock
+          root.sock = null
+          dead.destroy()
+        }
       }
     }
   }
@@ -186,13 +196,13 @@ Item {
   }
 
   function request(cmd, fields, cb) {
-    if (!sock.connected) { if (cb) cb({ ok: false, error: "daemon not connected" }); return }
+    if (!root.sock || !root.sock.connected) { if (cb) cb({ ok: false, error: "daemon not connected" }); return }
     var id = root.nextId++
     var obj = fields || {}
     obj.id = id
     obj.cmd = cmd
     if (cb) { var p = root.pending; p[id] = cb; root.pending = p }
-    sock.write(JSON.stringify(obj) + "\n")
+    root.sock.write(JSON.stringify(obj) + "\n")
   }
 
   function onLine(line) {
