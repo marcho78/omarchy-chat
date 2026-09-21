@@ -57,7 +57,29 @@ Item {
   property string readUpTo: ""
   onAtEndChanged: if (atEnd) maybeMarkRead()
   onVisibleChanged: { if (root.service) root.service.setViewing(root.viewId, visible ? root.roomId : ""); if (visible) Qt.callLater(maybeMarkRead) }
-  function jumpToNew() { msgList.positionViewAtEnd(); Qt.callLater(function() { msgList.positionViewAtEnd(); root.maybeMarkRead() }) }
+  function jumpToNew() { root.stickToEnd = true; root.snapToEnd(); }
+
+  // Delegates load lazily (images, wrapped text), so a single
+  // positionViewAtEnd lands short. Re-anchor a few times while rows
+  // settle, and stop the moment the user scrolls away.
+  property bool stickToEnd: false
+  function snapToEnd() {
+    msgList.positionViewAtEnd()
+    settle.restart()
+  }
+  Timer {
+    id: settle
+    interval: 120
+    repeat: true
+    property int ticks: 0
+    onRunningChanged: if (running) ticks = 0
+    onTriggered: {
+      if (!root.stickToEnd || msgList.dragging || msgList.flicking) { stop(); return }
+      msgList.positionViewAtEnd()
+      root.maybeMarkRead()
+      if (++ticks >= 12) stop()
+    }
+  }
 
   function open(r) {
     root.room = r
@@ -67,6 +89,9 @@ Item {
     root.pendingNew = 0
     root.lastEventId = ""
     root.readUpTo = ""
+    root.typingUsers = []
+    root.reactionIndex = ({})
+    root.confirmDelete = null
     msgModel.clear()
     root.service.setViewing(root.viewId, root.roomId)
     var id = root.roomId
@@ -88,9 +113,11 @@ Item {
       if (dividerAt > 0) {
         msgModel.setProperty(dividerAt, "newDivider", true)
         msgModel.setProperty(dividerAt, "header", true)
+        root.stickToEnd = false
         Qt.callLater(function() { msgList.positionViewAtIndex(dividerAt, ListView.Beginning); Qt.callLater(root.maybeMarkRead) })
       } else {
-        Qt.callLater(function() { msgList.positionViewAtEnd(); Qt.callLater(root.maybeMarkRead) })
+        root.stickToEnd = true
+        Qt.callLater(root.snapToEnd)
       }
       Qt.callLater(function() { composer.forceActiveFocus() })
     })
@@ -111,9 +138,11 @@ Item {
   }
 
   function close() {
+    root.setTyping(false)
     root.room = null
     root.replyTo = null
     root.editing = null
+    root.typingUsers = []
     msgModel.clear()
     root.service.setViewing(root.viewId, "")
   }
@@ -129,7 +158,18 @@ Item {
       dayLabel: newDay ? Format.dayLabel(ts, Date.now()) : ""
     }
   }
+  function indexReactions(m) {
+    var list = m.reactions || []
+    var idx = root.reactionIndex
+    for (var i = 0; i < list.length; i++)
+      for (var j = 0; j < list[i].senders.length; j++) {
+        var sd = list[i].senders[j]
+        if (sd.reaction_id) idx[sd.reaction_id] = { eventId: m.event_id, key: list[i].key, user: { id: sd.id, name: sd.name } }
+      }
+    root.reactionIndex = idx
+  }
   function entryFor(m, meta) {
+    root.indexReactions(m)
     return {
       eventId: m.event_id,
       sender: m.sender,
@@ -140,6 +180,9 @@ Item {
       attachmentJson: m.attachment ? JSON.stringify(m.attachment) : "",
       replyJson: m.reply_to ? JSON.stringify(m.reply_to) : "",
       edited: m.edited === true,
+      deleted: m.deleted === true,
+      reactionsJson: JSON.stringify(m.reactions || []),
+      readByJson: JSON.stringify(m.read_by || []),
       ts: Number(m.ts) || 0,
       mine: m.sender === root.service.userId,
       encrypted: m.encrypted === true,
@@ -153,6 +196,7 @@ Item {
   // contentY by exactly what was added above it.
   function prepend(list) {
     if (list.length === 0) return
+    root.stickToEnd = false
     var oldHeight = msgList.contentHeight
     var oldY = msgList.contentY
     var prev = null
@@ -172,6 +216,7 @@ Item {
   }
 
   function append(m) {
+    root.indexReactions(m)
     var ts = Number(m.ts) || 0
     var prev = msgModel.count > 0 ? msgModel.get(msgModel.count - 1) : null
     var newDay = !prev || !Format.isSameDay(prev.ts, ts)
@@ -186,6 +231,9 @@ Item {
       attachmentJson: m.attachment ? JSON.stringify(m.attachment) : "",
       replyJson: m.reply_to ? JSON.stringify(m.reply_to) : "",
       edited: m.edited === true,
+      deleted: m.deleted === true,
+      reactionsJson: JSON.stringify(m.reactions || []),
+      readByJson: JSON.stringify(m.read_by || []),
       ts: ts,
       mine: m.sender === root.service.userId,
       encrypted: m.encrypted === true,
@@ -195,8 +243,105 @@ Item {
     })
   }
 
+  // ---------- reactions / receipts / typing ----------
+  property var typingUsers: []
+  readonly property string typingText: {
+    var n = typingUsers.map(function(u) { return u.name })
+    if (n.length === 0) return ""
+    if (n.length === 1) return n[0] + " is typing"
+    if (n.length === 2) return n[0] + " and " + n[1] + " are typing"
+    return n[0] + ", " + n[1] + " and " + (n.length - 2) + " more are typing"
+  }
+  // Own typing notices: start on the first keystroke, stop after a pause
+  // or when the message goes out.
+  property bool typingSent: false
+  Timer { id: typingStop; interval: 5000; onTriggered: root.setTyping(false) }
+  function setTyping(on) {
+    if (!root.roomId || on === root.typingSent) return
+    root.typingSent = on
+    root.service.typing(root.roomId, on)
+  }
+  function noteTyping() {
+    if (!root.roomId) return
+    if (composer.text.length > 0) { root.setTyping(true); typingStop.restart() }
+    else { typingStop.stop(); root.setTyping(false) }
+  }
+
+  function toggleReaction(eventId, key) {
+    var i = root.indexOfEvent(eventId)
+    if (i < 0) return
+    var list = JSON.parse(msgModel.get(i).reactionsJson)
+    for (var k = 0; k < list.length; k++) {
+      if (list[k].key === key && list[k].mine) {
+        var rid = list[k].mine
+        root.service.unreact(root.roomId, rid, function(r) { if (!r.ok) root.errorText = r.error || "Could not remove reaction" })
+        root.applyReaction(eventId, key, { id: root.service.userId, name: "you" }, rid, false)
+        return
+      }
+    }
+    root.service.react(root.roomId, eventId, key, function(r) {
+      if (!r.ok) { root.errorText = r.error || "Could not react"; return }
+      var idx = root.reactionIndex; idx[r.result.reaction_id] = { eventId: eventId, key: key, user: { id: root.service.userId, name: "you" } }; root.reactionIndex = idx
+      root.applyReaction(eventId, key, { id: root.service.userId, name: "you" }, r.result.reaction_id, true)
+    })
+  }
+
+  // Add or remove one user's reaction in the model.
+  function applyReaction(eventId, key, user, reactionId, add) {
+    var i = root.indexOfEvent(eventId)
+    if (i < 0) return
+    var list = JSON.parse(msgModel.get(i).reactionsJson)
+    var mine = user.id === root.service.userId
+    var found = -1
+    for (var k = 0; k < list.length; k++) if (list[k].key === key) found = k
+    if (add) {
+      if (found < 0) { list.push({ key: key, count: 0, senders: [], mine: null }); found = list.length - 1 }
+      var r = list[found]
+      if (r.senders.some(function(u) { return u.id === user.id })) return
+      r.senders.push({ id: user.id, name: user.name, reaction_id: reactionId }); r.count = r.senders.length
+      if (mine) r.mine = reactionId
+    } else {
+      if (found < 0) return
+      var rr = list[found]
+      rr.senders = rr.senders.filter(function(u) { return u.id !== user.id }); rr.count = rr.senders.length
+      if (mine) rr.mine = null
+      if (rr.count === 0) list.splice(found, 1)
+    }
+    msgModel.setProperty(i, "reactionsJson", JSON.stringify(list))
+  }
+  // reaction event id -> {eventId, key, user} so a redaction can undo it
+  property var reactionIndex: ({})
+
   Connections {
     target: root.service
+    function onReactionReceived(r) {
+      if (!root.roomId || r.room !== root.roomId) return
+      var idx = root.reactionIndex; idx[r.reaction_id] = { eventId: r.event_id, key: r.key, user: r.sender }; root.reactionIndex = idx
+      root.applyReaction(r.event_id, r.key, r.sender, r.reaction_id, true)
+    }
+    function onRedacted(x) {
+      if (!root.roomId || x.room !== root.roomId) return
+      var ref = root.reactionIndex[x.event_id]
+      if (ref) { root.applyReaction(ref.eventId, ref.key, ref.user, x.event_id, false); return }
+      var i = root.indexOfEvent(x.event_id)
+      if (i >= 0) { msgModel.setProperty(i, "deleted", true); msgModel.setProperty(i, "edited", false); msgModel.setProperty(i, "body", ""); msgModel.setProperty(i, "html", ""); msgModel.setProperty(i, "attachmentJson", ""); msgModel.setProperty(i, "reactionsJson", "[]") }
+    }
+    function onTypingChanged(t) {
+      if (!root.roomId || t.room !== root.roomId) return
+      root.typingUsers = t.users
+    }
+    function onReceiptMoved(rc) {
+      if (!root.roomId || rc.room !== root.roomId) return
+      // Each user's marker lives on exactly one message: remove elsewhere, add here.
+      var ids = rc.users.map(function(u) { return u.id })
+      for (var i = 0; i < msgModel.count; i++) {
+        var it = msgModel.get(i)
+        var list = JSON.parse(it.readByJson)
+        var next = list.filter(function(u) { return ids.indexOf(u.id) === -1 })
+        if (it.eventId === rc.event_id) next = next.concat(rc.users)
+        if (next.length !== list.length || it.eventId === rc.event_id) msgModel.setProperty(i, "readByJson", JSON.stringify(next))
+      }
+    }
     function onMessageEdited(e) {
       if (!root.roomId || e.room !== root.roomId) return
       var i = root.indexOfEvent(e.event_id)
@@ -211,7 +356,8 @@ Item {
       root.append(m)
       root.lastEventId = m.event_id
       if (m.sender === root.service.userId || (wasAtEnd && root.visible)) {
-        Qt.callLater(function() { msgList.positionViewAtEnd(); root.maybeMarkRead() })
+        root.stickToEnd = true
+        Qt.callLater(root.snapToEnd)
       } else {
         root.pendingNew++
       }
@@ -229,6 +375,14 @@ Item {
     for (var i = 0; i < msgModel.count; i++) if (msgModel.get(i).eventId === eventId) return i
     return -1
   }
+  property var confirmDelete: null
+  function deleteMessage(eventId) {
+    root.service.deleteMessage(root.roomId, eventId, function(r) {
+      if (!r.ok) root.errorText = r.error || "Could not delete"
+    })
+    root.confirmDelete = null
+  }
+
   function jumpTo(eventId) {
     var i = root.indexOfEvent(eventId)
     if (i >= 0) { msgList.positionViewAtIndex(i, ListView.Center); root.flashIndex = i; flashTimer.restart() }
@@ -239,6 +393,7 @@ Item {
   function send() {
     var text = composer.text
     if (text.trim() === "" || !root.roomId || root.busy) return
+    typingStop.stop(); root.setTyping(false)
     root.busy = true
     if (root.editing) {
       var target = root.editing.event_id
@@ -350,6 +505,10 @@ Item {
       ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
       // Reaching the top loads the page before it.
       onContentYChanged: if (contentY <= originY + Style.space(40) && root.hasOlder && !root.loadingOlder && count > 0) root.loadOlder()
+      // A manual scroll up releases the bottom anchor.
+      onDraggingChanged: if (dragging) root.stickToEnd = false
+      onFlickingChanged: if (flicking && !atYEnd) root.stickToEnd = false
+      onAtYEndChanged: if (atYEnd) root.stickToEnd = true
 
       header: Item {
         width: msgList.width
@@ -391,8 +550,14 @@ Item {
         newDivider: model.newDivider
         replyTo: model.replyJson !== "" ? JSON.parse(model.replyJson) : null
         edited: model.edited
+        deleted: model.deleted
+        reactions: JSON.parse(model.reactionsJson)
+        readBy: JSON.parse(model.readByJson)
+        onReactRequested: function(key) { root.toggleReaction(model.eventId, key) }
+        onDeleteRequested: root.confirmDelete = { event_id: model.eventId, body: model.body }
         highlighted: index === root.flashIndex
-        canEdit: model.mine && !model.attachmentJson
+        canEdit: model.mine && !model.attachmentJson && !model.deleted
+        canDelete: model.mine && !model.deleted
         onReplyRequested: root.startReply({ event_id: model.eventId, sender_name: model.senderName, body: model.body })
         onEditRequested: root.startEdit({ event_id: model.eventId, body: model.body })
         onJumpRequested: function(id) { root.jumpTo(id) }
@@ -405,6 +570,83 @@ Item {
         senderColors: root.service ? root.service.senderColors : true
         scale: root.service ? root.service.fontScale : 1.0
         fontFamily: root.fontFamily
+      }
+    }
+
+    // Who is typing
+    Item {
+      width: parent.width
+      height: root.typingText !== "" ? Style.space(18) : 0
+      visible: height > 0
+      Row {
+        anchors.left: parent.left
+        anchors.leftMargin: Style.space(4)
+        spacing: Style.space(6)
+        Row {
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 3
+          Repeater {
+            model: 3
+            delegate: Rectangle {
+              required property int index
+              width: 5; height: 5; radius: 2.5
+              color: root.fg
+              SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                running: root.typingText !== ""
+                PauseAnimation { duration: index * 160 }
+                NumberAnimation { to: 1; duration: 320 }
+                NumberAnimation { to: 0.25; duration: 320 }
+                PauseAnimation { duration: (2 - index) * 160 }
+              }
+            }
+          }
+        }
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.typingText
+          color: root.fg; opacity: 0.6
+          font.family: root.fontFamily; font.pixelSize: Style.font.caption
+        }
+      }
+    }
+
+    // Delete confirmation
+    Rectangle {
+      width: parent.width
+      visible: root.confirmDelete !== null
+      implicitHeight: visible ? delRow.implicitHeight + Style.space(12) : 0
+      radius: Style.space(8)
+      color: Util.alpha(Color.urgent, 0.12)
+      border.width: 1
+      border.color: Color.urgent
+      Row {
+        id: delRow
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.leftMargin: Style.space(12)
+        anchors.rightMargin: Style.space(8)
+        spacing: Style.space(10)
+        Column {
+          anchors.verticalCenter: parent.verticalCenter
+          width: parent.width - Style.space(10) - delButtons.width
+          spacing: Style.space(1)
+          Text { text: "Delete this message?"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.bold: true }
+          Text {
+            width: parent.width
+            text: root.confirmDelete ? (root.confirmDelete.body || "(attachment)") : ""
+            color: root.fg; opacity: 0.7; elide: Text.ElideRight
+            font.family: root.fontFamily; font.pixelSize: Style.font.caption
+          }
+        }
+        Row {
+          id: delButtons
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.spacing.controlGap
+          Button { text: "Delete"; bordered: true; onClicked: root.deleteMessage(root.confirmDelete.event_id) }
+          Button { text: "Keep"; onClicked: root.confirmDelete = null }
+        }
       }
     }
 
@@ -496,6 +738,7 @@ Item {
           : (root.encrypted ? "Encrypted message…" : "Message (not encrypted)…")
         enabled: !root.busy && root.roomId !== ""
         onAccepted: root.send()
+        onTextChanged: root.noteTyping()
         Keys.onPressed: function(event) {
           if (event.key === Qt.Key_V && (event.modifiers & Qt.ControlModifier)) {
             event.accepted = true

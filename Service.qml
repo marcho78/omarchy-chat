@@ -320,6 +320,14 @@ Item {
       if (!root.loggedIn) { root.rooms = []; root.invites = []; root.verification = null; root.activeFlow = null }
     } else if (ev.event === "message_edited") {
       root.messageEdited(ev)
+    } else if (ev.event === "reaction") {
+      root.reactionReceived(ev)
+    } else if (ev.event === "redacted") {
+      root.redacted(ev)
+    } else if (ev.event === "typing") {
+      root.typingChanged(ev)
+    } else if (ev.event === "receipt") {
+      root.receiptMoved(ev)
     } else if (ev.event === "message") {
       root.messageReceived(ev)
       if (!root.isViewed(ev.room)) {
@@ -405,7 +413,15 @@ Item {
     root.request("send", { room: roomId, body: String(body), reply_to: replyTo || null }, cb)
   }
   function edit(roomId, eventId, body, cb) { root.request("edit", { room: roomId, event_id: eventId, body: String(body) }, cb) }
+  function deleteMessage(roomId, eventId, cb) { root.request("delete", { room: roomId, event_id: eventId }, cb) }
+  function react(roomId, eventId, key, cb) { root.request("react", { room: roomId, event_id: eventId, key: key }, cb) }
+  function unreact(roomId, reactionId, cb) { root.request("unreact", { room: roomId, reaction_id: reactionId }, cb) }
+  function typing(roomId, on) { root.request("typing", { room: roomId, typing: on === true }) }
   signal messageEdited(var edit)
+  signal reactionReceived(var reaction)
+  signal redacted(var info)
+  signal typingChanged(var info)
+  signal receiptMoved(var info)
   function markRead(roomId, eventId, cb) {
     if (!roomId || !eventId) return
     root.request("mark_read", { room: roomId, event_id: eventId }, function(r) { root.refreshRooms(); if (cb) cb(r) })

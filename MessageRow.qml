@@ -27,11 +27,19 @@ Item {
   property bool newDivider: false
   property var replyTo: null
   property bool edited: false
+  property bool deleted: false
   property bool highlighted: false
   property bool canEdit: false
+  property bool canDelete: false
+  property var reactions: []
+  property var readBy: []
+  property bool paletteOpen: false
+  readonly property var quickEmoji: ["👍", "❤️", "😂", "😮", "😢", "🎉", "🔥", "👀"]
 
   signal replyRequested()
   signal editRequested()
+  signal deleteRequested()
+  signal reactRequested(string key)
   signal jumpRequested(string eventId)
   property color fg: Color.foreground
   property color accent: Color.accent
@@ -162,7 +170,7 @@ Item {
       // Hover actions: Reply, and Edit on your own text messages
       Rectangle {
         id: actions
-        visible: (rowMouse.containsMouse || actionsMouse.containsMouse) && root.msgtype !== "unable_to_decrypt"
+        visible: (rowMouse.containsMouse || actionsMouse.containsMouse || root.paletteOpen) && root.msgtype !== "unable_to_decrypt" && !root.deleted
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.topMargin: -Style.space(10)
@@ -179,7 +187,12 @@ Item {
           anchors.centerIn: parent
           spacing: Style.space(2)
           Repeater {
-            model: root.canEdit ? [{ icon: "󰑚", tip: "Reply", act: "reply" }, { icon: "󰏫", tip: "Edit", act: "edit" }] : [{ icon: "󰑚", tip: "Reply", act: "reply" }]
+            model: {
+              var a = [{ icon: "󰞅", tip: "React", act: "react" }, { icon: "󰑚", tip: "Reply", act: "reply" }]
+              if (root.canEdit) a.push({ icon: "󰏫", tip: "Edit", act: "edit" })
+              if (root.canDelete) a.push({ icon: "󰆴", tip: "Delete", act: "delete" })
+              return a
+            }
             delegate: Rectangle {
               required property var modelData
               width: Style.space(26); height: Style.space(26)
@@ -191,7 +204,50 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: { if (parent.modelData.act === "reply") root.replyRequested(); else root.editRequested() }
+                onClicked: {
+                  var act = parent.modelData.act
+                  if (act === "reply") root.replyRequested()
+                  else if (act === "edit") root.editRequested()
+                  else if (act === "delete") root.deleteRequested()
+                  else root.paletteOpen = !root.paletteOpen
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Quick reaction palette
+      Rectangle {
+        visible: root.paletteOpen
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Style.space(22)
+        z: 6
+        width: paletteRow.implicitWidth + Style.space(12)
+        height: Style.space(40)
+        radius: Style.space(8)
+        color: root.bg
+        border.width: 1
+        border.color: Util.alpha(root.fg, 0.25)
+        Row {
+          id: paletteRow
+          anchors.centerIn: parent
+          spacing: Style.space(2)
+          Repeater {
+            model: root.quickEmoji
+            delegate: Rectangle {
+              required property string modelData
+              width: Style.space(32); height: Style.space(32)
+              radius: Style.space(6)
+              color: pMouse.containsMouse ? root.hover : "transparent"
+              Text { anchors.centerIn: parent; text: parent.modelData; font.pixelSize: Style.space(18) }
+              MouseArea {
+                id: pMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: { root.paletteOpen = false; root.reactRequested(parent.modelData) }
               }
             }
           }
@@ -421,7 +477,7 @@ Item {
         // Body: plain in flat style, inside a rounded bubble in bubble style.
         Item {
           // An attachment's body is its filename unless the sender added a caption.
-          visible: !root.isAttachment || (root.attachment && !!root.attachment.caption)
+          visible: root.deleted || !root.isAttachment || (root.attachment && !!root.attachment.caption)
           width: parent.width
           implicitHeight: visible ? bubble.implicitHeight : 0
 
@@ -441,12 +497,13 @@ Item {
               anchors.leftMargin: root.bubbles ? Style.space(12) : 0
               anchors.rightMargin: root.bubbles ? Style.space(12) : 0
               textFormat: Text.RichText
-              text: root.msgtype === "unable_to_decrypt"
+              text: root.deleted ? "<i>Message deleted</i>"
+                : root.msgtype === "unable_to_decrypt"
                 ? "<i>󰌾 Unable to decrypt — this device did not have the key. It fills in once backup or another device shares it.</i>"
                 : (root.isAttachment ? Format.linkify(root.attachment.caption || "")
                   : (root.html !== "" ? Format.cleanHtml(root.html) : Format.linkify(root.body)))
               wrapMode: Text.Wrap
-              opacity: root.msgtype === "unable_to_decrypt" ? 0.6 : 1
+              opacity: root.msgtype === "unable_to_decrypt" || root.deleted ? 0.6 : 1
               color: root.bubbles && root.mine ? root.bg : root.fg
               linkColor: root.bubbles && root.mine ? root.bg : root.accent
               font.family: root.fontFamily
@@ -457,6 +514,112 @@ Item {
                 acceptedButtons: Qt.NoButton
                 cursorShape: parent.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.IBeamCursor
               }
+            }
+          }
+        }
+
+        // Reactions
+        Flow {
+          width: parent.width
+          spacing: Style.space(4)
+          visible: root.reactions.length > 0
+          layoutDirection: root.bubbles && root.mine ? Qt.RightToLeft : Qt.LeftToRight
+          Repeater {
+            model: root.reactions
+            delegate: Rectangle {
+              required property var modelData
+              readonly property bool own: !!modelData.mine
+              width: chipRow.implicitWidth + Style.space(14)
+              height: Style.space(24)
+              radius: height / 2
+              color: own ? Util.alpha(root.accent, 0.18) : Util.alpha(root.fg, 0.08)
+              border.width: 1
+              border.color: own ? root.accent : Util.alpha(root.fg, 0.15)
+              Row {
+                id: chipRow
+                anchors.centerIn: parent
+                spacing: Style.space(4)
+                Text { text: parent.parent.modelData.key; font.pixelSize: root.captionSize + 1 }
+                Text { text: String(parent.parent.modelData.count); color: root.fg; font.family: root.fontFamily; font.pixelSize: root.captionSize; font.bold: parent.parent.own }
+              }
+              MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.reactRequested(parent.modelData.key)
+                onEntered: chipTip.visible = true
+                onExited: chipTip.visible = false
+              }
+              Rectangle {
+                id: chipTip
+                visible: false
+                anchors.bottom: parent.top
+                anchors.bottomMargin: 4
+                anchors.left: parent.left
+                width: chipTipText.implicitWidth + 12
+                height: chipTipText.implicitHeight + 6
+                radius: 4
+                color: Color.tooltip.background
+                border.color: Color.tooltip.border
+                border.width: 1
+                Text {
+                  id: chipTipText
+                  anchors.centerIn: parent
+                  text: parent.parent.modelData.senders.map(function(u) { return u.name }).join(", ")
+                  color: Color.tooltip.text
+                  font.family: root.fontFamily; font.pixelSize: Style.font.caption
+                }
+              }
+            }
+          }
+        }
+
+        // Seen by: tiny avatars of others whose receipt is here
+        Row {
+          visible: root.readBy.length > 0
+          anchors.right: parent.right
+          spacing: -Style.space(4)
+          Repeater {
+            model: root.readBy.slice(0, 6)
+            delegate: Avatar {
+              required property var modelData
+              size: Style.space(16)
+              userId: modelData.id
+              name: modelData.name
+              fontFamily: root.fontFamily
+              MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                onEntered: seenTip.visible = true
+                onExited: seenTip.visible = false
+              }
+            }
+          }
+          Text {
+            visible: root.readBy.length > 6
+            anchors.verticalCenter: parent.verticalCenter
+            text: " +" + (root.readBy.length - 6)
+            color: root.fg; opacity: 0.5
+            font.family: root.fontFamily; font.pixelSize: root.captionSize - 2
+          }
+          Rectangle {
+            id: seenTip
+            visible: false
+            anchors.bottom: parent.top
+            anchors.bottomMargin: 4
+            anchors.right: parent.right
+            width: seenText.implicitWidth + 12
+            height: seenText.implicitHeight + 6
+            radius: 4
+            color: Color.tooltip.background
+            border.color: Color.tooltip.border
+            border.width: 1
+            Text {
+              id: seenText
+              anchors.centerIn: parent
+              text: "Seen by " + root.readBy.map(function(u) { return u.name }).join(", ")
+              color: Color.tooltip.text
+              font.family: root.fontFamily; font.pixelSize: Style.font.caption
             }
           }
         }
