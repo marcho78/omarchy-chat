@@ -11,6 +11,9 @@ Column {
   property var service: null
   property color fg: Color.foreground
   property string fontFamily: Style.font.family
+  // The colour row whose picker is unfolded (one at a time). Set from a
+  // deep link, or by clicking a row.
+  property string pickKey: ""
 
   spacing: Style.space(10)
 
@@ -23,11 +26,17 @@ Column {
   }
 
   function current(key, fallback) { return root.service ? root.service.setting(key, fallback) : fallback }
+  function themeFallback(key) {
+    if (key === "backgroundColor") return Color.background
+    if (key === "sidebarColor") return root.service ? root.service.bg : Color.background
+    if (key === "textColor") return Color.foreground
+    return Color.accent
+  }
 
   Text {
     width: parent.width
     wrapMode: Text.WordWrap
-    text: "Changes apply immediately. Colours are hex like #101315 and only count under Custom appearance; leave one empty to keep the theme's."
+    text: "Changes apply as you make them. Colours follow the Omarchy theme until you pick one."
     color: root.fg
     opacity: 0.6
     font.family: root.fontFamily
@@ -43,9 +52,19 @@ Column {
       readonly property string key: String(modelData.key)
       readonly property string type: String(modelData.type)
       readonly property var value: root.current(key, modelData.defaultValue)
-      readonly property bool textFocus: textField.activeFocus
+      readonly property bool textFocus: textField.activeFocus || (picker.item ? picker.item.hasTextFocus : false)
+      readonly property bool isColor: String(modelData.format || "") === "color"
+      readonly property bool pickerOpen: root.pickKey === key
+      readonly property string section: String(modelData.section || "")
+      readonly property bool newSection: index === 0 || String((root.service.schema[index - 1] || {}).section || "") !== section
+      required property int index
       width: root.width
       spacing: Style.space(4)
+
+      PanelSectionHeader {
+        visible: field.newSection && field.section !== ""
+        text: field.section
+      }
 
       // boolean
       Toggle {
@@ -119,9 +138,96 @@ Column {
         }
       }
 
+      // colour: a row with a swatch; click to unfold the picker
+      Column {
+        visible: field.isColor
+        width: parent.width
+        spacing: Style.space(6)
+
+        Item {
+          width: parent.width
+          implicitHeight: Style.space(54)
+          Rectangle {
+            anchors.fill: parent
+            radius: Style.space(8)
+            color: colorMouse.containsMouse || field.pickerOpen ? Util.alpha(root.fg, 0.06) : "transparent"
+            border.width: 1
+            border.color: field.pickerOpen ? Color.accent : Util.alpha(root.fg, 0.25)
+          }
+          Row {
+            anchors.fill: parent
+            anchors.leftMargin: Style.space(14)
+            anchors.rightMargin: Style.space(14)
+            spacing: Style.space(12)
+            Rectangle {
+              anchors.verticalCenter: parent.verticalCenter
+              width: Style.space(28)
+              height: width
+              radius: Style.space(8)
+              color: root.service ? root.service.pickColor(field.key, root.themeFallback(field.key)) : "transparent"
+              border.width: 1
+              border.color: Util.alpha(root.fg, 0.35)
+            }
+            Column {
+              anchors.verticalCenter: parent.verticalCenter
+              width: parent.width - Style.space(28) - Style.space(12) - stateLabel.width - Style.space(12)
+              spacing: Style.space(1)
+              Text {
+                text: String(field.modelData.label || field.key)
+                color: root.fg
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.subtitle
+              }
+              Text {
+                width: parent.width
+                text: String(field.modelData.description || "")
+                color: root.fg
+                opacity: 0.55
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+              }
+            }
+            Text {
+              id: stateLabel
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.service && root.service.isThemeColor(field.key) ? "Theme" : String(field.value).toLowerCase()
+              color: root.service && root.service.isThemeColor(field.key) ? root.fg : Color.accent
+              opacity: root.service && root.service.isThemeColor(field.key) ? 0.5 : 1
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
+          MouseArea {
+            id: colorMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.pickKey = field.pickerOpen ? "" : field.key
+          }
+        }
+
+        Loader {
+          id: picker
+          width: parent.width
+          active: field.pickerOpen
+          visible: active
+          sourceComponent: ColorPicker {
+            width: picker.width - Style.space(28)
+            x: Style.space(14)
+            fg: root.fg
+            fontFamily: root.fontFamily
+            swatches: root.service ? root.service.themeSwatches : []
+            value: root.service ? root.service.pickColor(field.key, root.themeFallback(field.key)) : "#888888"
+            onPicked: function(hex) { root.service.set(field.key, hex) }
+            onCleared: { root.service.set(field.key, ""); root.pickKey = "" }
+          }
+        }
+      }
+
       // string / path
       Column {
-        visible: field.type === "string" || field.type === "path"
+        visible: (field.type === "string" || field.type === "path") && !field.isColor
         width: parent.width
         spacing: Style.space(4)
         Text {
@@ -135,32 +241,12 @@ Column {
           spacing: Style.spacing.controlGap
           TextField {
             id: textField
-            width: parent.width - (swatch.visible ? swatch.width + Style.spacing.controlGap : 0)
+            width: parent.width
             text: String(field.value === undefined || field.value === null ? "" : field.value)
             placeholderText: String(field.modelData.description || "")
             maximumLength: 512
             onAccepted: root.service.set(field.key, text)
             onActiveFocusChanged: if (!activeFocus && text !== String(field.value || "")) root.service.set(field.key, text)
-          }
-          // A live swatch for colour fields
-          Rectangle {
-            id: swatch
-            visible: /Color$/.test(field.key)
-            anchors.verticalCenter: parent.verticalCenter
-            width: Style.spacing.controlHeight
-            height: Style.spacing.controlHeight
-            radius: Style.space(6)
-            border.width: 1
-            border.color: root.fg
-            color: root.service && root.service.isHex(textField.text) ? textField.text : "transparent"
-            Text {
-              anchors.centerIn: parent
-              visible: !(root.service && root.service.isHex(textField.text))
-              text: "—"
-              color: root.fg
-              opacity: 0.4
-              font.family: root.fontFamily
-            }
           }
         }
         Text {

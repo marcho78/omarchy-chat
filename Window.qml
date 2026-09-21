@@ -12,7 +12,8 @@ import qs.Ui
 //   omarchy-shell shell toggle marcho78.yapper '{}'   # toggle
 //   omarchy-shell shell hide marcho78.yapper          # close
 //
-// The payload may carry { room: "!id:server" } to open straight into a room.
+// The payload may carry { room: "!id:server" } to open straight into a room,
+// or { settings: true } to open on the settings pane.
 Item {
   id: root
   property var shell: null
@@ -36,7 +37,12 @@ Item {
     if (service) { service.ensureDaemon(); if (service.loggedIn) service.refresh() }
     var wanted = ""
     if (payloadJson) {
-      try { var p = JSON.parse(String(payloadJson)); if (p && typeof p.room === "string") wanted = p.room } catch (e) { /* ignore */ }
+      try {
+        var p = JSON.parse(String(payloadJson))
+        if (p && typeof p.room === "string") wanted = p.room
+        if (p && p.settings === true) root.showSettings = true
+        if (p && typeof p.pick === "string") { root.showSettings = true; settingsView.pickKey = p.pick }
+      } catch (e) { /* ignore */ }
     }
     Qt.callLater(function() {
       if (wanted !== "" && service) {

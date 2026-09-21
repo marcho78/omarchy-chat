@@ -26,7 +26,6 @@
       "homeserver": "https://matrix.org",
       "notifications": true,
       "autostartDaemon": true,
-      "appearance": "theme",
       "backgroundColor": "",
       "sidebarColor": "",
       "textColor": "",
@@ -42,65 +41,60 @@
         "type": "string",
         "label": "Homeserver",
         "defaultValue": "https://matrix.org",
-        "description": "Pre-filled on the login form. Any Matrix homeserver works."
+        "description": "Pre-filled on the login form. Any Matrix homeserver works.",
+        "section": "Account"
       },
       {
         "key": "notifications",
         "type": "boolean",
-        "label": "Desktop notifications for new messages",
-        "defaultValue": true
+        "label": "Notify on new messages",
+        "defaultValue": true,
+        "section": "Notifications",
+        "description": "For rooms no Yapper view is showing."
       },
       {
         "key": "autostartDaemon",
         "type": "boolean",
-        "label": "Start omarchy-yapperd when the panel opens",
+        "label": "Start the daemon when needed",
         "defaultValue": true,
-        "description": "Runs 'systemctl --user start omarchy-yapperd' if the daemon is installed but not running."
-      },
-      {
-        "key": "appearance",
-        "type": "enum",
-        "label": "Appearance",
-        "defaultValue": "theme",
-        "options": [
-          {
-            "value": "theme",
-            "label": "Follow the Omarchy theme"
-          },
-          {
-            "value": "custom",
-            "label": "Custom colours (below)"
-          }
-        ],
-        "description": "With the theme, colours change when you switch themes. Custom uses the hex values below; leave one empty to keep the theme's."
+        "description": "Runs 'systemctl --user start omarchy-yapperd' when it is installed but not running.",
+        "section": "Daemon"
       },
       {
         "key": "backgroundColor",
         "type": "string",
         "label": "Window background",
         "defaultValue": "",
-        "description": "Hex, e.g. #101315. Empty = theme."
+        "description": "The window and popup surface.",
+        "format": "color",
+        "section": "Appearance"
       },
       {
         "key": "sidebarColor",
         "type": "string",
         "label": "Sidebar background",
         "defaultValue": "",
-        "description": "Hex. Empty = same as the window."
+        "description": "The room list. Defaults to the window background.",
+        "format": "color",
+        "section": "Appearance"
       },
       {
         "key": "textColor",
         "type": "string",
         "label": "Text",
         "defaultValue": "",
-        "description": "Hex. Empty = theme foreground."
+        "description": "Message and interface text.",
+        "format": "color",
+        "section": "Appearance"
       },
       {
         "key": "accentColor",
         "type": "string",
         "label": "Accent",
         "defaultValue": "",
-        "description": "Links, your name, unread badges, the encrypted glyph. Hex. Empty = theme accent."
+        "description": "Links, your name, unread badges, the encrypted glyph.",
+        "format": "color",
+        "section": "Appearance"
       },
       {
         "key": "messageStyle",
@@ -116,20 +110,23 @@
             "value": "bubbles",
             "label": "Bubbles (yours on the right, theirs on the left)"
           }
-        ]
+        ],
+        "section": "Messages"
       },
       {
         "key": "showAvatars",
         "type": "boolean",
         "label": "Show avatars",
-        "defaultValue": true
+        "defaultValue": true,
+        "section": "Messages"
       },
       {
         "key": "senderColors",
         "type": "boolean",
         "label": "Colour each sender's name",
         "defaultValue": true,
-        "description": "Off: names use the text colour, yours the accent."
+        "description": "Off: names use the text colour, yours the accent.",
+        "section": "Messages"
       },
       {
         "key": "fontScale",
@@ -138,7 +135,8 @@
         "min": 80,
         "max": 150,
         "step": 5,
-        "defaultValue": 100
+        "defaultValue": 100,
+        "section": "Messages"
       }
     ]
   },

@@ -53,6 +53,8 @@ Matrix homeserver works; `matrix.org` is pre-filled.
 omarchy-shell shell summon marcho78.yapper '{}'                       # open
 omarchy-shell shell toggle marcho78.yapper '{}'                       # toggle
 omarchy-shell shell summon marcho78.yapper '{"room":"!id:server"}'    # open into a room
+omarchy-shell shell summon marcho78.yapper '{"settings":true}'         # open on settings
+omarchy-shell shell summon marcho78.yapper '{"pick":"accentColor"}'    # open a colour picker
 ```
 
 A keybinding, in `~/.config/hypr/bindings.lua` (`SUPER+SHIFT+C` is Omarchy's
@@ -96,8 +98,7 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 | `homeserver` | `https://matrix.org` | Pre-filled on the sign-in form |
 | `notifications` | `true` | Desktop notifications for new messages in rooms not in view |
 | `autostartDaemon` | `true` | Start the daemon's user unit when the panel opens |
-| `appearance` | `theme` | `theme` follows the Omarchy theme; `custom` uses the colours below |
-| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor` | empty | Hex (`#rrggbb`), used with `custom`; empty keeps the theme's value |
+| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor` | empty | Picked in the settings screen (hue bar, saturation/value square, theme swatches, hex); empty follows the Omarchy theme |
 | `messageStyle` | `flat` | `flat` (avatar, name, grouped runs) or `bubbles` (yours right, theirs left) |
 | `showAvatars` | `true` | Avatars in the timeline and DM list |
 | `senderColors` | `true` | A stable colour per sender's name |

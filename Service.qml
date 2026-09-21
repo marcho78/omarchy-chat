@@ -58,15 +58,24 @@ Item {
   }
 
   // ---------- appearance ----------
-  // Theme by default; "custom" lets hex values from the settings override
-  // each colour, and an empty value keeps the theme's.
+  // Each colour follows the Omarchy theme until the user picks one; an
+  // empty setting means "theme".
   function isHex(v) { return /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(String(v || "").trim()) }
   function pickColor(key, fallback) { var v = setting(key, ""); return isHex(v) ? Qt.color(String(v).trim()) : fallback }
-  readonly property bool customColors: String(setting("appearance", "theme")) === "custom"
-  readonly property color bg: customColors ? pickColor("backgroundColor", Color.popups.background) : Color.popups.background
-  readonly property color sidebarBg: customColors ? pickColor("sidebarColor", bg) : bg
-  readonly property color fg: customColors ? pickColor("textColor", Color.foreground) : Color.foreground
-  readonly property color accent: customColors ? pickColor("accentColor", Color.accent) : Color.accent
+  function isThemeColor(key) { return !isHex(setting(key, "")) }
+  // Color.background is opaque; popups.background carries the theme's popup alpha.
+  readonly property color bg: pickColor("backgroundColor", Color.background)
+  readonly property color sidebarBg: pickColor("sidebarColor", bg)
+  readonly property color fg: pickColor("textColor", Color.foreground)
+  readonly property color accent: pickColor("accentColor", Color.accent)
+  // Offered as swatches in the picker.
+  readonly property var themeSwatches: [
+    { label: "Theme background", color: Color.background },
+    { label: "Theme foreground", color: Color.foreground },
+    { label: "Theme accent", color: Color.accent },
+    { label: "Theme muted", color: Color.muted },
+    { label: "Theme urgent", color: Color.urgent }
+  ]
   readonly property bool bubbles: String(setting("messageStyle", "flat")) === "bubbles"
   readonly property bool showAvatars: flag("showAvatars", true)
   readonly property bool senderColors: flag("senderColors", true)
