@@ -35,17 +35,43 @@ Item {
 
   ListModel { id: msgModel }
 
+  // Paging: `nextToken` points at the page before the oldest loaded one;
+  // empty once history is exhausted.
+  property string nextToken: ""
+  property bool loadingOlder: false
+  readonly property bool hasOlder: nextToken !== ""
+
   function open(r) {
     root.room = r
     root.errorText = ""
+    root.nextToken = ""
+    root.loadingOlder = false
     msgModel.clear()
     root.service.setViewing(root.viewId, root.roomId)
-    root.service.timeline(root.roomId, 60, function(res) {
+    var id = root.roomId
+    root.service.timeline(id, 60, "", function(res) {
+      if (root.roomId !== id) return
       if (!res.ok) { root.errorText = res.error || "Could not load messages"; return }
-      if (res.result.length === 0) return
-      for (var i = 0; i < res.result.length; i++) root.append(res.result[i])
-      root.service.markRead(root.roomId, res.result[res.result.length - 1].event_id)
+      var list = res.result.messages
+      root.nextToken = res.result.next || ""
+      if (list.length === 0) return
+      for (var i = 0; i < list.length; i++) root.append(list[i])
+      root.service.markRead(root.roomId, list[list.length - 1].event_id)
       Qt.callLater(function() { composer.forceActiveFocus() })
+    })
+  }
+
+  function loadOlder() {
+    if (!root.hasOlder || root.loadingOlder || !root.roomId) return
+    root.loadingOlder = true
+    var id = root.roomId
+    var token = root.nextToken
+    root.service.timeline(id, 60, token, function(res) {
+      root.loadingOlder = false
+      if (root.roomId !== id) return
+      if (!res.ok) { root.errorText = res.error || "Could not load earlier messages"; return }
+      root.nextToken = res.result.next || ""
+      root.prepend(res.result.messages)
     })
   }
 
@@ -61,6 +87,53 @@ Item {
   // Group a message under the previous header when it is the same sender
   // within five minutes on the same day; start a day divider on a new day.
   readonly property int groupWindowMs: 5 * 60 * 1000
+  function metaFor(prev, m) {
+    var ts = Number(m.ts) || 0
+    var newDay = !prev || !Format.isSameDay(prev.ts, ts)
+    return {
+      header: newDay || !prev || prev.sender !== m.sender || (ts - prev.ts) > groupWindowMs,
+      dayLabel: newDay ? Format.dayLabel(ts, Date.now()) : ""
+    }
+  }
+  function entryFor(m, meta) {
+    return {
+      eventId: m.event_id,
+      sender: m.sender,
+      senderName: m.sender_name || m.sender,
+      body: m.body,
+      html: m.html || "",
+      msgtype: m.msgtype || "m.text",
+      attachmentJson: m.attachment ? JSON.stringify(m.attachment) : "",
+      ts: Number(m.ts) || 0,
+      mine: m.sender === root.service.userId,
+      encrypted: m.encrypted === true,
+      header: meta.header,
+      dayLabel: meta.dayLabel
+    }
+  }
+
+  // Older messages go in at the top; the view keeps its place by growing
+  // contentY by exactly what was added above it.
+  function prepend(list) {
+    if (list.length === 0) return
+    var oldHeight = msgList.contentHeight
+    var oldY = msgList.contentY
+    var prev = null
+    for (var i = 0; i < list.length; i++) {
+      var meta = root.metaFor(prev, list[i])
+      msgModel.insert(i, root.entryFor(list[i], meta))
+      prev = { ts: Number(list[i].ts) || 0, sender: list[i].sender }
+    }
+    // The item that used to be first is now preceded by real history.
+    if (msgModel.count > list.length) {
+      var first = msgModel.get(list.length)
+      var m2 = root.metaFor(prev, { ts: first.ts, sender: first.sender })
+      msgModel.setProperty(list.length, "header", m2.header)
+      msgModel.setProperty(list.length, "dayLabel", m2.dayLabel)
+    }
+    Qt.callLater(function() { msgList.contentY = oldY + (msgList.contentHeight - oldHeight) })
+  }
+
   function append(m) {
     var ts = Number(m.ts) || 0
     var prev = msgModel.count > 0 ? msgModel.get(msgModel.count - 1) : null
@@ -189,6 +262,30 @@ Item {
       clip: true
       spacing: 0
       model: msgModel
+      cacheBuffer: 2000
+      boundsBehavior: Flickable.StopAtBounds
+      ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+      // Reaching the top loads the page before it.
+      onContentYChanged: if (contentY <= originY + Style.space(40) && root.hasOlder && !root.loadingOlder && count > 0) root.loadOlder()
+
+      header: Item {
+        width: msgList.width
+        height: root.hasOlder || root.loadingOlder ? Style.space(40) : (msgModel.count > 0 ? Style.space(28) : 0)
+        Button {
+          anchors.centerIn: parent
+          visible: root.hasOlder || root.loadingOlder
+          text: root.loadingOlder ? "Loading…" : "Load earlier messages"
+          enabled: !root.loadingOlder
+          onClicked: root.loadOlder()
+        }
+        Text {
+          anchors.centerIn: parent
+          visible: !root.hasOlder && !root.loadingOlder && msgModel.count > 0
+          text: "Beginning of the conversation"
+          color: root.fg; opacity: 0.4
+          font.family: root.fontFamily; font.pixelSize: Style.font.caption
+        }
+      }
       delegate: MessageRow {
         required property var model
         width: msgList.width
@@ -204,6 +301,7 @@ Item {
         ts: model.ts
         mine: model.mine
         encrypted: model.encrypted
+        roomEncrypted: root.encrypted
         header: model.header
         dayLabel: model.dayLabel
         fg: root.fg

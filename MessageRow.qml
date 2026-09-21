@@ -21,6 +21,7 @@ Item {
   property real ts: 0
   property bool mine: false
   property bool encrypted: true
+  property bool roomEncrypted: false
   property bool header: true
   property string dayLabel: ""
   property color fg: Color.foreground
@@ -68,7 +69,7 @@ Item {
     })
   }
 
-  implicitHeight: column.implicitHeight + (header ? Style.space(8) : Style.space(2))
+  implicitHeight: column.implicitHeight + (header ? Style.space(8) : (isAttachment ? Style.space(6) : Style.space(2)))
 
   Column {
     id: column
@@ -169,9 +170,10 @@ Item {
           }
           Text {
             anchors.baseline: parent.children[0].baseline
-            text: Qt.formatTime(new Date(root.ts), "HH:mm") + (root.encrypted ? "" : "  󰌿 unencrypted")
-            color: root.encrypted ? root.fg : Color.urgent
-            opacity: root.encrypted ? 0.45 : 0.8
+            readonly property bool flag: root.roomEncrypted && !root.encrypted
+            text: Qt.formatTime(new Date(root.ts), "HH:mm") + (flag ? "  󰌿 unencrypted" : "")
+            color: flag ? Color.urgent : root.fg
+            opacity: flag ? 0.8 : 0.45
             font.family: root.fontFamily
             font.pixelSize: root.captionSize
           }
@@ -309,8 +311,8 @@ Item {
 
         // Body: plain in flat style, inside a rounded bubble in bubble style.
         Item {
-          // An attachment's body is just its filename; show it only when it is a caption.
-          visible: !root.isAttachment || (root.attachment && root.body !== root.attachment.name)
+          // An attachment's body is its filename unless the sender added a caption.
+          visible: !root.isAttachment || (root.attachment && !!root.attachment.caption)
           width: parent.width
           implicitHeight: visible ? bubble.implicitHeight : 0
 
@@ -332,7 +334,8 @@ Item {
               textFormat: Text.RichText
               text: root.msgtype === "unable_to_decrypt"
                 ? "<i>󰌾 Unable to decrypt — this device did not have the key. It fills in once backup or another device shares it.</i>"
-                : (root.html !== "" ? Format.cleanHtml(root.html) : Format.linkify(root.body))
+                : (root.isAttachment ? Format.linkify(root.attachment.caption || "")
+                  : (root.html !== "" ? Format.cleanHtml(root.html) : Format.linkify(root.body)))
               wrapMode: Text.Wrap
               opacity: root.msgtype === "unable_to_decrypt" ? 0.6 : 1
               color: root.bubbles && root.mine ? root.bg : root.fg
@@ -353,8 +356,8 @@ Item {
         Text {
           visible: root.bubbles && root.mine && root.header
           anchors.right: parent.right
-          text: Qt.formatTime(new Date(root.ts), "HH:mm") + (root.encrypted ? "" : "  󰌿")
-          color: root.encrypted ? root.fg : Color.urgent
+          text: Qt.formatTime(new Date(root.ts), "HH:mm") + (root.roomEncrypted && !root.encrypted ? "  󰌿" : "")
+          color: root.roomEncrypted && !root.encrypted ? Color.urgent : root.fg
           opacity: 0.45
           font.family: root.fontFamily
           font.pixelSize: root.captionSize

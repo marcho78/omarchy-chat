@@ -386,7 +386,15 @@ Item {
   }
   function roomName(id) { var r = roomById(id); return r ? r.name : id }
 
-  function timeline(roomId, limit, cb) { root.request("timeline", { room: roomId, limit: limit || 60 }, cb) }
+  // Pages backwards: `before` is the previous page's `next`. Accepts both
+  // the paged shape and the older plain array from a pre-0.4 daemon.
+  function timeline(roomId, limit, before, cb) {
+    if (typeof before === "function") { cb = before; before = "" }
+    root.request("timeline", { room: roomId, limit: limit || 60, before: before || null }, function(r) {
+      if (r.ok && Array.isArray(r.result)) r.result = { messages: r.result, next: null }
+      cb(r)
+    })
+  }
   function send(roomId, body, cb) { root.request("send", { room: roomId, body: String(body) }, cb) }
   function markRead(roomId, eventId, cb) {
     if (!roomId || !eventId) return
