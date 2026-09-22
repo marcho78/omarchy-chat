@@ -1111,26 +1111,17 @@ Item {
   Process {
     id: pluginCheck
     property string out: ""
-    // Fetch, then list what we are behind by. A non-git plugin dir (a dev
-    // copy) simply reports nothing.
-    command: ["/usr/bin/bash", "-c",
-      "cd \"$0\" || exit 0; git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0; " +
-      "GIT_TERMINAL_PROMPT=0 git fetch --quiet origin HEAD 2>/dev/null || { echo ERR fetch; exit 0; }; " +
-      "git rev-list --count HEAD..FETCH_HEAD; git log --format=%s HEAD..FETCH_HEAD | head -8",
-      root.pluginDir]
-    stdout: SplitParser { splitMarker: ""; onRead: function(d) { pluginCheck.out += d } }
+    // The helper fetches and counts; a plugin directory that already carries the remote's
+    // manifest version is not behind, whatever its git position says.
+    command: ["/usr/bin/python3", "-I", root.helperPath, "plugin-check", root.pluginDir]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (pluginCheck.out.length < 16384) pluginCheck.out += d } }
     onStarted: out = ""
     onExited: function() {
-      var lines = pluginCheck.out.split("\n").filter(function(l) { return l.trim() !== "" })
-      if (lines.length > 0 && lines[0].indexOf("ERR") === 0) {
-        root.updateError = "Could not reach the plugin's git remote."
-      } else if (lines.length > 0) {
-        root.pluginUpdateCount = parseInt(lines[0], 10) || 0
-        root.pluginUpdateLog = lines.slice(1)
-      } else {
-        root.pluginUpdateCount = 0
-        root.pluginUpdateLog = []
-      }
+      var r = null
+      try { r = JSON.parse(pluginCheck.out) } catch (e) { r = null }
+      if (r && r.error) root.updateError = String(r.error)
+      root.pluginUpdateCount = r ? (Number(r.behind) || 0) : 0
+      root.pluginUpdateLog = r && Array.isArray(r.log) ? r.log.map(String) : []
       daemonCheck.running = true
     }
   }

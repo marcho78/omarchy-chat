@@ -7,6 +7,7 @@
     yapper-helper start                              start the daemon (JSON)
     yapper-helper reset                              stop, delete the data directory, start again (JSON)
     yapper-helper remove [--data]                    stop, disable, pacman -R the package (terminal)
+    yapper-helper plugin-check <dir>                 commits the plugin checkout is behind its remote (JSON)
 
 `install` and `remove` are meant to run inside a terminal. `install` fetches
 the daemon repository into $XDG_CACHE_HOME/omarchy-yapper/omarchy-yapperd,
@@ -488,6 +489,43 @@ def cmd_remove(with_data):
     return 0
 
 
+def cmd_plugin_check(plugin_dir):
+    """How far the installed plugin is behind its git remote. A directory that
+    is not a clone reports nothing. A clone whose files already carry the
+    remote's manifest version reports nothing either: the files are what
+    runs, git position is only how they usually get there."""
+    if not os.path.isdir(os.path.join(plugin_dir, ".git")):
+        print(json.dumps({"behind": 0, "log": [], "checked": False}))
+        return 0
+    env = {"HOME": HOME, "PATH": "/usr/bin", "LANG": "C.UTF-8", "GIT_TERMINAL_PROMPT": "0", "GIT_SSH_COMMAND": "/usr/bin/ssh -oBatchMode=yes"}
+    code, out = run([GIT, "-C", plugin_dir, "fetch", "--quiet", "origin", "HEAD"], env=env, deadline=60)
+    if code != 0:
+        print(json.dumps({"behind": 0, "log": [], "checked": False, "error": "Could not reach the plugin's git remote."}))
+        return 0
+    code, out = run([GIT, "-C", plugin_dir, "rev-list", "--count", "HEAD..FETCH_HEAD"], env=env, deadline=30)
+    behind = int(out.strip() or "0") if code == 0 else 0
+    local_version = remote_version = None
+    try:
+        with open(os.path.join(plugin_dir, "manifest.json")) as f:
+            local_version = json.load(f).get("version")
+    except (OSError, ValueError):
+        pass
+    code, out = run([GIT, "-C", plugin_dir, "show", "FETCH_HEAD:manifest.json"], env=env, deadline=30)
+    if code == 0:
+        try:
+            remote_version = json.loads(out).get("version")
+        except ValueError:
+            pass
+    if behind and local_version and local_version == remote_version:
+        behind = 0
+    log = []
+    if behind:
+        code, out = run([GIT, "-C", plugin_dir, "log", "--format=%s", "HEAD..FETCH_HEAD"], env=env, deadline=30)
+        log = [l for l in out.splitlines() if l.strip()][:8]
+    print(json.dumps({"behind": behind, "log": log, "checked": True, "version": local_version, "remote": remote_version}))
+    return 0
+
+
 def clock(seconds):
     seconds = int(seconds)
     if seconds >= 3600:
@@ -537,6 +575,8 @@ def main(argv):
             return cmd_start()
         if cmd == "reset":
             return cmd_reset()
+        if cmd == "plugin-check" and len(args) == 1:
+            return cmd_plugin_check(args[0])
         print(__doc__)
         return 2
     except Failure as e:
