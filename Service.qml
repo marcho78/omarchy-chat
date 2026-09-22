@@ -24,14 +24,14 @@ Item {
   readonly property string pluginRepo: "https://github.com/marcho78/omarchy-yapper"
   readonly property string daemonUnit: "omarchy-yapperd"
   // Shown to the user verbatim: clone, read, build, install. No binary download.
-  readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-yapperd && git checkout \"$(git tag -l 'v*' --sort=-v:refname | head -1)\" && cd packaging && makepkg -si"
-  // Same thing for the terminal button, in a scratch dir so nothing is left
-  // behind, building the newest release tag rather than whatever master is.
-  readonly property string installScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd\" && t=$(git tag -l 'v*' --sort=-v:refname | head -1) && git checkout -q \"$t\" && cd packaging && makepkg -si; cd; rm -rf \"$d\""
-  // The update reuses the install, but pinned to the release tag the card
-  // announced (`daemonLatest`), so the build is exactly that version even
-  // if master has moved on; then it restarts the unit.
-  readonly property string updateScript: "d=$(mktemp -d) && git clone " + daemonRepo + " \"$d/omarchy-yapperd\" && cd \"$d/omarchy-yapperd\" && git checkout -q \"v" + daemonLatest + "\" && cd packaging && makepkg -si && systemctl --user restart " + daemonUnit + "; cd; rm -rf \"$d\""
+  // The daemon release this plugin was tested with: built from exactly this
+  // commit by bin/yapper-helper into ~/.local/bin (no package, no root).
+  // An update builds the newest release tag instead (see daemonLatestCommit).
+  readonly property string daemonPinVersion: "0.21.1"
+  readonly property string daemonPinCommit: "c65abb77b108373bd4c02e99a4a1c02a0eb35b0a"
+  // The one thing the user installs themselves: the build tools.
+  readonly property string toolchainCommand: "pacman -S --needed rust git"
+  readonly property string helperPath: pluginDir + "/bin/yapper-helper"
   readonly property string glyph: "󰭹"
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, "")
   readonly property string pluginVersion: (manifest && manifest.version) ? String(manifest.version) : ""
@@ -308,16 +308,111 @@ Item {
 
   // ---------- daemon discovery / start ----------
 
-  function checkInstalled() { if (!whichProc.running) whichProc.running = true }
-
+  function checkInstalled() {
+    if (!statusProc.running) statusProc.running = true
+    if (!toolchainProc.running) toolchainProc.running = true
+  }
+  // Where the daemon lives: "" (not installed), "local" (~/.local/bin) or "packaged" (/usr/bin).
+  property string daemonPlace: ""
+  property string buildLogPath: ""
   Process {
-    id: whichProc
-    command: ["/usr/bin/which", "omarchy-yapperd"]
+    id: statusProc
+    property string out: ""
+    command: ["/usr/bin/python3", "-I", root.helperPath, "status"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (statusProc.out.length < 4096) statusProc.out += d } }
+    onStarted: out = ""
     onExited: function(code) {
-      root.installed = (code === 0)
+      var st = null
+      try { st = JSON.parse(statusProc.out) } catch (e) { st = null }
+      root.daemonPlace = st ? (st.local ? "local" : (st.packaged ? "packaged" : "")) : ""
+      root.buildLogPath = st && st.log ? String(st.log) : ""
+      root.installed = root.daemonPlace !== ""
       root.checked = true
       if (root.installed) root.connectSocket()
     }
+  }
+  // Build tools present? { git, cargo, rustc, ready }
+  property var toolchain: null
+  readonly property bool toolchainReady: toolchain !== null && toolchain.ready === true
+  Process {
+    id: toolchainProc
+    property string out: ""
+    command: ["/usr/bin/python3", "-I", root.helperPath, "toolchain"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (toolchainProc.out.length < 4096) toolchainProc.out += d } }
+    onStarted: out = ""
+    onExited: function() { try { root.toolchain = JSON.parse(toolchainProc.out) } catch (e) { root.toolchain = null } }
+  }
+
+  // ---------- building the daemon ----------
+  // The helper clones the daemon at one commit, builds it with cargo and
+  // installs binary + unit under $HOME, reporting progress as JSON lines.
+  property bool building: false
+  property string buildPhase: ""        // fetch | build | install | start | done | error
+  property int buildDone: 0
+  property int buildTotal: 0
+  property string buildMessage: ""
+  property string buildError: ""
+  property real buildStartedAt: 0
+  property int buildElapsed: 0          // seconds
+  property string buildTarget: ""       // version being built
+  Timer { interval: 1000; repeat: true; running: root.building; onTriggered: root.buildElapsed = Math.floor((Date.now() - root.buildStartedAt) / 1000) }
+  function installDaemon(update) {
+    if (root.building) return
+    var commit = update && root.daemonLatestCommit !== "" ? root.daemonLatestCommit : root.daemonPinCommit
+    root.buildTarget = update && root.daemonLatest !== "" ? root.daemonLatest : root.daemonPinVersion
+    root.building = true
+    root.buildPhase = "fetch"; root.buildDone = 0; root.buildTotal = 0; root.buildMessage = "Starting"; root.buildError = ""
+    root.buildStartedAt = Date.now(); root.buildElapsed = 0
+    buildProc.command = ["/usr/bin/setsid", "-w", "/usr/bin/python3", "-I", root.helperPath, "install", root.daemonRepo, commit]
+    buildProc.running = true
+  }
+  function updateDaemon() { root.installDaemon(true) }
+  function cancelBuild() {
+    if (!buildProc.running) return
+    // setsid made the helper a group leader: end the whole build group.
+    Quickshell.execDetached(["/usr/bin/kill", "-TERM", "--", "-" + buildProc.processId])
+  }
+  function showBuildLog() {
+    if (root.buildLogPath === "") return
+    Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/less", "+F", root.buildLogPath])
+  }
+  Process {
+    id: buildProc
+    property string err: ""
+    stdout: SplitParser {
+      onRead: function(line) {
+        if (line.length > 4096) return
+        var m = null
+        try { m = JSON.parse(line) } catch (e) { return }
+        if (!m || !m.phase) return
+        root.buildPhase = String(m.phase)
+        root.buildDone = Number(m.done) || 0
+        root.buildTotal = Number(m.total) || 0
+        root.buildMessage = String(m.message || "")
+        if (m.phase === "error") root.buildError = String(m.message || "The build failed")
+      }
+    }
+    stderr: SplitParser { splitMarker: ""; onRead: function(d) { if (buildProc.err.length < 4096) buildProc.err += d } }
+    onStarted: err = ""
+    onExited: function(code) {
+      root.building = false
+      if (code === 0 && root.buildPhase === "done") {
+        root.startError = ""
+        root.checkInstalled()
+      } else if (root.buildError === "") {
+        root.buildError = code === 143 || code === -15 ? "The build was cancelled" : ("The build stopped (exit " + code + ")" + (buildProc.err.trim() !== "" ? ": " + buildProc.err.trim().split("\n").slice(-3).join(" ") : ""))
+        root.buildPhase = "error"
+      }
+    }
+  }
+  function removeDaemon(withData) {
+    if (root.building || removeProc.running) return
+    removeProc.command = withData ? ["/usr/bin/python3", "-I", root.helperPath, "remove", "--data"] : ["/usr/bin/python3", "-I", root.helperPath, "remove"]
+    removeProc.running = true
+  }
+  Process {
+    id: removeProc
+    onExited: function() { root.connected = false; root.checkInstalled() }
   }
 
   // Called by a view when it opens: make sure the daemon is up.
@@ -356,9 +451,6 @@ Item {
     }
   }
 
-  function openInstallTerminal() {
-    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", root.installScript])
-  }
 
   // ---------- socket ----------
 
@@ -1021,24 +1113,27 @@ Item {
     }
   }
 
+  // The newest release tag and the commit it points at, so an update
+  // builds exactly that commit.
+  property string daemonLatestCommit: ""
   Process {
     id: daemonCheck
     property string out: ""
-    command: ["/usr/bin/bash", "-c",
-      "GIT_TERMINAL_PROMPT=0 git ls-remote --tags --refs \"$0\" 'v*' 2>/dev/null | sed 's#.*/tags/##'",
-      root.daemonRepo]
-    stdout: SplitParser { splitMarker: ""; onRead: function(d) { daemonCheck.out += d } }
+    command: ["/usr/bin/git", "ls-remote", "--tags", "--refs", root.daemonRepo, "refs/tags/v*"]
+    environment: ({ GIT_TERMINAL_PROMPT: "0" })
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (daemonCheck.out.length < 65536) daemonCheck.out += d } }
     onStarted: out = ""
     onExited: function(code) {
-      var best = ""
-      var tags = daemonCheck.out.split("\n")
-      for (var i = 0; i < tags.length; i++) {
-        var t = tags[i].trim()
-        if (!/^v\d+\.\d+\.\d+$/.test(t)) continue
-        if (best === "" || Format.compareVersions(t, best) > 0) best = t
+      var best = "", bestSha = ""
+      var lines = daemonCheck.out.split("\n")
+      for (var i = 0; i < lines.length; i++) {
+        var m = /^([0-9a-f]{40})\s+refs\/tags\/(v\d+\.\d+\.\d+)$/.exec(lines[i].trim())
+        if (!m) continue
+        if (best === "" || Format.compareVersions(m[2], best) > 0) { best = m[2]; bestSha = m[1] }
       }
       if (best === "" && code !== 0) root.updateError = (root.updateError ? root.updateError + " " : "") + "Could not reach the daemon's repository."
       root.daemonLatest = best.replace(/^v/, "")
+      root.daemonLatestCommit = bestSha
       root.lastChecked = new Date().toLocaleTimeString(Qt.locale(), "HH:mm")
       root.checking = false
     }
@@ -1058,14 +1153,10 @@ Item {
     onTriggered: root.checkForUpdates()
   }
 
-  // Both updates run in a floating terminal so the user sees the diff /
-  // the build and answers the prompts themselves.
+  // The plugin update shows its diff in a terminal for the user to
+  // confirm, then restarts the shell.
   function updatePlugin() {
-    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation",
-      "omarchy plugin update " + root.pluginId + " && omarchy restart shell"])
-  }
-  function updateDaemon() {
-    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", root.updateScript])
+    Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/share/omarchy/bin/omarchy", "plugin", "update", root.pluginId])
   }
 
   // Open the app window, optionally straight onto something: a room,

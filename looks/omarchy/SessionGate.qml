@@ -3,6 +3,7 @@ import QtQuick.Controls
 import qs.Commons
 import qs.Ui
 import "../../shared"
+import "../../shared/Format.js" as Format
 
 // Everything that stands between the user and a signed-in session, in
 // order: the daemon is missing, the daemon is not running, sign in, waiting
@@ -25,24 +26,32 @@ Column {
     if (hsField.visible) hsField.forceActiveFocus()
   }
 
-  // Daemon missing: show the command, never fetch a binary.
+  // Daemon missing: build it here from source at a pinned commit, never fetch a binary.
   Column {
+    id: missing
     width: parent.width
     spacing: Style.space(8)
     visible: root.service && root.service.checked && !root.service.installed
+    readonly property bool toolsReady: root.service ? root.service.toolchainReady : false
+    readonly property bool building: root.service ? (root.service.building || root.service.buildPhase === "error" || root.service.buildPhase === "done") : false
+    readonly property bool failed: root.service ? root.service.buildPhase === "error" : false
 
     Text {
       width: parent.width
+      visible: !missing.building
       wrapMode: Text.WordWrap
-      text: "Yapper needs the omarchy-yapperd daemon. It is built from source on your machine with makepkg — read the PKGBUILD first if you like. The first build takes a few minutes."
+      text: missing.toolsReady
+        ? "Yapper builds the omarchy-yapperd daemon from source here — release " + root.service.daemonPinVersion + " at a fixed commit — and keeps it in your home folder. No package, no root. The first build takes 10–25 minutes; you can keep working."
+        : "Yapper builds the daemon on your machine. Install the build tools once, then check again:"
       color: root.fg
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
     }
     Text {
       width: parent.width
+      visible: !missing.toolsReady && !missing.building
       wrapMode: Text.WrapAnywhere
-      text: root.service ? root.service.installCommand : ""
+      text: "sudo " + (root.service ? root.service.toolchainCommand : "")
       color: Color.accent
       font.family: root.fontFamily
       font.pixelSize: Style.font.caption
@@ -50,9 +59,65 @@ Column {
     Flow {
       width: parent.width
       spacing: Style.spacing.controlGap
-      Button { text: "Copy command"; bordered: true; onClicked: root.service.copyText(root.service.installCommand) }
-      Button { text: "Open in terminal"; iconText: "󰆍"; bordered: true; onClicked: root.service.openInstallTerminal() }
+      visible: !missing.building
+      Button { visible: !missing.toolsReady; text: "Copy command"; bordered: true; onClicked: root.service.copyText("sudo " + root.service.toolchainCommand) }
+      Button { visible: missing.toolsReady; text: "Build and install"; iconText: "󰣪"; bordered: true; onClicked: root.service.installDaemon(false) }
       Button { text: "Check again"; bordered: true; onClicked: root.service.checkInstalled() }
+    }
+
+    // The build as it runs
+    Column {
+      width: parent.width
+      visible: missing.building
+      spacing: Style.space(6)
+      Text {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        text: root.service ? ("Yapper daemon " + root.service.buildTarget + " — " + (root.service.buildPhase === "build" && root.service.buildTotal > 0 ? "compiling " + root.service.buildDone + " of " + root.service.buildTotal + " crates" : missing.failed ? "the build stopped" : root.service.buildPhase === "done" ? "installed and running" : root.service.buildMessage) + "  ·  " + Format.clock(root.service.buildElapsed)) : ""
+        color: missing.failed ? Color.urgent : root.fg
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
+      }
+      Rectangle {
+        width: parent.width
+        height: Style.space(6)
+        radius: Style.space(3)
+        color: Util.alpha(root.fg, 0.15)
+        Rectangle {
+          anchors.left: parent.left
+          anchors.top: parent.top
+          anchors.bottom: parent.bottom
+          radius: Style.space(3)
+          color: missing.failed ? Color.urgent : Color.accent
+          width: root.service && root.service.buildPhase === "done" ? parent.width : root.service && root.service.buildTotal > 0 ? parent.width * Math.min(1, root.service.buildDone / root.service.buildTotal) : 0
+        }
+      }
+      Text {
+        width: parent.width
+        visible: !missing.failed && root.service && root.service.building
+        wrapMode: Text.WordWrap
+        text: "The first build compiles matrix-rust-sdk and takes a while. Updates reuse it and are much faster."
+        color: root.fg
+        opacity: 0.7
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+      Text {
+        width: parent.width
+        visible: missing.failed
+        wrapMode: Text.WordWrap
+        text: root.service ? root.service.buildError : ""
+        color: Color.urgent
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+      Flow {
+        width: parent.width
+        spacing: Style.spacing.controlGap
+        Button { visible: missing.failed; text: "Try again"; bordered: true; onClicked: root.service.installDaemon(false) }
+        Button { visible: root.service && root.service.building; text: "Cancel"; bordered: true; onClicked: root.service.cancelBuild() }
+        Button { text: "Show log"; bordered: true; enabled: root.service && root.service.buildLogPath !== ""; onClicked: root.service.showBuildLog() }
+      }
     }
   }
 

@@ -1,0 +1,357 @@
+#!/usr/bin/python3 -I
+"""Yapper's helper for the things QML should not do through a shell.
+
+    yapper-helper status                       where the daemon is (JSON)
+    yapper-helper toolchain                    which build tools are present (JSON)
+    yapper-helper install <repo> <commit>      build the daemon and install it under $HOME
+    yapper-helper remove [--data]              stop it and remove binary + unit (+ data)
+    yapper-helper log                          path of the build log
+
+Every program is run by absolute path in its own process group with a
+deadline and an output budget. `install` prints one JSON object per line as
+it goes: {"phase": "...", "done": n, "total": n, "message": "..."} and ends
+with phase "done" or "error". Nothing here needs privileges: the daemon is
+built in $XDG_CACHE_HOME/omarchy-yapper/build and installed to
+~/.local/bin with a unit in ~/.config/systemd/user.
+"""
+import json
+import os
+import select
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import time
+
+HOME = os.path.expanduser("~")
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.join(HOME, ".cache"), "omarchy-yapper")
+BUILD = os.path.join(CACHE, "build")
+CHECKOUT = os.path.join(BUILD, "omarchy-yapperd")
+LOG = os.path.join(BUILD, "build.log")
+BIN_DIR = os.path.join(HOME, ".local", "bin")
+BINARY = os.path.join(BIN_DIR, "omarchy-yapperd")
+UNIT_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config"), "systemd", "user")
+UNIT = os.path.join(UNIT_DIR, "omarchy-yapperd.service")
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local", "share"), "omarchy-yapperd")
+PACKAGED = "/usr/bin/omarchy-yapperd"
+
+GIT = "/usr/bin/git"
+CARGO = "/usr/bin/cargo"
+RUSTC = "/usr/bin/rustc"
+SYSTEMCTL = "/usr/bin/systemctl"
+
+UNIT_TEXT = """[Unit]
+Description=Yapper daemon (end-to-end encrypted Matrix session)
+Documentation=https://github.com/marcho78/omarchy-yapperd
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/omarchy-yapperd
+Restart=on-failure
+RestartSec=3
+# The daemon writes only to ~/.local/share/omarchy-yapperd and $XDG_RUNTIME_DIR.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+UMask=0077
+
+[Install]
+WantedBy=default.target
+"""
+
+OUTPUT_BUDGET = 64 * 1024        # bytes kept from any one tool's output
+LINE_LIMIT = 16 * 1024           # a cargo JSON line longer than this is dropped
+SHA_LEN = 40
+
+
+class Failure(Exception):
+    pass
+
+
+def emit(phase, done=0, total=0, message=""):
+    sys.stdout.write(json.dumps({"phase": phase, "done": done, "total": total, "message": message}) + "\n")
+    sys.stdout.flush()
+
+
+# ---------- files ----------
+
+def private_dir(path):
+    """Open `path` component by component without following symlinks; create
+    missing parts (mode 700) under $HOME; return a descriptor to it."""
+    if not path.startswith(HOME + "/"):
+        raise Failure("%s is outside your home" % path)
+    fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    parts = [p for p in path.split("/") if p]
+    walked = ""
+    for part in parts:
+        walked += "/" + part
+        try:
+            nxt = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+        except FileNotFoundError:
+            if not walked.startswith(HOME + "/"):
+                raise Failure("%s does not exist" % walked)
+            os.mkdir(part, 0o700, dir_fd=fd)
+            nxt = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+        except OSError as e:
+            raise Failure("%s: %s" % (walked, e.strerror))
+        os.close(fd)
+        fd = nxt
+        st = os.fstat(fd)
+        if walked.startswith(HOME + "/") and st.st_uid != os.getuid():
+            raise Failure("%s is not owned by you" % walked)
+    return fd
+
+
+def install_file(dir_fd, name, data, mode):
+    """Write `data` to `name` under `dir_fd` through a fresh exclusive temp
+    file, then rename it into place."""
+    tmp = ".%s.%d.tmp" % (name, os.getpid())
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, mode, dir_fd=dir_fd)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(tmp, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+    except BaseException:
+        try:
+            os.unlink(tmp, dir_fd=dir_fd)
+        except OSError:
+            pass
+        raise
+
+
+# ---------- processes ----------
+
+def run(argv, cwd=None, env=None, deadline=60, on_line=None, log=None):
+    """Run argv in its own process group. Lines of output go to `on_line`
+    (and the log); only OUTPUT_BUDGET bytes are kept for the error text.
+    Past the deadline the whole group is killed."""
+    if log:
+        log.write("$ %s\n" % " ".join(argv))
+        log.flush()
+    proc = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, process_group=0, close_fds=True)
+    kept = bytearray()
+    buf = bytearray()
+    end = time.monotonic() + deadline
+    fd = proc.stdout.fileno()
+    while True:
+        left = end - time.monotonic()
+        if left <= 0:
+            kill_group(proc)
+            raise Failure("%s took longer than %d s" % (os.path.basename(argv[0]), deadline))
+        ready, _, _ = select.select([fd], [], [], min(left, 1.0))
+        if not ready:
+            if proc.poll() is not None:
+                break
+            continue
+        chunk = os.read(fd, 65536)
+        if not chunk:
+            break
+        if len(kept) < OUTPUT_BUDGET:
+            kept += chunk[:OUTPUT_BUDGET - len(kept)]
+        if log:
+            log.write(chunk.decode("utf-8", "replace"))
+        buf += chunk
+        while b"\n" in buf:
+            line, _, buf = buf.partition(b"\n")
+            if on_line and len(line) <= LINE_LIMIT:
+                on_line(line.decode("utf-8", "replace"))
+        if len(buf) > LINE_LIMIT:
+            buf = bytearray()
+    proc.wait()
+    return proc.returncode, kept.decode("utf-8", "replace")
+
+
+def kill_group(proc):
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(proc.pid, sig)
+        except ProcessLookupError:
+            return
+        try:
+            proc.wait(timeout=5)
+            return
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def tail(text, n=12):
+    return "\n".join(text.strip().splitlines()[-n:])
+
+
+# ---------- commands ----------
+
+def cmd_toolchain():
+    have = {"git": os.access(GIT, os.X_OK), "cargo": os.access(CARGO, os.X_OK), "rustc": os.access(RUSTC, os.X_OK)}
+    have["ready"] = all(have.values())
+    print(json.dumps(have))
+    return 0
+
+
+def cmd_status():
+    local = os.path.isfile(BINARY) and os.access(BINARY, os.X_OK)
+    packaged = os.path.isfile(PACKAGED)
+    unit = os.path.isfile(UNIT)
+    print(json.dumps({"local": local, "packaged": packaged, "unit": unit, "binary": BINARY if local else (PACKAGED if packaged else ""),
+                      "log": LOG, "build": CHECKOUT}))
+    return 0
+
+
+def cmd_log():
+    print(LOG)
+    return 0
+
+
+def cmd_install(repo, commit):
+    if len(commit) != SHA_LEN or any(c not in "0123456789abcdef" for c in commit):
+        raise Failure("the daemon commit must be a full 40-character sha")
+    if not repo.startswith("https://"):
+        raise Failure("the daemon repository must be an https URL")
+    for tool, path in (("git", GIT), ("cargo", CARGO), ("rustc", RUSTC)):
+        if not os.access(path, os.X_OK):
+            raise Failure("%s is not installed (pacman -S --needed rust git)" % tool)
+    build_fd = private_dir(BUILD)
+    os.close(build_fd)
+    log = open(LOG, "a", encoding="utf-8")
+    log.write("\n==== %s  %s @ %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), repo, commit))
+    env = dict(os.environ)
+    env.update({"GIT_TERMINAL_PROMPT": "0", "CARGO_TERM_COLOR": "never", "LC_ALL": "C.UTF-8"})
+    env.pop("CARGO_TARGET_DIR", None)
+
+    # 1. Source, at exactly the reviewed commit.
+    emit("fetch", message="Fetching the daemon's source")
+    if os.path.isdir(os.path.join(CHECKOUT, ".git")):
+        code, out = run([GIT, "-C", CHECKOUT, "fetch", "--quiet", "--tags", "origin"], env=env, deadline=300, log=log)
+        if code != 0:
+            raise Failure("git fetch failed:\n" + tail(out))
+    else:
+        code, out = run([GIT, "clone", "--quiet", repo, CHECKOUT], env=env, deadline=600, log=log)
+        if code != 0:
+            raise Failure("git clone failed:\n" + tail(out))
+    code, out = run([GIT, "-C", CHECKOUT, "checkout", "--quiet", "--force", "--detach", commit], env=env, deadline=120, log=log)
+    if code != 0:
+        raise Failure("that commit is not in the repository:\n" + tail(out))
+    code, out = run([GIT, "-C", CHECKOUT, "rev-parse", "HEAD"], env=env, deadline=30, log=log)
+    if code != 0 or out.strip() != commit:
+        raise Failure("checked-out commit does not match %s" % commit)
+    run([GIT, "-C", CHECKOUT, "clean", "-fdq", "-e", "target"], env=env, deadline=60, log=log)
+
+    # 2. How many crates there are, for the bar.
+    emit("fetch", message="Resolving crates")
+    total = 0
+    code, out = run([CARGO, "metadata", "--locked", "--format-version", "1", "--offline"], cwd=CHECKOUT, env=env, deadline=120)
+    if code != 0:
+        code, out = run([CARGO, "fetch", "--locked"], cwd=CHECKOUT, env=env, deadline=900, log=log)
+        if code != 0:
+            raise Failure("cargo fetch failed:\n" + tail(out))
+        code, out = run([CARGO, "metadata", "--locked", "--format-version", "1", "--offline"], cwd=CHECKOUT, env=env, deadline=120)
+    if code == 0:
+        try:
+            total = len(json.loads(out)["resolve"]["nodes"])
+        except (ValueError, KeyError, TypeError):
+            total = 0
+
+    # 3. Build. Cargo reports each finished crate as a JSON line.
+    done = {"n": 0}
+    emit("build", 0, total, "Compiling — the first build takes a while")
+
+    def on_line(line):
+        if not line.startswith("{"):
+            return
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            return
+        if msg.get("reason") == "compiler-artifact":
+            done["n"] += 1
+            name = ""
+            pid = msg.get("package_id", "")
+            if isinstance(pid, str):
+                name = pid.split("#")[-1].split("@")[0].rsplit("/", 1)[-1][:60]
+            emit("build", done["n"], total, name)
+
+    code, out = run([CARGO, "build", "--release", "--locked", "--message-format", "json-render-diagnostics"],
+                    cwd=CHECKOUT, env=env, deadline=3 * 3600, on_line=on_line, log=log)
+    if code != 0:
+        raise Failure("the build failed — see the log:\n" + tail(out))
+    built = os.path.join(CHECKOUT, "target", "release", "omarchy-yapperd")
+    if not os.path.isfile(built):
+        raise Failure("the build produced no binary")
+
+    # 4. Install under $HOME: binary, then the unit.
+    emit("install", message="Installing to ~/.local/bin")
+    with open(built, "rb") as f:
+        data = f.read()
+    bin_fd = private_dir(BIN_DIR)
+    try:
+        install_file(bin_fd, "omarchy-yapperd", data, 0o755)
+    finally:
+        os.close(bin_fd)
+    unit_fd = private_dir(UNIT_DIR)
+    try:
+        install_file(unit_fd, "omarchy-yapperd.service", UNIT_TEXT.encode(), 0o644)
+    finally:
+        os.close(unit_fd)
+
+    # 5. Start (or restart) the unit.
+    emit("start", message="Starting the daemon")
+    code, out = run([SYSTEMCTL, "--user", "daemon-reload"], env=env, deadline=60, log=log)
+    if code != 0:
+        raise Failure("systemctl daemon-reload failed:\n" + tail(out))
+    code, out = run([SYSTEMCTL, "--user", "enable", "omarchy-yapperd.service"], env=env, deadline=60, log=log)
+    if code != 0:
+        raise Failure("could not enable the unit:\n" + tail(out))
+    code, out = run([SYSTEMCTL, "--user", "restart", "omarchy-yapperd.service"], env=env, deadline=120, log=log)
+    if code != 0:
+        raise Failure("could not start the daemon:\n" + tail(out))
+    emit("done", total, total, "Installed and running")
+    log.close()
+    return 0
+
+
+def cmd_remove(with_data):
+    run([SYSTEMCTL, "--user", "disable", "--now", "omarchy-yapperd.service"], deadline=60)
+    for path in (UNIT, BINARY):
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+    run([SYSTEMCTL, "--user", "daemon-reload"], deadline=60)
+    if with_data:
+        shutil.rmtree(DATA, ignore_errors=True)
+    print(json.dumps({"removed": True, "data": with_data}))
+    return 0
+
+
+def main(argv):
+    if not argv:
+        print(__doc__)
+        return 2
+    cmd, args = argv[0], argv[1:]
+    try:
+        if cmd == "status":
+            return cmd_status()
+        if cmd == "toolchain":
+            return cmd_toolchain()
+        if cmd == "log":
+            return cmd_log()
+        if cmd == "install" and len(args) == 2:
+            return cmd_install(args[0], args[1])
+        if cmd == "remove":
+            return cmd_remove("--data" in args)
+        print(__doc__)
+        return 2
+    except Failure as e:
+        if cmd == "install":
+            emit("error", message=str(e))
+            return 1
+        print(json.dumps({"error": str(e)}))
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

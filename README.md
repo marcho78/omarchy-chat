@@ -41,21 +41,30 @@ connection to the daemon and stay in step.
 omarchy plugin add https://github.com/marcho78/omarchy-yapper.git --enable
 ```
 
-Click the chat icon. Without the daemon the panel shows the command that
-builds it:
+Click the chat icon. Without the daemon the panel offers to build it. The
+plugin never downloads a binary and never asks for root:
 
-```bash
-git clone https://github.com/marcho78/omarchy-yapperd && cd omarchy-yapperd && git checkout "$(git tag -l 'v*' --sort=-v:refname | head -1)" && cd packaging && makepkg -si
-```
+1. If `cargo` or `git` is missing it shows the one command you run yourself
+   (`sudo pacman -S --needed rust git`) with a copy button, then **Check again**.
+2. **Build and install** runs `bin/yapper-helper` (Python, shipped with the
+   plugin) in the background. It clones
+   `https://github.com/marcho78/omarchy-yapperd` into
+   `~/.cache/omarchy-yapper/build/`, checks out the release commit the plugin
+   pins (a full SHA, detached), runs `cargo build --release --locked`, and
+   installs the binary to `~/.local/bin/omarchy-yapperd` with a systemd user
+   unit at `~/.config/systemd/user/omarchy-yapperd.service`, then enables and
+   starts it.
+3. The panel shows the phase (fetch, build, install, start), a progress bar
+   from crates compiled, and the elapsed time. The first build compiles
+   matrix-rust-sdk and takes a while; the build directory is kept so updates
+   are much faster. **Show log** opens `~/.cache/omarchy-yapper/build/build.log`
+   in your terminal; **Cancel** stops the build.
 
-**Copy command** puts it on the clipboard for your own terminal — read the
-`PKGBUILD` first if you like. **Open in terminal** runs the same thing in a
-floating terminal. Either way `makepkg` compiles matrix-rust-sdk, so the
-first build takes a few minutes and `-i` asks for your password to install
-the package.
+An existing `omarchy-yapperd` pacman package (from `packaging/PKGBUILD` in the
+daemon repo) keeps working; Settings › Daemon shows which one is in use and
+can rebuild into `~/.local/bin` or remove the local build again.
 
-Back in the panel, **Check again** finds the daemon, the plugin starts it
-(`systemctl --user start omarchy-yapperd`) and shows the sign-in form. Any
+Once the daemon runs the panel shows the sign-in form. Any
 Matrix homeserver works; `matrix.org` is pre-filled.
 
 ## Encryption, verification and recovery

@@ -28,6 +28,7 @@ Item {
   function focusFirst() { if (root.state === "signin") homeserverField.forceActiveFocus() }
   function clearSecrets() { passwordField.text = "" }
   Timer { id: copiedReset; interval: 1600; onTriggered: root.copied = false }
+  component Note: Text { width: parent.width; wrapMode: Text.Wrap; lineHeight: 1.35; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f12 }
 
   function startOauth() {
     if (root.busy) return
@@ -97,63 +98,75 @@ Item {
         }
       }
 
-      // Missing: the build command
+      // Missing: build it here, once the tools are present
       Column {
         width: parent.width
         visible: root.state === "missing"
         spacing: ui.px(14)
+        readonly property bool toolsReady: root.service ? root.service.toolchainReady : false
+        readonly property bool building: root.service ? (root.service.building || root.service.buildPhase === "error" || root.service.buildPhase === "done") : false
+        // The tools you install yourself
         Rectangle {
           width: parent.width
-          height: cmdHeader.height + cmdText.implicitHeight + ui.px(28)
+          visible: !parent.toolsReady && !parent.building
+          height: toolsColumn.implicitHeight + ui.px(32)
           radius: ui.px(10)
           color: root.c.bg2
           border.width: 1
           border.color: root.c.line
-          clip: true
-          Item {
-            id: cmdHeader
+          Column {
+            id: toolsColumn
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: ui.px(34)
-            Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
-            Row {
-              anchors.left: parent.left
-              anchors.leftMargin: ui.px(13)
-              anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: ui.px(16)
+            spacing: ui.px(10)
+            Text { text: "Rust and git are needed to build it"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
+            Note { text: "Yapper builds the daemon on your machine and keeps it in your home folder — no package, no root. The only thing to install from the Arch repos is the toolchain, once:" }
+            Rectangle {
+              width: parent.width
+              height: ui.px(40)
+              radius: ui.px(7)
+              color: root.c.bg
+              border.width: 1
+              border.color: root.c.line
+              Text { anchors.left: parent.left; anchors.leftMargin: ui.px(12); anchors.verticalCenter: parent.verticalCenter; text: "sudo " + (root.service ? root.service.toolchainCommand : ""); color: root.c.fg; font.family: ui.mono; font.pixelSize: ui.f12 }
+            }
+            Flow {
+              width: parent.width
               spacing: ui.px(8)
-              Rectangle { anchors.verticalCenter: parent.verticalCenter; width: ui.px(8); height: ui.px(8); radius: ui.px(4); color: root.c.bad }
-              Rectangle { anchors.verticalCenter: parent.verticalCenter; width: ui.px(8); height: ui.px(8); radius: ui.px(4); color: root.c.warn }
-              Rectangle { anchors.verticalCenter: parent.verticalCenter; width: ui.px(8); height: ui.px(8); radius: ui.px(4); color: root.c.ok }
-              Text { anchors.verticalCenter: parent.verticalCenter; leftPadding: ui.px(6); text: "build from source · no binary is downloaded"; color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+              PillButton { c: root.c; label: root.copied ? "Copied" : "Copy command"; icon: root.copied ? "check-circle" : "copy"; iconWeight: root.copied ? "fill" : "regular"; primary: true; round: true; onClicked: { root.service.copyText("sudo " + root.service.toolchainCommand); root.copied = true; copiedReset.restart() } }
+              PillButton { c: root.c; label: "Check again"; icon: "arrows-clockwise"; round: true; onClicked: root.service.checkInstalled() }
             }
           }
-          Text {
-            id: cmdText
+        }
+        // Ready to build
+        Rectangle {
+          width: parent.width
+          visible: parent.toolsReady && !parent.building
+          height: readyColumn.implicitHeight + ui.px(32)
+          radius: ui.px(10)
+          color: root.c.bg2
+          border.width: 1
+          border.color: root.c.line
+          Column {
+            id: readyColumn
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.top: cmdHeader.bottom
-            anchors.margins: ui.px(14)
-            wrapMode: Text.WrapAnywhere
-            lineHeight: 1.6
-            text: root.service ? root.service.installCommand : ""
-            color: root.c.fg
-            font.family: ui.mono; font.pixelSize: ui.f11
+            anchors.top: parent.top
+            anchors.margins: ui.px(16)
+            spacing: ui.px(10)
+            Text { text: "Build the daemon from source"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
+            Note { text: "Release " + (root.service ? root.service.daemonPinVersion : "") + " is fetched from GitHub at a fixed commit, compiled with cargo in ~/.cache/omarchy-yapper, and installed to ~/.local/bin with a systemd user unit. Nothing runs as root and no binary is downloaded. The first build takes a while (10–25 minutes); you can keep working meanwhile." }
+            Flow {
+              width: parent.width
+              spacing: ui.px(8)
+              PillButton { c: root.c; label: "Build and install"; icon: "hammer"; primary: true; round: true; onClicked: root.service.installDaemon(false) }
+              PillButton { c: root.c; label: "Read the source"; icon: "github-logo"; round: true; onClicked: Quickshell.execDetached(["omarchy-launch-browser", root.service.daemonRepo + "/tree/" + root.service.daemonPinCommit]) }
+            }
           }
         }
-        Flow {
-          width: parent.width
-          spacing: ui.px(8)
-          PillButton { c: root.c; label: root.copied ? "Copied" : "Copy command"; icon: root.copied ? "check-circle" : "copy"; iconWeight: root.copied ? "fill" : "regular"; primary: true; round: true; onClicked: { root.service.copyText(root.service.installCommand); root.copied = true; copiedReset.restart() } }
-          PillButton { c: root.c; label: "Open in terminal"; icon: "terminal-window"; round: true; onClicked: root.service.openInstallTerminal() }
-          PillButton { c: root.c; label: "Check again"; icon: "arrows-clockwise"; round: true; onClicked: root.service.checkInstalled() }
-        }
-        Row {
-          width: parent.width
-          spacing: ui.px(10)
-          Icon { name: "info"; size: ui.px(14); color: root.c.muted }
-          Text { width: parent.width - ui.px(24); wrapMode: Text.Wrap; lineHeight: 1.35; textFormat: Text.StyledText; text: "<font face=\"" + ui.mono + "\">makepkg</font> compiles matrix-rust-sdk, so the first build takes a few minutes. <font face=\"" + ui.mono + "\">-i</font> asks for your password to install the package. Read the PKGBUILD first if you like."; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
-        }
+        BuildProgress { width: parent.width; visible: parent.building; c: root.c; service: root.service }
       }
 
       // Stopped: the unit

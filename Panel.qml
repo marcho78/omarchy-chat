@@ -59,6 +59,13 @@ Panel {
       })
     }
     function refresh(): void { if (root.service) root.service.refresh() }
+    // The daemon build, for scripts and tests: omarchy-shell marcho78.yapper installDaemon
+    function installDaemon(): string { if (!root.service) return "no service"; root.service.installDaemon(false); return "building " + root.service.daemonPinVersion }
+    function updateDaemon(): string { if (!root.service) return "no service"; if (!root.service.daemonUpdateAvailable) return "no update"; root.service.installDaemon(true); return "building " + root.service.daemonLatest }
+    function buildStatus(): string {
+      var s = root.service
+      return JSON.stringify(s ? { building: s.building, phase: s.buildPhase, done: s.buildDone, total: s.buildTotal, message: s.buildMessage, error: s.buildError, elapsed: s.buildElapsed, place: s.daemonPlace, toolchain: s.toolchainReady } : {})
+    }
     // Open the popup on a room: omarchy-shell marcho78.yapper room '!id:server'
     function room(id: string): string {
       var r = root.service ? root.service.roomById(id) : null

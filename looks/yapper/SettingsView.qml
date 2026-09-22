@@ -20,6 +20,7 @@ Item {
   property string pickKey: ""
   // Section state (kept here: the root id is what children bind to).
   property bool confirmSignOut: false
+  property bool confirmRemoveDaemon: false
   readonly property string dataDir: (Quickshell.env("XDG_DATA_HOME") || (Quickshell.env("HOME") + "/.local/share")) + "/omarchy-yapperd"
   property string storeSizeText: "…"
   readonly property string audioTestState: root.service ? root.service.audioTest : ""
@@ -249,7 +250,7 @@ Item {
           property int dismissedPlugin: 0
           readonly property bool daemon: !!(root.service && root.service.daemonUpdateAvailable && dismissedDaemon !== root.service.daemonLatest)
           readonly property bool plugin: !!(root.service && root.service.pluginUpdateAvailable && dismissedPlugin !== root.service.pluginUpdateCount)
-          visible: daemon || plugin
+          visible: (daemon || plugin) && !(root.service && (root.service.building || root.service.buildPhase === "error" || root.service.buildPhase === "done"))
           Row {
             width: parent.width
             spacing: ui.px(14)
@@ -258,7 +259,7 @@ Item {
               width: parent.width - ui.px(36)
               spacing: ui.px(6)
               Text { width: parent.width; wrapMode: Text.Wrap; text: updateCard.daemon ? "omarchy-yapperd " + root.service.daemonLatest + " is available" : "The plugin has " + root.service.pluginUpdateCount + " new change" + (root.service.pluginUpdateCount === 1 ? "" : "s"); color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
-              Note { text: updateCard.daemon ? "You have " + root.service.daemonVersion + ". Builds from source in a terminal you can watch, then restarts the daemon; your session stays signed in." : "Shows the diff in a terminal for you to confirm, then restarts the shell." }
+              Note { text: updateCard.daemon ? "You have " + root.service.daemonVersion + ". Builds release " + root.service.daemonLatest + " from source here in the background, then restarts the daemon; your session stays signed in." : "Shows the diff in a terminal for you to confirm, then restarts the shell." }
               Column {
                 visible: !updateCard.daemon && root.service && root.service.pluginUpdateLog.length > 0
                 width: parent.width
@@ -275,6 +276,7 @@ Item {
             }
           }
         }
+        BuildProgress { width: parent.width; visible: root.service && (root.service.building || root.service.buildPhase === "error" || root.service.buildPhase === "done"); c: root.c; service: root.service }
         Column {
           width: parent.width
           SettingRow { c: root.c; label: "Plugin"; description: "Checked against its git remote"; ValueText { text: "marcho78.yapper " + (root.service ? root.service.pluginVersion : "") + (root.service && root.service.pluginCommit ? " · " + root.service.pluginCommit : "") } }
@@ -895,6 +897,19 @@ Item {
         SettingRow { c: root.c; label: "Store"; description: "SQLite, encrypted with a random passphrase"; ValueText { text: root.storeSizeText } }
         SettingRow { c: root.c; label: "Start the daemon when needed"; description: "Runs systemctl --user start omarchy-yapperd when it is installed but not running."; Toggle { c: root.c; checked: root.flag("autostartDaemon", true); onToggled: root.service.set("autostartDaemon", !checked) } }
         SettingRow { c: root.c; label: "Restart the daemon"; description: "Your session stays signed in."; PillButton { c: root.c; label: "Restart"; round: true; onClicked: root.service.restartDaemon() } }
+        SettingRow { c: root.c; label: "Installed as"; description: root.service && root.service.daemonPlace === "local" ? "Built by Yapper into ~/.local/bin, unit in ~/.config/systemd/user" : root.service && root.service.daemonPlace === "packaged" ? "The omarchy-yapperd pacman package in /usr/bin" : "Not installed"; ValueText { text: root.service ? (root.service.daemonPlace === "local" ? "~/.local/bin/omarchy-yapperd" : root.service.daemonPlace === "packaged" ? "/usr/bin/omarchy-yapperd" : "—") : "—" } }
+        SettingRow { c: root.c; label: "Rebuild"; description: "Build release " + (root.service ? root.service.daemonPinVersion : "") + " again from source into ~/.local/bin (also the way off the pacman package)."; PillButton { c: root.c; label: "Rebuild"; icon: "hammer"; round: true; enabled: root.service && !root.service.building && root.service.toolchainReady; onClicked: root.service.installDaemon(false) } }
+        SettingRow {
+          c: root.c; label: "Remove the daemon"; labelColor: root.c.bad; description: root.confirmRemoveDaemon ? "Stops it and deletes the binary and the unit from your home. Your encrypted store stays unless you also remove the data." : "Stops it and deletes the binary and the unit built into your home."
+          Row {
+            spacing: ui.px(8)
+            PillButton { c: root.c; visible: !root.confirmRemoveDaemon; label: "Remove"; round: true; enabled: root.service && root.service.daemonPlace === "local" && !root.service.building; onClicked: root.confirmRemoveDaemon = true }
+            PillButton { c: root.c; visible: root.confirmRemoveDaemon; label: "Remove"; danger: true; round: true; onClicked: { root.confirmRemoveDaemon = false; root.service.removeDaemon(false) } }
+            PillButton { c: root.c; visible: root.confirmRemoveDaemon; label: "Remove with data"; danger: true; round: true; onClicked: { root.confirmRemoveDaemon = false; root.service.removeDaemon(true) } }
+            PillButton { c: root.c; visible: root.confirmRemoveDaemon; label: "Keep"; round: true; onClicked: root.confirmRemoveDaemon = false }
+          }
+        }
+        BuildProgress { width: parent.width; visible: root.service && (root.service.building || root.service.buildPhase === "error" || root.service.buildPhase === "done"); c: root.c; service: root.service }
         SettingRow {
           c: root.c; label: "Logs"
           Row {
