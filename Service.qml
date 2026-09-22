@@ -1008,8 +1008,10 @@ Item {
     Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", root.updateScript])
   }
 
-  function openWindow() {
-    if (root.shell && typeof root.shell.summon === "function") root.shell.summon(root.pluginId, "{}")
+  // Open the app window, optionally straight onto something: a room,
+  // settings, a section — anything the window's payload understands.
+  function openWindow(payload) {
+    if (root.shell && typeof root.shell.summon === "function") root.shell.summon(root.pluginId, payload ? JSON.stringify(payload) : "{}")
   }
 
   Component.onCompleted: checkInstalled()

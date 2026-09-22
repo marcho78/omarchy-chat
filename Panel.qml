@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "shared"
 import "shared/Palettes.js" as Palettes
 
 // Yapper in the bar: the glyph with the unread count, and the popup under
@@ -20,6 +21,11 @@ Panel {
     ? bar.shell.serviceFor("marcho78.yapper") : null
   readonly property bool loggedIn: service ? service.loggedIn : false
   readonly property int unreadTotal: service ? service.unreadTotal : 0
+  readonly property int mentionTotal: {
+    var n = 0
+    if (service) for (var i = 0; i < service.rooms.length; i++) n += Number(service.rooms[i].highlights) || 0
+    return n
+  }
   readonly property string stateText: service ? service.stateText : "Starting…"
   readonly property string glyph: "󰭹"
   readonly property string look: service ? service.look : "omarchy"
@@ -53,6 +59,14 @@ Panel {
       })
     }
     function refresh(): void { if (root.service) root.service.refresh() }
+    // Open the popup on a room: omarchy-shell marcho78.yapper room '!id:server'
+    function room(id: string): string {
+      var r = root.service ? root.service.roomById(id) : null
+      if (!r) return "unknown room"
+      root.open()
+      root.openRoom(r)
+      return r.name
+    }
     // Switch the look or the palette from the shell:
     //   omarchy-shell marcho78.yapper setLook yapper
     //   omarchy-shell marcho78.yapper setTheme latte
@@ -86,12 +100,67 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: (root.unreadTotal > 0 ? root.glyph + " " + root.unreadTotal : root.glyph) + (root.service && root.service.updateAvailable ? " 󰚰" : "") + (root.service && root.service.needsVerification ? " 󰀦" : "")
+    // The Omarchy look uses the bar's glyph font; the Yapper look draws
+    // its own icon with a badge.
+    text: root.look === "yapper" ? "" : (root.unreadTotal > 0 ? root.glyph + " " + root.unreadTotal : root.glyph) + (root.service && root.service.updateAvailable ? " 󰚰" : "") + (root.service && root.service.needsVerification ? " 󰀦" : "")
+    iconComponent: root.look === "yapper" ? yapperGlyph : null
     dimmed: !root.loggedIn
     tooltipText: "Yapper: " + root.stateText + (root.unreadTotal > 0 ? " · " + root.unreadTotal + " unread" : "") + (root.service && root.service.updateAvailable ? " · update available" : "") + (root.service && root.service.needsVerification ? " · device not verified" : "")
     onPressed: function(b) {
       if (b === Qt.MiddleButton) { if (root.service) root.service.openWindow() }
       else root.toggle()
+    }
+  }
+
+  Component {
+    id: yapperGlyph
+    Item {
+      readonly property var c: root.service && root.service.colors ? root.service.colors : null
+      readonly property bool mention: root.mentionTotal > 0
+      Icon {
+        anchors.centerIn: parent
+        name: "chat-teardrop-text"
+        weight: "fill"
+        size: Math.round(parent.height * 0.82)
+        color: !root.loggedIn ? (root.bar ? root.bar.barForeground : "#888888")
+          : parent.mention ? parent.c.bad
+          : root.unreadTotal > 0 ? parent.c.accent
+          : root.service && root.service.needsVerification ? parent.c.warn
+          : (root.bar ? root.bar.barForeground : "#888888")
+      }
+      // Unread count, red when a mention is waiting
+      Rectangle {
+        visible: root.unreadTotal > 0
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.rightMargin: -Math.round(parent.width * 0.32)
+        anchors.topMargin: -Math.round(parent.height * 0.22)
+        width: Math.max(height, badgeText.implicitWidth + 6)
+        height: Math.round(parent.height * 0.62)
+        radius: height / 2
+        color: parent.mention ? parent.c.bad : parent.c.accent
+        Text {
+          id: badgeText
+          anchors.centerIn: parent
+          text: root.unreadTotal > 99 ? "99+" : String(root.unreadTotal)
+          color: parent.parent.c ? parent.parent.c.bg2 : "#000000"
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Math.round(parent.parent.height * 0.42)
+          font.bold: true
+        }
+      }
+      // An update is waiting
+      Icon {
+        visible: root.service && root.service.updateAvailable
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: -Math.round(parent.width * 0.3)
+        anchors.bottomMargin: -Math.round(parent.height * 0.12)
+        name: "arrow-circle-up"
+        weight: "fill"
+        size: Math.round(parent.height * 0.5)
+        color: parent.c ? parent.c.warn : "#e0af68"
+      }
     }
   }
 

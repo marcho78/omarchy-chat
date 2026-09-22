@@ -13,6 +13,10 @@ Item {
   property var tips: null
   property var service: null
   property string currentRoom: ""
+  // The popup: no account footer (its strip has the account), and cards
+  // (updates, the community) above the list.
+  property bool compact: false
+  property Component cards: null
   property bool busy: false
   property string errorText: ""
   signal roomChosen(var room)
@@ -332,7 +336,7 @@ Item {
     anchors.right: parent.right
     anchors.top: errorLine.visible ? errorLine.bottom : (hints.visible ? hints.bottom : findRow.bottom)
     anchors.topMargin: ui.px(6)
-    anchors.bottom: footer.top
+    anchors.bottom: footer.visible ? footer.top : parent.bottom
     anchors.leftMargin: ui.px(8)
     anchors.rightMargin: ui.px(8)
     contentHeight: listColumn.implicitHeight
@@ -344,6 +348,14 @@ Item {
       id: listColumn
       width: parent.width
       spacing: 0
+
+      Loader {
+        width: parent.width
+        active: root.cards !== null
+        visible: active && item && item.height > 0
+        sourceComponent: root.cards
+      }
+      Item { width: parent.width; height: root.cards !== null ? ui.px(2) : 0 }
 
       // Invitations
       Repeater {
@@ -439,6 +451,7 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: parent.bottom
+    visible: !root.compact
     height: ui.px(50)
     Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: root.c.line }
     readonly property string userId: root.service ? root.service.userId : ""
