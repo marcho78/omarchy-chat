@@ -30,7 +30,7 @@ Item {
   // The daemon release this plugin installs: the packaging commit tagged pkg-vX.Y.Z in the
   // daemon repository, which holds both PKGBUILDs for that version with checksums filled in.
   readonly property string daemonPinVersion: "0.22.0"
-  readonly property string daemonPinCommit: "0000000000000000000000000000000000000000"
+  readonly property string daemonPinCommit: "9287261f34714974d428692a2654ec6efd748c47"
   // The one thing the user installs themselves: the build tools.
   readonly property string toolchainCommand: "pacman -S --needed rust git"
   readonly property string helperPath: pluginDir + "/bin/yapper-helper"
