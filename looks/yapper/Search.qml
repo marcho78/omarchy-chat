@@ -47,7 +47,7 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    height: ui.px(112)
+    height: scopes.y + scopes.height + ui.px(14)
     Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
     Rectangle {
       id: box
@@ -94,9 +94,12 @@ Item {
     }
     IconButton { anchors.right: parent.right; anchors.rightMargin: ui.px(16); anchors.top: parent.top; anchors.topMargin: ui.px(22); c: root.c; tips: root.tips; icon: "x"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Back to chat (Esc)"; onClicked: root.closeRequested() }
     // Scope chips
-    Row {
+    Flow {
+      id: scopes
       anchors.left: parent.left
       anchors.leftMargin: ui.px(24)
+      anchors.right: parent.right
+      anchors.rightMargin: ui.px(24)
       anchors.top: box.bottom
       anchors.topMargin: ui.px(11)
       spacing: ui.px(7)

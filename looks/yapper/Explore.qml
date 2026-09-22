@@ -77,20 +77,21 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    height: ui.px(106)
+    height: field.y + field.height + ui.px(14)
     Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
-    Row {
+    Flow {
       id: titleRow
       anchors.left: parent.left
       anchors.leftMargin: ui.px(24)
+      anchors.right: parent.right
+      anchors.rightMargin: ui.px(64)
       anchors.top: parent.top
       anchors.topMargin: ui.px(18)
       spacing: ui.px(10)
-      Icon { anchors.verticalCenter: parent.verticalCenter; name: "compass"; size: ui.px(19); color: root.c.accent }
-      Text { anchors.verticalCenter: parent.verticalCenter; text: "Explore"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f18; font.weight: Font.DemiBold; font.letterSpacing: -0.3 }
-      Text { anchors.verticalCenter: parent.verticalCenter; text: "public directory of"; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f12 }
+      Icon { name: "compass"; size: ui.px(19); color: root.c.accent }
+      Text { text: "Explore"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f18; font.weight: Font.DemiBold; font.letterSpacing: -0.3 }
+      Text { height: ui.px(24); verticalAlignment: Text.AlignVCenter; text: "public directory of"; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f12 }
       Rectangle {
-        anchors.verticalCenter: parent.verticalCenter
         width: serverText.implicitWidth + ui.px(20); height: ui.px(24); radius: height / 2
         color: root.c.chip
         Text { id: serverText; anchors.centerIn: parent; text: root.server !== "" ? root.server : "your homeserver"; color: root.c.fg; font.family: ui.mono; font.pixelSize: ui.f11 }

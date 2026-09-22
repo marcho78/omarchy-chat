@@ -57,7 +57,8 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    height: ui.px(118)
+    // As tall as its text needs: the description wraps in narrow columns.
+    height: field.y + field.height + ui.px(14)
     Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
     Row {
       id: titleRow
@@ -76,7 +77,7 @@ Item {
       anchors.leftMargin: ui.px(24)
       anchors.top: titleRow.bottom
       anchors.topMargin: ui.px(5)
-      width: Math.min(parent.width - ui.px(48), ui.px(620))
+      width: Math.min(parent.width - ui.px(48) - ui.px(40), ui.px(620))
       wrapMode: Text.Wrap
       textFormat: Text.StyledText
       text: "Members of <font face=\"" + ui.mono + "\">" + (root.service ? root.service.communityAlias : "") + "</font> who chose to publish a card. Nobody is listed without doing it themselves, and you can withdraw yours at any time."
@@ -209,9 +210,14 @@ Item {
       }
     }
     Text {
-      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.margins: ui.px(8)
       y: ui.px(24)
       visible: root.people.length === 0
+      horizontalAlignment: Text.AlignHCenter
+      wrapMode: Text.Wrap
+      lineHeight: 1.3
       text: root.loading ? "Loading…" : (root.errorText !== "" ? root.errorText : (field.text.trim() !== "" ? "No one matches." : "No cards published yet. Yours can be the first — Settings › Community."))
       color: root.errorText !== "" ? root.c.bad : root.c.muted
       font.family: ui.sans; font.pixelSize: ui.f12
