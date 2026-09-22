@@ -84,7 +84,7 @@ Item {
     border.color: root.c.line
     Text { id: kbdText; anchors.centerIn: parent; text: parent.label; color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
   }
-  component RoundButton: Rectangle {
+  component CircleButton: Rectangle {
     property string icon: ""
     property bool primary: false
     property string tooltip: ""
@@ -363,8 +363,8 @@ Item {
         anchors.rightMargin: ui.px(12)
         anchors.verticalCenter: parent.verticalCenter
         spacing: ui.px(8)
-        RoundButton { icon: "x"; tooltip: "Discard"; onClicked: session.stopVoice(false) }
-        RoundButton { icon: "paper-plane-right"; primary: true; tooltip: "Send the voice message"; onClicked: session.stopVoice(true) }
+        CircleButton { icon: "x"; tooltip: "Discard"; onClicked: session.stopVoice(false) }
+        CircleButton { icon: "paper-plane-right"; primary: true; tooltip: "Send the voice message"; onClicked: session.stopVoice(true) }
       }
     }
 

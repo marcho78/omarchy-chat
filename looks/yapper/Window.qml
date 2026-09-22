@@ -32,6 +32,13 @@ Item {
   readonly property bool inThread: threadView.roomId !== ""
   // "" | thread | info — what the right panel shows
   property string panel: ""
+  // Settings: which section is open, and a colour row to unfold
+  property string settingsSection: "about"
+  function openSettings(section, pick) {
+    root.view = "settings"
+    settingsView.show(section && section !== "" ? section : root.settingsSection, pick || "")
+    root.settingsSection = settingsView.section
+  }
   function togglePanel(which) {
     if (root.panel === which) { root.closePanel(); return }
     if (which === "info" && root.inThread) threadView.close()
@@ -61,7 +68,9 @@ Item {
         if (p && typeof p.room === "string") { wanted = p.room; root.view = "chat" }
         if (p && typeof p.thread === "string") wantedThread = p.thread
         if (p && p.info === true) root.panel = "info"
-        if (p && (p.settings === true || typeof p.pick === "string")) root.view = "settings"
+        if (p && p.settings === true) root.openSettings("")
+        if (p && typeof p.settings === "string") root.openSettings(p.settings)
+        if (p && typeof p.pick === "string") root.openSettings("appearance", p.pick)
         if (p && typeof p.search === "string") root.view = "search"
         if (p && p.people === true) root.view = "people"
         if (p && typeof p.space === "string" && service) service.currentSpace = p.space
@@ -215,9 +224,9 @@ Item {
         tips: tips
         service: root.service
         view: root.view
-        onViewRequested: function(v) { root.view = v }
+        onViewRequested: function(v) { if (v === "settings") root.openSettings(""); else root.view = v }
         onSpaceRequested: function(id) { if (root.service) root.service.currentSpace = id }
-        onVerifyRequested: root.view = "settings"
+        onVerifyRequested: root.openSettings("encryption")
       }
 
       Sidebar {
@@ -226,6 +235,8 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: ui.sidebarWidth
+        // Settings take the whole width beside the rail.
+        visible: root.view !== "settings"
         c: root.c
         tips: tips
         service: root.service
@@ -235,13 +246,13 @@ Item {
         onExploreRequested: function(q) { root.view = "explore" }
         onPeopleRequested: function(q) { root.view = "people" }
         onSearchRequested: function(q) { root.view = "search" }
-        onSettingsRequested: function(section) { root.view = "settings" }
+        onSettingsRequested: function(section) { root.openSettings(section) }
       }
 
       // Conversation column
       Item {
         id: main
-        anchors.left: sidebar.right
+        anchors.left: root.view === "settings" ? rail.right : sidebar.right
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -446,10 +457,21 @@ Item {
           }
         }
 
+        SettingsView {
+          id: settingsView
+          anchors.fill: parent
+          visible: root.view === "settings"
+          c: root.c
+          tips: tips
+          service: root.service
+          onCloseRequested: root.view = "chat"
+          onPeopleRequested: root.view = "people"
+        }
+
         // The other views, arriving in later steps
         Item {
           anchors.fill: parent
-          visible: root.view !== "chat"
+          visible: root.view !== "chat" && root.view !== "settings"
           Item {
             id: viewHeader
             anchors.left: parent.left

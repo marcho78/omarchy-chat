@@ -21,6 +21,7 @@ Item {
   readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR")
   readonly property string socketPath: runtimeDir + "/omarchy-yapper.sock"
   readonly property string daemonRepo: "https://github.com/marcho78/omarchy-yapperd"
+  readonly property string pluginRepo: "https://github.com/marcho78/omarchy-yapper"
   readonly property string daemonUnit: "omarchy-yapperd"
   // Shown to the user verbatim: clone, read, build, install. No binary download.
   readonly property string installCommand: "git clone " + daemonRepo + " && cd omarchy-yapperd && git checkout \"$(git tag -l 'v*' --sort=-v:refname | head -1)\" && cd packaging && makepkg -si"
@@ -129,6 +130,13 @@ Item {
       : Palettes.themes[theme]
     var v = {}
     for (var k in base.v) v[k] = Qt.color(base.v[k])
+    // The one override the look offers: an accent, with its tints.
+    var ya = setting("yapperAccent", "")
+    if (isHex(ya)) {
+      v.accent = Qt.color(String(ya).trim())
+      v.hover = Qt.rgba(v.accent.r, v.accent.g, v.accent.b, 0.10)
+      v.sel = Qt.rgba(v.accent.r, v.accent.g, v.accent.b, 0.18)
+    }
     v.sidebar = v.bg2
     v.light = base.light
     v.label = base.label
@@ -259,6 +267,7 @@ Item {
   }
 
   property string startError: ""
+  function restartDaemon() { Quickshell.execDetached(["/usr/bin/systemctl", "--user", "restart", root.daemonUnit + ".service"]) }
   function startDaemon() {
     if (!root.installed || root.connected || startProc.running) return
     root.starting = true

@@ -25,6 +25,7 @@
     "defaults": {
       "look": "omarchy",
       "theme": "omarchy",
+      "yapperAccent": "",
       "homeserver": "https://matrix.org",
       "notifications": true,
       "autostartDaemon": true,

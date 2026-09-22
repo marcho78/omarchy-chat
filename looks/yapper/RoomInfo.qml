@@ -109,30 +109,6 @@ Item {
     })
   }
 
-  component Pill: Rectangle {
-    property string label: ""
-    property string icon: ""
-    property bool primary: false
-    property bool danger: false
-    signal clicked()
-    width: pillRow.implicitWidth + ui.px(22)
-    height: ui.px(30)
-    radius: ui.px(7)
-    opacity: enabled ? 1 : 0.5
-    color: primary ? (pillMouse.containsMouse ? Qt.lighter(root.c.accent, 1.1) : root.c.accent)
-      : danger ? (pillMouse.containsMouse ? Qt.lighter(root.c.bad, 1.1) : root.c.bad)
-      : (pillMouse.containsMouse ? root.c.hover : "transparent")
-    border.width: primary || danger ? 0 : 1
-    border.color: root.c.line
-    Row {
-      id: pillRow
-      anchors.centerIn: parent
-      spacing: ui.px(6)
-      Icon { anchors.verticalCenter: parent.verticalCenter; visible: parent.parent.icon !== ""; name: parent.parent.icon; size: ui.px(13); color: parent.parent.primary || parent.parent.danger ? root.c.bg2 : root.c.fg }
-      Text { anchors.verticalCenter: parent.verticalCenter; text: parent.parent.label; color: parent.parent.primary || parent.parent.danger ? root.c.bg2 : root.c.fg; font.family: ui.sans; font.pixelSize: ui.f12; font.weight: parent.parent.primary || parent.parent.danger ? Font.DemiBold : Font.Normal }
-    }
-    MouseArea { id: pillMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
   component ActionRow: Item {
     property string icon: ""
     property string label: ""
@@ -299,7 +275,7 @@ Item {
           lineHeight: 1.3
           font.family: ui.sans; font.pixelSize: ui.f11
         }
-        Pill { readonly property var b: parent.bridge; visible: !!(b && b.bot); label: "Message the bridge bot"; icon: "robot"; onClicked: root.memberChosen({ id: b.bot, name: b.bot }) }
+        PillButton { c: root.c; readonly property var b: parent.bridge; visible: !!(b && b.bot); label: "Message the bridge bot"; icon: "robot"; onClicked: root.memberChosen({ id: b.bot, name: b.bot }) }
       }
       Rectangle { width: parent.width; height: 1; color: root.c.line; visible: !!(root.details && root.details.bridge) }
 
@@ -324,8 +300,8 @@ Item {
         }
         Row {
           spacing: ui.px(6)
-          Pill { label: root.busy ? "…" : (root.editing === "invite" ? "Invite" : "Save"); primary: true; enabled: !root.busy; onClicked: root.commitEdit() }
-          Pill { label: "Cancel"; enabled: !root.busy; onClicked: root.editing = "" }
+          PillButton { c: root.c; label: root.busy ? "…" : (root.editing === "invite" ? "Invite" : "Save"); primary: true; enabled: !root.busy; onClicked: root.commitEdit() }
+          PillButton { c: root.c; label: "Cancel"; enabled: !root.busy; onClicked: root.editing = "" }
         }
       }
 
@@ -374,8 +350,8 @@ Item {
         Flow {
           width: parent.width - ui.px(24)
           spacing: ui.px(6)
-          Pill { visible: !!(root.member && root.member.id !== root.service.userId && !root.confirmBlock); label: "Message"; icon: "chat-circle"; primary: true; onClicked: root.memberChosen(root.member) }
-          Pill {
+          PillButton { c: root.c; visible: !!(root.member && root.member.id !== root.service.userId && !root.confirmBlock); label: "Message"; icon: "chat-circle"; primary: true; onClicked: root.memberChosen(root.member) }
+          PillButton { c: root.c;
             readonly property bool isBlocked: root.member && root.service && root.service.blocked.indexOf(root.member.id) >= 0
             visible: !!(root.member && root.member.id !== root.service.userId)
             label: root.confirmBlock ? "Block " + root.member.name + "?" : (isBlocked ? "Unblock" : "Block")
@@ -388,10 +364,10 @@ Item {
               root.service.ignore(root.member.id)
             }
           }
-          Pill { visible: root.confirmBlock; label: "Keep"; onClicked: root.confirmBlock = false }
-          Pill { label: "Copy ID"; icon: "copy"; onClicked: root.service.copyText(root.member.id) }
-          Pill { visible: !!(root.details && root.details.can_kick && root.member && root.member.id !== root.service.userId); label: root.busy ? "…" : "Remove"; icon: "user-minus"; enabled: !root.busy; onClicked: root.act("kick") }
-          Pill { visible: !!(root.details && root.details.can_ban && root.member && root.member.id !== root.service.userId); label: root.busy ? "…" : "Ban"; icon: "gavel"; danger: true; enabled: !root.busy; onClicked: root.act("ban") }
+          PillButton { c: root.c; visible: root.confirmBlock; label: "Keep"; onClicked: root.confirmBlock = false }
+          PillButton { c: root.c; label: "Copy ID"; icon: "copy"; onClicked: root.service.copyText(root.member.id) }
+          PillButton { c: root.c; visible: !!(root.details && root.details.can_kick && root.member && root.member.id !== root.service.userId); label: root.busy ? "…" : "Remove"; icon: "user-minus"; enabled: !root.busy; onClicked: root.act("kick") }
+          PillButton { c: root.c; visible: !!(root.details && root.details.can_ban && root.member && root.member.id !== root.service.userId); label: root.busy ? "…" : "Ban"; icon: "gavel"; danger: true; enabled: !root.busy; onClicked: root.act("ban") }
         }
       }
 
@@ -408,7 +384,7 @@ Item {
           spacing: ui.px(6)
           Repeater {
             model: root.notifyOptions
-            delegate: Pill {
+            delegate: PillButton { c: root.c;
               required property var modelData
               label: modelData.label
               primary: modelData.value === root.notifyMode
@@ -446,8 +422,8 @@ Item {
             }
             Row {
               spacing: ui.px(6)
-              Pill { label: root.busy ? "…" : "Leave"; danger: true; enabled: !root.busy; onClicked: root.doLeave() }
-              Pill { label: "Stay"; enabled: !root.busy; onClicked: root.confirmLeave = false }
+              PillButton { c: root.c; label: root.busy ? "…" : "Leave"; danger: true; enabled: !root.busy; onClicked: root.doLeave() }
+              PillButton { c: root.c; label: "Stay"; enabled: !root.busy; onClicked: root.confirmLeave = false }
             }
           }
         }
