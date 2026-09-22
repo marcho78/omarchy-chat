@@ -18,12 +18,12 @@
   },
   "barWidget": {
     "displayName": "Yapper",
-    "description": "Encrypted Matrix chat: rooms, unread count and a composer in a bar panel; middle-click or the App button opens the full window.",
+    "description": "Encrypted Matrix chat: rooms, unread count and a composer in a bar popup; middle-click or the open button opens the full window. Two looks: the designed Yapper look with palettes, or the Omarchy look on the shell's widgets.",
     "category": "Communication",
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
-      "look": "omarchy",
+      "look": "yapper",
       "theme": "omarchy",
       "yapperAccent": "",
       "homeserver": "https://matrix.org",
@@ -73,6 +73,66 @@
         "defaultValue": true,
         "description": "Runs 'systemctl --user start omarchy-yapperd' when it is installed but not running.",
         "section": "Daemon"
+      },
+      {
+        "key": "look",
+        "type": "enum",
+        "label": "Look",
+        "defaultValue": "yapper",
+        "options": [
+          {
+            "value": "yapper",
+            "label": "Yapper — the designed look, with palettes"
+          },
+          {
+            "value": "omarchy",
+            "label": "Omarchy — the shell's widgets, follows the desktop theme"
+          }
+        ],
+        "description": "Which set of screens draws the window and the popup.",
+        "section": "Appearance"
+      },
+      {
+        "key": "theme",
+        "type": "enum",
+        "label": "Palette (Yapper look)",
+        "defaultValue": "omarchy",
+        "options": [
+          {
+            "value": "omarchy",
+            "label": "Omarchy theme (follows the desktop)"
+          },
+          {
+            "value": "tokyonight",
+            "label": "Tokyo Night"
+          },
+          {
+            "value": "catppuccin",
+            "label": "Catppuccin"
+          },
+          {
+            "value": "gruvbox",
+            "label": "Gruvbox"
+          },
+          {
+            "value": "everforest",
+            "label": "Everforest"
+          },
+          {
+            "value": "rosepine",
+            "label": "Rosé Pine"
+          },
+          {
+            "value": "matte",
+            "label": "Matte Black"
+          },
+          {
+            "value": "latte",
+            "label": "Catppuccin Latte (light)"
+          }
+        ],
+        "description": "Colours for the Yapper look. The colour settings below belong to the Omarchy look.",
+        "section": "Appearance"
       },
       {
         "key": "backgroundColor",

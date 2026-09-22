@@ -913,7 +913,7 @@ Item {
   readonly property string roomSort: String(setting("roomSort", "activity"))
   // Which look draws the window and popup: "omarchy" (the original) or
   // "yapper" (the designed one). Both share this service and RoomSession.
-  readonly property string look: String(setting("look", "omarchy")) === "yapper" ? "yapper" : "omarchy"
+  readonly property string look: String(setting("look", "yapper")) === "omarchy" ? "omarchy" : "yapper"
   readonly property bool linkPreviews: flag("linkPreviews", true)
   readonly property bool checkUpdates: flag("checkUpdates", true)
   property bool checking: false

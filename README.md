@@ -86,8 +86,37 @@ omarchy-shell shell toggle marcho78.yapper '{}'                       # toggle
 omarchy-shell shell summon marcho78.yapper '{"room":"!id:server"}'    # open into a room
 omarchy-shell shell summon marcho78.yapper '{"room":"!id:server","thread":"$event"}'  # …and a thread in it
 omarchy-shell shell summon marcho78.yapper '{"settings":true}'         # open on settings
+omarchy-shell shell summon marcho78.yapper '{"settings":"voice"}'      # …on one section (about, account, appearance, messages, rooms, voice, community, encryption, daemon)
 omarchy-shell shell summon marcho78.yapper '{"pick":"accentColor"}'    # open a colour picker
+omarchy-shell shell summon marcho78.yapper '{"room":"!id:server","info":true}'  # a room with its info panel
+omarchy-shell shell summon marcho78.yapper '{"explore":true,"query":"linux"}'   # the public directory
+omarchy-shell shell summon marcho78.yapper '{"people":true}'           # the community's cards
+omarchy-shell shell summon marcho78.yapper '{"search":"deploy"}'       # message search
+omarchy-shell shell summon marcho78.yapper '{"create":true}'           # the New room dialog
+omarchy-shell shell summon marcho78.yapper '{"room":"!id:server","invite":true}' # Invite people
+omarchy-shell shell summon marcho78.yapper '{"join":true}'             # the community join dialog
+omarchy-shell shell summon marcho78.yapper '{"verify":true}'           # device verification
 ```
+
+## Two looks
+
+`look` picks who draws the window and the popup:
+
+- **Yapper** (default) — the designed look: a title strip, a rail with
+  your spaces, the room list, the conversation with a thread or room-info
+  panel beside it, settings in nine sections, Explore, People and Search,
+  dialogs and first-run gates. It draws from a **palette**: the Omarchy
+  theme (follows the desktop), Tokyo Night, Catppuccin, Gruvbox,
+  Everforest, Rosé Pine, Matte Black or Catppuccin Latte (light). One
+  override on top: an accent (`yapperAccent`). Icons are Phosphor
+  (bundled, MIT); text is Adwaita Sans, ids and times the shell's font.
+- **Omarchy** — the shell's own widgets, following the desktop theme, with
+  the six colour overrides below.
+
+Both looks share `Service.qml`, `shared/RoomSession.qml` (everything a
+conversation does that is not drawing) and the shared pieces in `shared/`.
+Switch from the shell: `omarchy-shell marcho78.yapper setLook omarchy`,
+`omarchy-shell marcho78.yapper setTheme latte`.
 
 A keybinding, in `~/.config/hypr/bindings.lua` (`SUPER+SHIFT+C` is Omarchy's
 calendar, so pick something free):
@@ -127,10 +156,13 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 
 | Key | Default | Meaning |
 |---|---|---|
+| `look` | `yapper` | `yapper` (the designed look) or `omarchy` (the shell's widgets) |
+| `theme` | `omarchy` | The Yapper look's palette: `omarchy`, `tokyonight`, `catppuccin`, `gruvbox`, `everforest`, `rosepine`, `matte`, `latte` |
+| `yapperAccent` | empty | A hex accent on top of the palette (Yapper look); empty follows the palette |
 | `homeserver` | `https://matrix.org` | Pre-filled on the sign-in form |
 | `notifications` | `true` | Desktop notifications for new messages in rooms not in view |
 | `autostartDaemon` | `true` | Start the daemon's user unit when the panel opens |
-| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor`, `hoverColor`, `selectionColor` | empty | Picked in the settings screen (hue bar, saturation/value square, theme swatches, hex); empty follows the Omarchy theme |
+| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor`, `hoverColor`, `selectionColor` | empty | The Omarchy look's colours, picked in the settings screen (hue bar, saturation/value square, hex); empty follows the Omarchy theme |
 | `messageStyle` | `flat` | `flat` (avatar, name, grouped runs) or `bubbles` (yours right, theirs left) |
 | `showAvatars` | `true` | Avatars in the timeline and DM list |
 | `senderColors` | `true` | A stable colour per sender's name |
@@ -144,8 +176,9 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 | `roomSort` | `activity` | Room list order: `activity` or `name` |
 | `checkUpdates` | `true` | Look for plugin and daemon updates when the panel opens |
 
-The screen is rendered from the manifest's `barWidget.schema`, so a new
-setting needs only a schema entry.
+The Omarchy look renders its screen from the manifest's `barWidget.schema`,
+so a new setting there needs only a schema entry; the Yapper look's nine
+sections are laid out by hand in `looks/yapper/SettingsView.qml`.
 
 ## Updates
 
@@ -176,6 +209,9 @@ omarchy-shell marcho78.yapper status     # {installed, connected, loggedIn, user
 omarchy-shell marcho78.yapper refresh
 omarchy-shell marcho78.yapper checkUpdates
 omarchy-shell marcho78.yapper updates      # {daemon, daemonLatest, daemonUpdate, pluginBehind, pluginUpdate, lastChecked, error, checking}
+omarchy-shell marcho78.yapper room '!id:server'   # open the popup on a room
+omarchy-shell marcho78.yapper setLook yapper      # or omarchy
+omarchy-shell marcho78.yapper setTheme tokyonight # a palette for the Yapper look
 ```
 
 ## How it fits together
@@ -193,10 +229,15 @@ The plugin has three kinds:
 | `bar-widget` | `Panel.qml` | The bar glyph and its popup. |
 | `panel` | `Window.qml` | The app window (`FloatingWindow`), summoned by `omarchy-shell shell summon`. |
 
-Shared pieces: `SessionGate.qml` (daemon missing → not running → sign in →
-waiting for the browser), `RoomList.qml` (find, create, invitations, rooms)
-and `RoomView.qml` (timeline and composer). Views register the room they are
-showing with the service, which only notifies for rooms nobody is looking at.
+`Panel.qml` and `Window.qml` are thin hosts: they load
+`looks/<look>/PopupContent.qml` and `looks/<look>/Window.qml` for the chosen
+look, falling back to the Omarchy look if a file fails to load. `shared/`
+holds what both looks use — `RoomSession.qml` (the model, paging, live
+events, drafts, replies and edits, reactions, receipts, typing, read marking,
+emoji completion, voice notes, attachments), `Composer.qml`, `Avatar.qml`,
+`Palettes.js`, `Icons.js` and `Icon.qml` (Phosphor). Views register the room
+they are showing with the service, which only notifies for rooms nobody is
+looking at.
 
 The one secret that passes through the shell is the password on a password
 sign-in: it goes straight to the socket and the field is cleared. The

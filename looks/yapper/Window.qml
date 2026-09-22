@@ -55,9 +55,12 @@ Item {
 
   // ---- plugin lifecycle ----------------------------------------------------
 
+  // One dialog at a time; a new open request starts clean.
+  function closeDialogs() { newRoomDialog.open = false; inviteDialog.open = false; joinDialog.open = false; verifyDialog.open = false }
   function open(payloadJson) {
     closingFromHost = false
     window.visible = true
+    root.closeDialogs()
     if (service) { service.ensureDaemon(); if (service.loggedIn) service.refresh() }
     var wanted = ""
     var wantedThread = ""
@@ -97,6 +100,7 @@ Item {
     closingFromHost = true
     window.visible = false
     closingFromHost = false
+    root.closeDialogs()
   }
 
   // User-initiated close (window close button): keep the shell's open map right.
