@@ -197,7 +197,7 @@ Item {
       visible: root.details && !!root.details.alias
       spacing: Style.space(6)
       Text {
-        text: root.details ? root.details.alias : ""
+        text: root.details && root.details.alias ? String(root.details.alias) : ""
         color: root.accent
         font.family: root.fontFamily; font.pixelSize: Style.font.caption
       }
@@ -249,7 +249,7 @@ Item {
         }
         Button {
           readonly property var b: parent.parent.bridge
-          visible: b && !!b.bot
+          visible: !!(b && b.bot)
           text: "Message the bridge bot"
           iconText: "󰚩"
           bordered: true

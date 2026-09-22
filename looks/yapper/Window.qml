@@ -30,6 +30,17 @@ Item {
   readonly property string roomId: roomView.roomId
   readonly property bool inRoom: roomId !== ""
   readonly property bool inThread: threadView.roomId !== ""
+  // "" | thread | info — what the right panel shows
+  property string panel: ""
+  function togglePanel(which) {
+    if (root.panel === which) { root.closePanel(); return }
+    if (which === "info" && root.inThread) threadView.close()
+    root.panel = which
+  }
+  function closePanel() {
+    if (root.panel === "thread") { if (threadView.roomId !== "") threadView.close(); roomView.focusComposer() }
+    root.panel = ""
+  }
   Ui { id: ui }
 
   readonly property string titleHint: !loggedIn ? "not signed in"
@@ -49,6 +60,7 @@ Item {
         var p = JSON.parse(String(payloadJson))
         if (p && typeof p.room === "string") { wanted = p.room; root.view = "chat" }
         if (p && typeof p.thread === "string") wantedThread = p.thread
+        if (p && p.info === true) root.panel = "info"
         if (p && (p.settings === true || typeof p.pick === "string")) root.view = "settings"
         if (p && typeof p.search === "string") root.view = "search"
         if (p && p.people === true) root.view = "people"
@@ -86,9 +98,11 @@ Item {
   function openThread(eventId) {
     if (!roomView.room) return
     threadView.openThread(roomView.room, eventId)
+    root.panel = "thread"
     Qt.callLater(function() { threadView.focusComposer() })
   }
-  function closeThread() { if (threadView.roomId !== "") threadView.close(); roomView.focusComposer() }
+  function closeThread() { root.closePanel() }
+  onInThreadChanged: if (!inThread && root.panel === "thread") root.panel = ""
 
   FloatingWindow {
     id: window
@@ -231,15 +245,21 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
+        // The right panel sits beside the conversation when there is room
+        // for both; otherwise it takes the conversation's place.
+        readonly property bool split: width >= ui.px(330) + ui.px(440)
+        readonly property bool panelOpen: root.view === "chat" && root.inRoom && root.panel !== ""
+        readonly property bool covered: panelOpen && !split
+        readonly property real conversationWidth: panelOpen && split ? width - panelBox.width : width
 
         // Room header
         Item {
           id: roomHeader
           anchors.left: parent.left
-          anchors.right: parent.right
           anchors.top: parent.top
+          width: main.conversationWidth
           height: ui.headerHeight
-          visible: root.view === "chat" && root.inRoom && !root.inThread
+          visible: root.view === "chat" && root.inRoom && !main.covered
           Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
           Avatar {
             id: headerAvatar
@@ -300,18 +320,18 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: ui.px(2)
             IconButton { c: root.c; tips: tips; icon: "magnifying-glass"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Search this room"; onClicked: root.view = "search" }
-            IconButton { c: root.c; tips: tips; icon: "users"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Members" }
-            IconButton { c: root.c; tips: tips; icon: "info"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Room info" }
+            IconButton { c: root.c; tips: tips; icon: "users"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Members"; active: root.panel === "info"; onClicked: root.togglePanel("info") }
+            IconButton { c: root.c; tips: tips; icon: "info"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Room info"; active: root.panel === "info"; onClicked: root.togglePanel("info") }
           }
         }
 
         RoomView {
           id: roomView
           anchors.left: parent.left
-          anchors.right: parent.right
           anchors.top: roomHeader.bottom
           anchors.bottom: parent.bottom
-          visible: root.view === "chat" && root.inRoom && !root.inThread && window.visible
+          width: main.conversationWidth
+          visible: root.view === "chat" && root.inRoom && !main.covered && window.visible
           c: root.c
           tips: tips
           service: root.service
@@ -321,53 +341,79 @@ Item {
           onRoomIdChanged: if (threadView.roomId !== "" && threadView.roomId !== roomId) threadView.close()
         }
 
-        // Thread header
-        Item {
-          id: threadHeader
-          anchors.left: parent.left
+        // The right panel: a thread, or room info
+        Rectangle {
+          id: panelBox
           anchors.right: parent.right
           anchors.top: parent.top
-          height: ui.headerHeight
-          visible: root.view === "chat" && root.inThread
-          Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
-          IconButton {
-            id: threadBack
+          anchors.bottom: parent.bottom
+          width: main.split ? ui.px(330) : main.width
+          visible: main.panelOpen
+          color: root.c.bg2
+          Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 1; color: root.c.line; visible: main.split }
+          Item {
+            id: panelHeader
             anchors.left: parent.left
-            anchors.leftMargin: ui.px(10)
-            anchors.verticalCenter: parent.verticalCenter
-            c: root.c; tips: tips
-            icon: "arrow-left"; size: ui.px(32); iconSize: ui.px(16)
-            tooltip: "Back to the room (Esc)"
-            onClicked: root.closeThread()
-          }
-          Column {
-            anchors.left: threadBack.right
-            anchors.leftMargin: ui.px(8)
             anchors.right: parent.right
-            anchors.rightMargin: ui.px(14)
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: ui.px(1)
+            anchors.top: parent.top
+            height: ui.headerHeight
+            Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
             Row {
-              spacing: ui.px(7)
-              Icon { anchors.verticalCenter: parent.verticalCenter; name: "tree-structure"; size: ui.px(15); color: root.c.accent }
-              Text { anchors.verticalCenter: parent.verticalCenter; text: "Thread"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f14; font.weight: Font.DemiBold }
+              anchors.left: parent.left
+              anchors.leftMargin: ui.px(12)
+              anchors.right: panelClose.left
+              anchors.rightMargin: ui.px(8)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: ui.px(9)
+              Icon { anchors.verticalCenter: parent.verticalCenter; name: root.panel === "thread" ? "tree-structure" : "info"; size: ui.px(16); color: root.c.accent }
+              Column {
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - ui.px(25)
+                spacing: ui.px(1)
+                Text { text: root.panel === "thread" ? "Thread" : "Room info"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
+                Text { width: parent.width; visible: root.panel === "thread" || !main.split; text: "in " + roomView.roomName; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f11 }
+              }
             }
-            Text {
-              width: parent.width
-              elide: Text.ElideRight
-              text: "in " + roomView.roomName
-              color: root.c.muted
-              font.family: ui.sans; font.pixelSize: ui.f11
+            IconButton {
+              id: panelClose
+              anchors.right: parent.right
+              anchors.rightMargin: ui.px(12)
+              anchors.verticalCenter: parent.verticalCenter
+              c: root.c; tips: tips
+              icon: main.split ? "x" : "arrow-left"
+              size: ui.px(30); iconSize: ui.px(15); radius: ui.px(7)
+              tooltip: root.panel === "thread" ? "Close the thread (Esc)" : "Close"
+              onClicked: root.closePanel()
             }
+          }
+          Item {
+            id: threadSlot
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: panelHeader.bottom
+            anchors.bottom: parent.bottom
+            visible: root.panel === "thread"
+          }
+          RoomInfo {
+            id: roomInfo
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: panelHeader.bottom
+            anchors.bottom: parent.bottom
+            visible: root.panel === "info"
+            c: root.c
+            tips: tips
+            service: root.service
+            roomId: root.panel === "info" && main.panelOpen ? root.roomId : ""
+            onMemberChosen: function(m) { root.closePanel(); sidebar.chat(m.id) }
+            onLeftRoom: { root.closePanel(); roomView.close() }
           }
         }
         RoomView {
           id: threadView
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: threadHeader.bottom
-          anchors.bottom: parent.bottom
-          visible: root.view === "chat" && root.inThread && window.visible
+          parent: threadSlot
+          anchors.fill: parent
+          visible: root.panel === "thread" && main.panelOpen && window.visible
           c: root.c
           tips: tips
           service: root.service
