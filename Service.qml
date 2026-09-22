@@ -1119,17 +1119,23 @@ Item {
   Process {
     id: daemonCheck
     property string out: ""
-    command: ["/usr/bin/git", "ls-remote", "--tags", "--refs", root.daemonRepo, "refs/tags/v*"]
+    // No --refs: annotated tags then also list "tag^{}" with the commit they point at
+    command: ["/usr/bin/git", "ls-remote", "--tags", root.daemonRepo, "refs/tags/v*"]
     environment: ({ GIT_TERMINAL_PROMPT: "0" })
     stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (daemonCheck.out.length < 65536) daemonCheck.out += d } }
     onStarted: out = ""
     onExited: function(code) {
-      var best = "", bestSha = ""
+      // The commit a tag names: the peeled "^{}" line for an annotated tag, the tag line itself for a lightweight one
+      var tagSha = {}, peeledSha = {}
       var lines = daemonCheck.out.split("\n")
       for (var i = 0; i < lines.length; i++) {
-        var m = /^([0-9a-f]{40})\s+refs\/tags\/(v\d+\.\d+\.\d+)$/.exec(lines[i].trim())
+        var m = /^([0-9a-f]{40})\s+refs\/tags\/(v\d+\.\d+\.\d+)(\^\{\})?$/.exec(lines[i].trim())
         if (!m) continue
-        if (best === "" || Format.compareVersions(m[2], best) > 0) { best = m[2]; bestSha = m[1] }
+        if (m[3]) peeledSha[m[2]] = m[1]; else tagSha[m[2]] = m[1]
+      }
+      var best = "", bestSha = ""
+      for (var tag in tagSha) {
+        if (best === "" || Format.compareVersions(tag, best) > 0) { best = tag; bestSha = peeledSha[tag] || tagSha[tag] }
       }
       if (best === "" && code !== 0) root.updateError = (root.updateError ? root.updateError + " " : "") + "Could not reach the daemon's repository."
       root.daemonLatest = best.replace(/^v/, "")

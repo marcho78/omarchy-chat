@@ -235,9 +235,13 @@ def cmd_install(repo, commit):
     code, out = run([GIT, "-C", CHECKOUT, "checkout", "--quiet", "--force", "--detach", commit], env=env, deadline=120, log=log)
     if code != 0:
         raise Failure("that commit is not in the repository:\n" + tail(out))
-    code, out = run([GIT, "-C", CHECKOUT, "rev-parse", "HEAD"], env=env, deadline=30, log=log)
-    if code != 0 or out.strip() != commit:
-        raise Failure("checked-out commit does not match %s" % commit)
+    # HEAD must be the commit asked for; accept a tag object too, peeled to its commit.
+    code, want = run([GIT, "-C", CHECKOUT, "rev-parse", "--verify", commit + "^{commit}"], env=env, deadline=30, log=log)
+    if code != 0:
+        raise Failure("%s is not a commit in the repository" % commit)
+    code, head = run([GIT, "-C", CHECKOUT, "rev-parse", "--verify", "HEAD^{commit}"], env=env, deadline=30, log=log)
+    if code != 0 or head.strip() != want.strip():
+        raise Failure("checked-out commit %s does not match %s" % (head.strip()[:12], commit[:12]))
     run([GIT, "-C", CHECKOUT, "clean", "-fdq", "-e", "target"], env=env, deadline=60, log=log)
 
     # 2. How many crates there are, for the bar.
