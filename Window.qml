@@ -15,6 +15,8 @@ Item {
   property var shell: null
   property var service: null
   readonly property string look: service ? service.look : "omarchy"
+  // Set when the chosen look failed to load: the Omarchy look stands in.
+  property string fallbackLook: ""
   readonly property var window: content.item
 
   // Remember an open request that arrives before the look has loaded.
@@ -29,15 +31,29 @@ Item {
 
   Loader {
     id: content
-    source: "looks/" + root.look + "/Window.qml"
-    onLoaded: {
-      item.shell = Qt.binding(function() { return root.shell })
-      item.service = Qt.binding(function() { return root.service })
-      if (root.pendingOpen) { root.pendingOpen = false; item.open(root.pendingPayload) }
+    // The look is created with its bindings already set, so it never
+    // renders a first frame without a service.
+    function load() {
+      var look = root.fallbackLook !== "" ? root.fallbackLook : root.look
+      setSource("looks/" + look + "/Window.qml", {
+        shell: Qt.binding(function() { return root.shell }),
+        service: Qt.binding(function() { return root.service })
+      })
     }
-    onStatusChanged: if (status === Loader.Error) console.log("[yapper] window look failed to load: " + source)
+    Component.onCompleted: load()
+    onLoaded: if (root.pendingOpen) { root.pendingOpen = false; item.open(root.pendingPayload) }
+    onStatusChanged: {
+      if (status !== Loader.Error) return
+      console.log("[yapper] window look failed to load: " + source)
+      if (root.fallbackLook === "" && root.look !== "omarchy") Qt.callLater(function() { root.fallbackLook = "omarchy" })
+    }
   }
+  onFallbackLookChanged: content.load()
 
   // A look change while the window is open: reopen it in the new look.
-  onLookChanged: if (content.item && content.item.opened) { root.pendingOpen = true; root.pendingPayload = "" }
+  onLookChanged: {
+    if (content.item && content.item.opened) { root.pendingOpen = true; root.pendingPayload = "" }
+    if (root.fallbackLook !== "") root.fallbackLook = ""   // reloads by itself
+    else content.load()
+  }
 }

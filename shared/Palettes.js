@@ -30,13 +30,15 @@ function luminance(c) { c = Qt.color(c); return 0.2126 * c.r + 0.7152 * c.g + 0.
 
 // The shell's theme as a palette. The theme gives five colours; the rest
 // are blends of those so the result sits with the desktop.
-function omarchy(background, foreground, accent, muted, urgent) {
+function omarchy(background, foreground, accent, urgent) {
   var light = luminance(background) > 0.5
   var black = light ? "#ffffff" : "#000000"
   return {
     label: "Omarchy theme", light: light, v: {
       bg: Qt.color(background), bg2: mix(background, black, 0.18), surface: mix(background, foreground, 0.07), line: mix(background, foreground, 0.14),
-      fg: Qt.color(foreground), muted: Qt.color(muted), accent: Qt.color(accent), accent2: mix(accent, foreground, 0.35),
+      // Not the theme's own muted tone: several themes keep it too close
+      // to the background for captions.
+      fg: Qt.color(foreground), muted: mix(background, foreground, 0.55), accent: Qt.color(accent), accent2: mix(accent, foreground, 0.35),
       ok: light ? "#40a02b" : "#9ece6a", warn: light ? "#df8e1d" : "#e0af68", bad: Qt.color(urgent),
       desk: mix(background, black, 0.4), own: mix(background, accent, 0.18),
       chip: alpha(foreground, 0.06), hover: alpha(accent, 0.10), sel: alpha(accent, 0.18)
@@ -53,3 +55,12 @@ function hueOf(id) {
   return hues[Math.abs(h) % hues.length]
 }
 function colorOf(id, light) { return Qt.hsla(hueOf(id) / 360, 0.58, light ? 0.38 : 0.70, 1) }
+
+// The tokens a view can draw with before the service has handed it a
+// palette (Tokyo Night, the design's default).
+function fallback() {
+  var t = themes.tokyonight, v = {}
+  for (var k in t.v) v[k] = Qt.color(t.v[k])
+  v.sidebar = v.bg2; v.light = t.light; v.label = t.label
+  return v
+}

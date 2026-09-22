@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "shared/Palettes.js" as Palettes
 
 // Yapper in the bar: the glyph with the unread count, and the popup under
 // it. The popup's body comes from the chosen look (`looks/<look>/PopupContent.qml`);
@@ -22,6 +23,11 @@ Panel {
   readonly property string stateText: service ? service.stateText : "Starting…"
   readonly property string glyph: "󰭹"
   readonly property string look: service ? service.look : "omarchy"
+  // Set when the chosen look failed to load: the Omarchy look stands in.
+  property string fallbackLook: ""
+  onLookChanged: { if (fallbackLook !== "") fallbackLook = ""; else content.load() }
+  onFallbackLookChanged: content.load()
+  onBarChanged: if (bar && content.status === Loader.Null) content.load()
   readonly property var body: content.item
 
   implicitWidth: button.implicitWidth
@@ -47,6 +53,21 @@ Panel {
       })
     }
     function refresh(): void { if (root.service) root.service.refresh() }
+    // Switch the look or the palette from the shell:
+    //   omarchy-shell marcho78.yapper setLook yapper
+    //   omarchy-shell marcho78.yapper setTheme latte
+    function setLook(name: string): string {
+      if (!root.service) return "no service"
+      if (name !== "yapper" && name !== "omarchy") return "unknown look: " + name
+      root.service.set("look", name)
+      return name
+    }
+    function setTheme(name: string): string {
+      if (!root.service) return "no service"
+      if (Palettes.order.indexOf(name) < 0) return "unknown palette: " + name + " (one of " + Palettes.order.join(", ") + ")"
+      root.service.set("theme", name)
+      return name
+    }
     function app(): void { if (root.service) root.service.openWindow() }
     function checkUpdates(): string {
       if (!root.service) return "no service"
@@ -93,18 +114,30 @@ Panel {
       onCloseRequested: { if (!content.item || !content.item.handleClose()) root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
-      // The look's body. Swapping looks recreates it; the service keeps the state.
+      // The look's body, created with its bindings already set. Swapping
+      // looks recreates it; the service keeps the state.
       Loader {
         id: content
         width: parent.width
-        source: "looks/" + root.look + "/PopupContent.qml"
-        onLoaded: {
-          item.service = Qt.binding(function() { return root.service })
-          item.bar = Qt.binding(function() { return root.bar })
-          item.opened = Qt.binding(function() { return root.opened })
-          item.closeRequested.connect(function() { root.close() })
+        function load() {
+          // The host hands `bar` over after creating the panel; the body
+          // reads it from its first frame, so wait for it.
+          if (!root.bar) return
+          var look = root.fallbackLook !== "" ? root.fallbackLook : root.look
+          setSource("looks/" + look + "/PopupContent.qml", {
+            service: Qt.binding(function() { return root.service }),
+            bar: Qt.binding(function() { return root.bar }),
+            opened: Qt.binding(function() { return root.opened })
+          })
         }
-        onStatusChanged: if (status === Loader.Error) console.log("[yapper] popup body failed to load: " + source)
+        Component.onCompleted: load()
+        onLoaded: item.closeRequested.connect(function() { root.close() })
+        onStatusChanged: {
+          if (status !== Loader.Error) return
+          console.log("[yapper] popup body failed to load: " + source)
+          // Deferred: the status changes while the source is being set.
+          if (root.fallbackLook === "" && root.look !== "omarchy") Qt.callLater(function() { root.fallbackLook = "omarchy" })
+        }
       }
     }
   }

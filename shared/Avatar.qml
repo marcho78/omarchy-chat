@@ -13,6 +13,11 @@ Item {
   property var service: null
   property real size: Style.space(32)
   property string fontFamily: Style.font.family
+  // Round by default; a look can square it off (rooms vs people).
+  property real radius: size / 2
+  // The initial's tile and ink when there is no picture.
+  property color fallbackColor: Qt.hsla(Format.hueFor(root.userId || root.name) / 360, 0.45, 0.42, 1)
+  property color initialColor: "#ffffff"
 
   readonly property string path: (service && mxc !== "" && service.avatars[mxc]) ? service.avatars[mxc] : ""
   onMxcChanged: if (service && mxc !== "") service.resolveAvatar(mxc)
@@ -24,13 +29,13 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    radius: root.size / 2
-    color: Qt.hsla(Format.hueFor(root.userId || root.name) / 360, 0.45, 0.42, 1)
+    radius: root.radius
+    color: root.fallbackColor
     visible: image.status !== Image.Ready
     Text {
       anchors.centerIn: parent
       text: Format.initial(root.name || root.userId)
-      color: "#ffffff"
+      color: root.initialColor
       font.family: root.fontFamily
       font.pixelSize: root.size * 0.48
       font.bold: true
@@ -49,7 +54,7 @@ Item {
   Rectangle {
     id: mask
     anchors.fill: parent
-    radius: root.size / 2
+    radius: root.radius
     visible: false
     layer.enabled: true
   }

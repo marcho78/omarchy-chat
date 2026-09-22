@@ -906,33 +906,40 @@ Item {
           }
         }
 
-        // Seen by: tiny avatars of others whose receipt is here
-        Row {
+        // Seen by: tiny avatars of others whose receipt is here. The
+        // tooltip sits beside the Row, not in it (a Row child cannot
+        // anchor horizontally).
+        Item {
           visible: root.readBy.length > 0
           anchors.right: parent.right
-          spacing: -Style.space(4)
-          Repeater {
-            model: root.readBy.slice(0, 6)
-            delegate: Avatar {
-              required property var modelData
-              size: Style.space(16)
-              userId: modelData.id
-              name: modelData.name
-              fontFamily: root.fontFamily
-              MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                onEntered: seenTip.visible = true
-                onExited: seenTip.visible = false
+          width: seenRow.implicitWidth
+          height: seenRow.implicitHeight
+          Row {
+            id: seenRow
+            spacing: -Style.space(4)
+            Repeater {
+              model: root.readBy.slice(0, 6)
+              delegate: Avatar {
+                required property var modelData
+                size: Style.space(16)
+                userId: modelData.id
+                name: modelData.name
+                fontFamily: root.fontFamily
+                MouseArea {
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  onEntered: seenTip.visible = true
+                  onExited: seenTip.visible = false
+                }
               }
             }
-          }
-          Text {
-            visible: root.readBy.length > 6
-            anchors.verticalCenter: parent.verticalCenter
-            text: " +" + (root.readBy.length - 6)
-            color: root.fg; opacity: 0.5
-            font.family: root.fontFamily; font.pixelSize: root.captionSize - 2
+            Text {
+              visible: root.readBy.length > 6
+              anchors.verticalCenter: parent.verticalCenter
+              text: " +" + (root.readBy.length - 6)
+              color: root.fg; opacity: 0.5
+              font.family: root.fontFamily; font.pixelSize: root.captionSize - 2
+            }
           }
           Rectangle {
             id: seenTip

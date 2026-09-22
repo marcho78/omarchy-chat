@@ -119,21 +119,17 @@ Item {
 
   // ---------- palettes (the Yapper look) ----------
   // A palette is the shell's theme or one of the fixed sets in
-  // shared/Palettes.js; the colour settings above override single tones.
+  // shared/Palettes.js. The colour settings above belong to the Omarchy
+  // look; a palette is drawn as designed.
   // (Named `colors`, not `palette`: Item already has a palette.)
   readonly property string theme: Palettes.order.indexOf(String(setting("theme", "omarchy"))) >= 0 ? String(setting("theme", "omarchy")) : "omarchy"
   readonly property var colors: {
     var base = theme === "omarchy"
-      ? Palettes.omarchy(Color.background, Color.foreground, Color.accent, Color.muted, Color.urgent)
+      ? Palettes.omarchy(Color.background, Color.foreground, Color.accent, Color.urgent)
       : Palettes.themes[theme]
     var v = {}
     for (var k in base.v) v[k] = Qt.color(base.v[k])
-    v.bg = pickColor("backgroundColor", v.bg)
-    v.sidebar = pickColor("sidebarColor", v.bg2)
-    v.fg = pickColor("textColor", v.fg)
-    v.accent = pickColor("accentColor", v.accent)
-    v.hover = pickColor("hoverColor", v.hover)
-    v.sel = pickColor("selectionColor", v.sel)
+    v.sidebar = v.bg2
     v.light = base.light
     v.label = base.label
     return v
