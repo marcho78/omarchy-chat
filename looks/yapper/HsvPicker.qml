@@ -2,14 +2,14 @@ import QtQuick
 import "../../shared"
 import "../../shared/Palettes.js" as Palettes
 
-// The mock's colour picker (HsvPicker, distinct from the shared ColorPicker): a saturation/value square, a hue bar, the
+// The mock's color picker (HsvPicker, distinct from the shared ColorPicker): a saturation/value square, a hue bar, the
 // swatch with its hex, and Use / Reset. `picked(hex)` fires on Use,
 // `cleared()` on Reset.
 Rectangle {
   id: root
   property var c: Palettes.fallback()
   property color value: "#888888"
-  property string useLabel: "Use this colour"
+  property string useLabel: "Use this color"
   signal picked(string hex)
   signal cleared()
   Ui { id: ui }

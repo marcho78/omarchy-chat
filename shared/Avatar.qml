@@ -4,7 +4,7 @@ import qs.Commons
 import "Format.js" as Format
 
 // A round avatar: the user's or room's picture when the daemon has it,
-// otherwise an initial in a stable per-id colour.
+// otherwise an initial in a stable per-id color.
 Item {
   id: root
   property string userId: ""

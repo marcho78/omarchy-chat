@@ -100,7 +100,7 @@ function fileSize(bytes) {
   return (n / 1073741824).toFixed(2) + " GB"
 }
 
-// Escape for rich text and mark the query's words in the accent colour.
+// Escape for rich text and mark the query's words in the accent color.
 function highlightMatch(text, query, color) {
   var plain = String(text).replace(/\s+/g, " ")
   // Keep the snippet around the first match so long messages stay short.

@@ -4,7 +4,7 @@ import "../../shared/Palettes.js" as Palettes
 
 // A square hover button around one Phosphor icon: the mock's 34 px and
 // 38 px buttons. `active` paints the selected state; `subtle` buttons
-// rest muted and turn to text colour on hover, the others to accent.
+// rest muted and turn to text color on hover, the others to accent.
 Item {
   id: root
   property var c: Palettes.fallback()

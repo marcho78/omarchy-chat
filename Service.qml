@@ -92,7 +92,7 @@ Item {
   }
 
   // ---------- appearance ----------
-  // Each colour follows the Omarchy theme until the user picks one; an
+  // Each color follows the Omarchy theme until the user picks one; an
   // empty setting means "theme".
   function isHex(v) { return /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(String(v || "").trim()) }
   function pickColor(key, fallback) { var v = setting(key, ""); return isHex(v) ? Qt.color(String(v).trim()) : fallback }
@@ -120,27 +120,83 @@ Item {
 
   // ---------- palettes (the Yapper look) ----------
   // A palette is the shell's theme or one of the fixed sets in
-  // shared/Palettes.js. The colour settings above belong to the Omarchy
+  // shared/Palettes.js. The color settings above belong to the Omarchy
   // look; a palette is drawn as designed.
   // (Named `colors`, not `palette`: Item already has a palette.)
-  readonly property string theme: Palettes.order.indexOf(String(setting("theme", "omarchy"))) >= 0 ? String(setting("theme", "omarchy")) : "omarchy"
+  // Palettes you saved: [{ id, label, light, v: { token: "#hex" } }].
+  readonly property var customPalettes: {
+    var v = setting("customPalettes", [])
+    if (typeof v === "string") { try { v = JSON.parse(v) } catch (e) { v = [] } }
+    return Array.isArray(v) ? v : []
+  }
+  function customPalette(key) {
+    for (var i = 0; i < customPalettes.length; i++) if ("custom:" + customPalettes[i].id === key) return customPalettes[i]
+    return null
+  }
+  // Every palette a picker can offer, built-ins first.
+  readonly property var paletteKeys: Palettes.order.concat(customPalettes.map(function(p) { return "custom:" + p.id }))
+  function paletteFor(key) {
+    if (key === "omarchy") return Palettes.omarchy(Color.background, Color.foreground, Color.accent, Color.urgent)
+    if (String(key).indexOf("custom:") === 0) return customPalette(key)
+    return Palettes.themes[key] || null
+  }
+  readonly property string theme: {
+    var t = String(setting("theme", "omarchy"))
+    return paletteFor(t) ? t : "omarchy"
+  }
+  // The Yapper look's own color overrides, on top of the palette. Set
+  // one and it changes that slot only; the Omarchy look has its own six.
+  readonly property var yapperColorKeys: ["yapperBackgroundColor", "yapperSidebarColor", "yapperTextColor", "yapperAccent", "yapperHoverColor", "yapperSelectionColor"]
   readonly property var colors: {
-    var base = theme === "omarchy"
-      ? Palettes.omarchy(Color.background, Color.foreground, Color.accent, Color.urgent)
-      : Palettes.themes[theme]
+    // A deleted palette can be gone before `theme` has fallen back.
+    var base = paletteFor(theme) || paletteFor("omarchy")
     var v = {}
     for (var k in base.v) v[k] = Qt.color(base.v[k])
-    // The one override the look offers: an accent, with its tints.
-    var ya = setting("yapperAccent", "")
-    if (isHex(ya)) {
-      v.accent = Qt.color(String(ya).trim())
+    v.sidebar = v.bg2
+    var bg = setting("yapperBackgroundColor", ""), sb = setting("yapperSidebarColor", ""), fg = setting("yapperTextColor", "")
+    var ac = setting("yapperAccent", ""), hv = setting("yapperHoverColor", ""), sl = setting("yapperSelectionColor", "")
+    if (isHex(bg)) { v.bg = Qt.color(String(bg).trim()); v.desk = Qt.darker(v.bg, 1.4) }
+    if (isHex(sb)) { v.bg2 = Qt.color(String(sb).trim()); v.sidebar = v.bg2 }
+    if (isHex(fg)) { v.fg = Qt.color(String(fg).trim()); v.muted = Palettes.mix(v.bg, v.fg, 0.55); v.chip = Palettes.alpha(v.fg, 0.06) }
+    if (isHex(ac)) {
+      v.accent = Qt.color(String(ac).trim())
       v.hover = Qt.rgba(v.accent.r, v.accent.g, v.accent.b, 0.10)
       v.sel = Qt.rgba(v.accent.r, v.accent.g, v.accent.b, 0.18)
+      v.own = Palettes.mix(v.bg, v.accent, 0.18)
     }
-    v.sidebar = v.bg2
-    v.light = base.light
+    if (isHex(hv)) v.hover = Qt.color(String(hv).trim())
+    if (isHex(sl)) v.sel = Qt.color(String(sl).trim())
+    v.light = Palettes.luminance(v.bg) > 0.5
     v.label = base.label
     return v
+  }
+  // Keep what is on screen as a palette of its own: the current tokens,
+  // overrides included, under a name. It becomes the selected palette and
+  // the override rows go back to "follows the palette".
+  function savePalette(name) {
+    var label = String(name || "").trim()
+    if (label === "") return null
+    var id = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "palette"
+    var taken = customPalettes.map(function(p) { return p.id })
+    var base = id, n = 2
+    while (taken.indexOf(id) >= 0) id = base + "-" + (n++)
+    var tokens = ["bg", "bg2", "surface", "line", "fg", "muted", "accent", "accent2", "ok", "warn", "bad", "desk", "own", "chip", "hover", "sel"]
+    var v = {}
+    for (var i = 0; i < tokens.length; i++) v[tokens[i]] = String(colors[tokens[i]])
+    var changes = { customPalettes: customPalettes.concat([{ id: id, label: label, light: colors.light === true, v: v }]), theme: "custom:" + id }
+    for (var j = 0; j < yapperColorKeys.length; j++) changes[yapperColorKeys[j]] = ""
+    for (var key in changes) previewSetting(key, changes[key])
+    writeSettings(changes)
+    return id
+  }
+  function deletePalette(id) {
+    var rest = customPalettes.filter(function(p) { return p.id !== id })
+    if (rest.length === customPalettes.length) return false
+    var changes = { customPalettes: rest }
+    if (theme === "custom:" + id) changes.theme = "omarchy"
+    for (var key in changes) previewSetting(key, changes[key])
+    writeSettings(changes)
+    return true
   }
   // Phosphor icon faces for the Yapper look, registered once for every view
   // (shared/Icon.qml names the families).

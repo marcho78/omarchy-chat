@@ -2,9 +2,9 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 
-// A colour picker: hue bar, saturation/value square, theme swatches and a
+// A color picker: hue bar, saturation/value square, theme swatches and a
 // hex field, all kept in sync. Emits picked(hex) on every change and
-// cleared() for "use the theme's colour".
+// cleared() for "use the theme's color".
 Column {
   id: root
   property color value: "#888888"
@@ -201,7 +201,7 @@ Column {
       }
     }
     Button {
-      text: "Use theme colour"
+      text: "Use theme color"
       onClicked: root.cleared()
     }
   }

@@ -1,6 +1,6 @@
 .pragma library
 
-// The colour sets the Yapper look can use. Each palette carries the same
+// The color sets the Yapper look can use. Each palette carries the same
 // tokens (`bg`, `bg2`, `surface`, `line`, `fg`, `muted`, `accent`, `accent2`,
 // `ok`, `warn`, `bad`, `desk`, `own`, `chip`, `hover`, `sel`) plus `light`
 // for the tones that flip on a light background. `omarchy` is built from
@@ -28,7 +28,7 @@ function mix(a, b, t) {
 function alpha(c, a) { c = Qt.color(c); return Qt.rgba(c.r, c.g, c.b, a) }
 function luminance(c) { c = Qt.color(c); return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b }
 
-// The shell's theme as a palette. The theme gives five colours; the rest
+// The shell's theme as a palette. The theme gives five colors; the rest
 // are blends of those so the result sits with the desktop.
 function omarchy(background, foreground, accent, urgent) {
   var light = luminance(background) > 0.5
@@ -46,7 +46,7 @@ function omarchy(background, foreground, accent, urgent) {
   }
 }
 
-// Per-user colour for names and avatars: a stable hue from the id, toned
+// Per-user color for names and avatars: a stable hue from the id, toned
 // for the palette's background.
 var hues = [200, 340, 25, 150, 265, 45, 300, 180, 90, 320, 15, 225]
 function hueOf(id) {

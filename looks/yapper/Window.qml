@@ -31,7 +31,7 @@ Item {
   readonly property bool inThread: threadView.roomId !== ""
   // "" | thread | info — what the right panel shows
   property string panel: ""
-  // Settings: which section is open, and a colour row to unfold
+  // Settings: which section is open, and a color row to unfold
   property string settingsSection: "about"
   function openSettings(section, pick) {
     root.view = "settings"

@@ -25,7 +25,13 @@
     "defaults": {
       "look": "yapper",
       "theme": "omarchy",
+      "yapperBackgroundColor": "",
+      "yapperSidebarColor": "",
+      "yapperTextColor": "",
       "yapperAccent": "",
+      "yapperHoverColor": "",
+      "yapperSelectionColor": "",
+      "customPalettes": [],
       "homeserver": "https://matrix.org",
       "notifications": true,
       "autostartDaemon": true,
@@ -131,7 +137,7 @@
             "label": "Catppuccin Latte (light)"
           }
         ],
-        "description": "Colours for the Yapper look. The colour settings below belong to the Omarchy look.",
+        "description": "Colors for the Yapper look. The color settings below belong to the Omarchy look.",
         "section": "Appearance"
       },
       {
@@ -215,9 +221,9 @@
       {
         "key": "senderColors",
         "type": "boolean",
-        "label": "Colour each sender's name",
+        "label": "Color each sender's name",
         "defaultValue": true,
-        "description": "Off: names use the text colour, yours the accent.",
+        "description": "Off: names use the text color, yours the accent.",
         "section": "Messages"
       },
       {

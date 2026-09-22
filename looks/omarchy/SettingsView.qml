@@ -12,7 +12,7 @@ Column {
   property var service: null
   property color fg: Color.foreground
   property string fontFamily: Style.font.family
-  // The colour row whose picker is unfolded (one at a time). Set from a
+  // The color row whose picker is unfolded (one at a time). Set from a
   // deep link, or by clicking a row.
   property string pickKey: ""
 
@@ -463,7 +463,7 @@ Column {
   Text {
     width: parent.width
     wrapMode: Text.WordWrap
-    text: "Changes apply as you make them. Colours follow the Omarchy theme until you pick one."
+    text: "Changes apply as you make them. Colors follow the Omarchy theme until you pick one."
     color: root.fg
     opacity: 0.6
     font.family: root.fontFamily
@@ -573,7 +573,7 @@ Column {
         }
       }
 
-      // colour: a row with a swatch; click to unfold the picker
+      // color: a row with a swatch; click to unfold the picker
       Column {
         visible: field.isColor
         width: parent.width

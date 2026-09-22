@@ -43,7 +43,7 @@ Item {
       root.people = root.people.filter(function(p) { return p.user_id !== userId })
     })
   }
-  // The colour of a theme's dot: our palette's accent when the names
+  // The color of a theme's dot: our palette's accent when the names
   // match, otherwise a stable hue from the name.
   function themeColor(name) {
     var key = String(name || "").toLowerCase().replace(/[^a-z]/g, "")

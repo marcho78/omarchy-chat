@@ -87,7 +87,7 @@ omarchy-shell shell summon marcho78.yapper '{"room":"!id:server"}'    # open int
 omarchy-shell shell summon marcho78.yapper '{"room":"!id:server","thread":"$event"}'  # …and a thread in it
 omarchy-shell shell summon marcho78.yapper '{"settings":true}'         # open on settings
 omarchy-shell shell summon marcho78.yapper '{"settings":"voice"}'      # …on one section (about, account, appearance, messages, rooms, voice, community, encryption, daemon)
-omarchy-shell shell summon marcho78.yapper '{"pick":"accentColor"}'    # open a colour picker
+omarchy-shell shell summon marcho78.yapper '{"pick":"accentColor"}'    # open a color picker
 omarchy-shell shell summon marcho78.yapper '{"room":"!id:server","info":true}'  # a room with its info panel
 omarchy-shell shell summon marcho78.yapper '{"explore":true,"query":"linux"}'   # the public directory
 omarchy-shell shell summon marcho78.yapper '{"people":true}'           # the community's cards
@@ -107,11 +107,12 @@ omarchy-shell shell summon marcho78.yapper '{"verify":true}'           # device 
   panel beside it, settings in nine sections, Explore, People and Search,
   dialogs and first-run gates. It draws from a **palette**: the Omarchy
   theme (follows the desktop), Tokyo Night, Catppuccin, Gruvbox,
-  Everforest, Rosé Pine, Matte Black or Catppuccin Latte (light). One
-  override on top: an accent (`yapperAccent`). Icons are Phosphor
+  Everforest, Rosé Pine, Matte Black or Catppuccin Latte (light), with six
+  colors you can override on top, and **Save as a palette** keeps the
+  result as a card of its own. Icons are Phosphor
   (bundled, MIT); text is Adwaita Sans, ids and times the shell's font.
 - **Omarchy** — the shell's own widgets, following the desktop theme, with
-  the six colour overrides below.
+  the six color overrides below.
 
 Both looks share `Service.qml`, `shared/RoomSession.qml` (everything a
 conversation does that is not drawing) and the shared pieces in `shared/`.
@@ -158,14 +159,15 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 |---|---|---|
 | `look` | `yapper` | `yapper` (the designed look) or `omarchy` (the shell's widgets) |
 | `theme` | `omarchy` | The Yapper look's palette: `omarchy`, `tokyonight`, `catppuccin`, `gruvbox`, `everforest`, `rosepine`, `matte`, `latte` |
-| `yapperAccent` | empty | A hex accent on top of the palette (Yapper look); empty follows the palette |
+| `yapperBackgroundColor`, `yapperSidebarColor`, `yapperTextColor`, `yapperAccent`, `yapperHoverColor`, `yapperSelectionColor` | empty | The Yapper look's colors, on top of the palette; empty follows the palette |
+| `customPalettes` | `[]` | Palettes you saved from Settings › Appearance (or `omarchy-shell marcho78.yapper savePalette "Name"`); selected as `theme: "custom:<id>"` |
 | `homeserver` | `https://matrix.org` | Pre-filled on the sign-in form |
 | `notifications` | `true` | Desktop notifications for new messages in rooms not in view |
 | `autostartDaemon` | `true` | Start the daemon's user unit when the panel opens |
-| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor`, `hoverColor`, `selectionColor` | empty | The Omarchy look's colours, picked in the settings screen (hue bar, saturation/value square, hex); empty follows the Omarchy theme |
+| `backgroundColor`, `sidebarColor`, `textColor`, `accentColor`, `hoverColor`, `selectionColor` | empty | The Omarchy look's colors, picked in the settings screen (hue bar, saturation/value square, hex); empty follows the Omarchy theme |
 | `messageStyle` | `flat` | `flat` (avatar, name, grouped runs) or `bubbles` (yours right, theirs left) |
 | `showAvatars` | `true` | Avatars in the timeline and DM list |
-| `senderColors` | `true` | A stable colour per sender's name |
+| `senderColors` | `true` | A stable color per sender's name |
 | `fontScale` | `100` | Chat text size in percent, 80–150 |
 | `communitySpace` | `#omarchy-community:matrix.org` | The community space the join card, Settings → Community and People use |
 | `communityPrompt` | `true` | Show the "Join the Omarchy community?" card until you join or press Not now |
@@ -211,7 +213,9 @@ omarchy-shell marcho78.yapper checkUpdates
 omarchy-shell marcho78.yapper updates      # {daemon, daemonLatest, daemonUpdate, pluginBehind, pluginUpdate, lastChecked, error, checking}
 omarchy-shell marcho78.yapper room '!id:server'   # open the popup on a room
 omarchy-shell marcho78.yapper setLook yapper      # or omarchy
-omarchy-shell marcho78.yapper setTheme tokyonight # a palette for the Yapper look
+omarchy-shell marcho78.yapper setTheme tokyonight # a palette for the Yapper look (built-in or custom:<id>)
+omarchy-shell marcho78.yapper savePalette "Night shift"   # keep the colors on screen as a palette
+omarchy-shell marcho78.yapper deletePalette night-shift
 ```
 
 ## How it fits together

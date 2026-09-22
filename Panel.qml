@@ -78,9 +78,19 @@ Panel {
     }
     function setTheme(name: string): string {
       if (!root.service) return "no service"
-      if (Palettes.order.indexOf(name) < 0) return "unknown palette: " + name + " (one of " + Palettes.order.join(", ") + ")"
+      if (root.service.paletteKeys.indexOf(name) < 0) return "unknown palette: " + name + " (one of " + root.service.paletteKeys.join(", ") + ")"
       root.service.set("theme", name)
       return name
+    }
+    // Keep the colors on screen as a palette: omarchy-shell marcho78.yapper savePalette "Night shift"
+    function savePalette(name: string): string {
+      if (!root.service) return "no service"
+      var id = root.service.savePalette(name)
+      return id ? "custom:" + id : "a name is needed"
+    }
+    function deletePalette(id: string): string {
+      if (!root.service) return "no service"
+      return root.service.deletePalette(String(id).replace(/^custom:/, "")) ? "deleted" : "unknown palette: " + id
     }
     function app(): void { if (root.service) root.service.openWindow() }
     function checkUpdates(): string {

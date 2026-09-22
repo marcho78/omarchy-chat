@@ -16,7 +16,7 @@ Item {
   property var tips: null
   property var service: null
   property string section: "about"
-  // The colour row whose picker is unfolded (one at a time).
+  // The color row whose picker is unfolded (one at a time).
   property string pickKey: ""
   // Section state (kept here: the root id is what children bind to).
   property bool confirmSignOut: false
@@ -30,7 +30,7 @@ Item {
   readonly property var sections: [
     { key: "about", label: "About", icon: "info", desc: "Versions, the update check, and who made this." },
     { key: "account", label: "Account", icon: "user-circle", desc: "Your session on this machine." },
-    { key: "appearance", label: "Appearance", icon: "palette", desc: "The look, its palette, and the colours you override." },
+    { key: "appearance", label: "Appearance", icon: "palette", desc: "The look, its palette, and the colors you override." },
     { key: "messages", label: "Messages", icon: "chat-text", desc: "How the timeline reads." },
     { key: "rooms", label: "Rooms & notifications", icon: "bell", desc: "Sorting, and who is allowed to interrupt you." },
     { key: "voice", label: "Voice", icon: "waveform", desc: "Devices and volume for voice messages." },
@@ -39,7 +39,16 @@ Item {
     { key: "daemon", label: "Daemon", icon: "hard-drives", desc: "The process that owns your keys and the socket." }
   ]
   readonly property var current: { for (var i = 0; i < sections.length; i++) if (sections[i].key === section) return sections[i]; return sections[0] }
-  readonly property bool hasTextFocus: homeserverField.hasFocus || bioField.hasFocus || spaceField.hasFocus || verification.hasTextFocus || accentRow.hasTextFocus || themeColours.hasTextFocus
+  readonly property bool hasTextFocus: homeserverField.hasFocus || bioField.hasFocus || spaceField.hasFocus || verification.hasTextFocus || yapperColors.hasTextFocus || themeColors.hasTextFocus
+  // A saved palette awaiting the Delete confirmation
+  property string deletingPalette: ""
+  function savePalette() {
+    var name = paletteNameField.text.trim()
+    if (name === "" || !root.service) return
+    root.service.savePalette(name)
+    paletteNameField.text = ""
+    root.pickKey = ""
+  }
   function setting(key, fallback) { return root.service ? root.service.setting(key, fallback) : fallback }
   function flag(key, fallback) { return root.service ? root.service.flag(key, fallback) : fallback }
   function show(sectionKey, pick) {
@@ -76,9 +85,9 @@ Item {
     width: Math.min(implicitWidth, ui.px(270))
     font.family: ui.mono; font.pixelSize: ui.f11
   }
-  component ColourRow: Column {
-    // A colour setting: the row with its swatch, and the picker unfolded below.
-    id: colourRow
+  component ColorRow: Column {
+    // A color setting: the row with its swatch, and the picker unfolded below.
+    id: colorRow
     property string key: ""
     property string label: ""
     property string description: ""
@@ -90,30 +99,30 @@ Item {
     width: parent.width
     spacing: ui.px(10)
     SettingRow {
-      c: root.c; label: colourRow.label; description: colourRow.description
+      c: root.c; label: colorRow.label; description: colorRow.description
       Row {
         spacing: ui.px(9)
-        Text { anchors.verticalCenter: parent.verticalCenter; text: colourRow.set ? String(colourRow.shown) : "Follows the palette"; color: root.c.muted; font.family: colourRow.set ? ui.mono : ui.sans; font.pixelSize: ui.f11 }
+        Text { anchors.verticalCenter: parent.verticalCenter; text: colorRow.set ? String(colorRow.shown) : (root.service && root.service.look === "omarchy" ? "Follows the theme" : "Follows the palette"); color: root.c.muted; font.family: colorRow.set ? ui.mono : ui.sans; font.pixelSize: ui.f11 }
         Rectangle {
           width: ui.px(30); height: ui.px(30); radius: ui.px(8)
-          color: colourRow.shown
+          color: colorRow.shown
           border.width: 1
-          border.color: swatchMouse.containsMouse || colourRow.open ? root.c.accent : root.c.line
-          MouseArea { id: swatchMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.pickKey = colourRow.open ? "" : colourRow.key }
+          border.color: swatchMouse.containsMouse || colorRow.open ? root.c.accent : root.c.line
+          MouseArea { id: swatchMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.pickKey = colorRow.open ? "" : colorRow.key }
         }
       }
     }
     Loader {
       id: picker
       width: parent.width
-      active: colourRow.open
+      active: colorRow.open
       visible: active
       sourceComponent: HsvPicker {
         c: root.c
-        value: colourRow.shown
-        useLabel: "Use this colour"
-        onPicked: function(hex) { root.service.set(colourRow.key, hex); root.pickKey = "" }
-        onCleared: { root.service.set(colourRow.key, ""); root.pickKey = "" }
+        value: colorRow.shown
+        useLabel: "Use this color"
+        onPicked: function(hex) { root.service.set(colorRow.key, hex); root.pickKey = "" }
+        onCleared: { root.service.set(colorRow.key, ""); root.pickKey = "" }
       }
     }
   }
@@ -304,11 +313,13 @@ Item {
           width: parent.width
           spacing: ui.px(7)
           Repeater {
-            model: Palettes.order
+            model: root.service ? root.service.paletteKeys : Palettes.order
             delegate: Rectangle {
               required property string modelData
-              readonly property var v: modelData === "omarchy" ? Palettes.omarchy(Color.background, Color.foreground, Color.accent, Color.urgent).v : Palettes.themes[modelData].v
-              readonly property string label: modelData === "omarchy" ? "Omarchy theme" : Palettes.themes[modelData].label
+              readonly property var pal: root.service ? root.service.paletteFor(modelData) : Palettes.themes.tokyonight
+              readonly property var v: pal ? pal.v : Palettes.themes.tokyonight.v
+              readonly property string label: modelData === "omarchy" ? "Omarchy theme" : (pal ? pal.label : modelData)
+              readonly property bool custom: modelData.indexOf("custom:") === 0
               readonly property bool on: root.service ? root.service.theme === modelData : false
               width: ui.px(118)
               height: ui.px(62)
@@ -328,26 +339,82 @@ Item {
                   Rectangle { width: ui.px(11); height: ui.px(11); radius: ui.px(3); color: parent.parent.parent.v.warn }
                   Rectangle { width: ui.px(11); height: ui.px(11); radius: ui.px(3); color: parent.parent.parent.v.bad }
                 }
-                Text { text: parent.parent.label; color: parent.parent.v.fg; font.family: ui.sans; font.pixelSize: ui.f11; font.weight: Font.Medium }
+                Text { width: ui.px(96); elide: Text.ElideRight; text: parent.parent.label; color: parent.parent.v.fg; font.family: ui.sans; font.pixelSize: ui.f11; font.weight: Font.Medium }
               }
               MouseArea { id: cardMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.service.set("theme", parent.modelData) }
+              // A saved palette can go again.
+              Rectangle {
+                visible: parent.custom && (cardMouse.containsMouse || trashMouse.containsMouse || parent.on)
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: ui.px(5)
+                width: ui.px(20); height: ui.px(20); radius: ui.px(5)
+                color: trashMouse.containsMouse ? root.c.hover : "transparent"
+                Icon { anchors.centerIn: parent; name: "trash"; size: ui.px(12); color: trashMouse.containsMouse ? root.c.bad : parent.parent.v.muted }
+                MouseArea { id: trashMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.deletingPalette = parent.parent.modelData }
+              }
             }
           }
         }
-        Note { topPadding: ui.px(8); text: "Omarchy theme follows the desktop; the others are fixed sets, Catppuccin Latte being the light one. Only the Yapper look uses the palette." }
-        ColourRow { id: accentRow; key: "yapperAccent"; label: "Accent"; description: "Links, your name, unread badges, the selected room. Empty follows the palette."; fallback: root.c.accent }
-        SectionLabel { label: "Omarchy look colours"; topPadding: ui.px(18) }
-        Note { text: "The Omarchy look follows the desktop theme. Leave a colour empty to keep the theme's; set one and it overrides that slot only." }
+        Row {
+          visible: root.deletingPalette !== ""
+          topPadding: ui.px(8)
+          spacing: ui.px(8)
+          Text { anchors.verticalCenter: parent.verticalCenter; text: "Delete the palette “" + (root.service && root.service.paletteFor(root.deletingPalette) ? root.service.paletteFor(root.deletingPalette).label : "") + "”?"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f12 }
+          PillButton { c: root.c; label: "Delete"; danger: true; round: true; onClicked: { root.service.deletePalette(root.deletingPalette.replace(/^custom:/, "")); root.deletingPalette = "" } }
+          PillButton { c: root.c; label: "Keep"; round: true; onClicked: root.deletingPalette = "" }
+        }
+        Note { topPadding: ui.px(8); text: "Omarchy theme follows the desktop; the others are fixed sets, Catppuccin Latte being the light one. Set a color below and it overrides that slot only; save the result as a palette of your own." }
+
+        // ---- Colors for the look you are in ----
+        SectionLabel { label: root.service && root.service.look === "omarchy" ? "Omarchy look colors" : "Colors"; topPadding: ui.px(18) }
         Column {
-          id: themeColours
+          id: yapperColors
           width: parent.width
+          visible: !(root.service && root.service.look === "omarchy")
+          readonly property bool hasTextFocus: ybgRow.hasTextFocus || ysbRow.hasTextFocus || yfgRow.hasTextFocus || yacRow.hasTextFocus || yhvRow.hasTextFocus || yslRow.hasTextFocus || paletteNameField.hasFocus
+          ColorRow { id: ybgRow; key: "yapperBackgroundColor"; label: "Window background"; description: "The conversation, dialogs and the popup"; fallback: root.c.bg }
+          ColorRow { id: ysbRow; key: "yapperSidebarColor"; label: "Sidebar background"; description: "The room list, the rail, the title strip and cards"; fallback: root.c.bg2 }
+          ColorRow { id: yfgRow; key: "yapperTextColor"; label: "Text"; description: "Message and interface text; captions follow it"; fallback: root.c.fg }
+          ColorRow { id: yacRow; key: "yapperAccent"; label: "Accent"; description: "Links, your name, unread badges, the selected room"; fallback: root.c.accent }
+          ColorRow { id: yhvRow; key: "yapperHoverColor"; label: "Hover highlight"; description: "Rows and messages under the pointer"; fallback: root.c.hover }
+          ColorRow { id: yslRow; key: "yapperSelectionColor"; label: "Selection"; description: "The open room in the list"; fallback: root.c.sel }
+          // Save what is on screen
+          Item {
+            width: parent.width
+            height: ui.px(74)
+            Column {
+              anchors.left: parent.left
+              anchors.right: saveRow.left
+              anchors.rightMargin: ui.px(18)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: ui.px(3)
+              Text { text: "Save as a palette"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.Medium }
+              Note { text: "The colors above become a palette card of their own; the rows go back to following it."; font.pixelSize: ui.f11 }
+            }
+            Row {
+              id: saveRow
+              anchors.right: parent.right
+              anchors.rightMargin: ui.px(2)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: ui.px(8)
+              Field { id: paletteNameField; c: root.c; width: ui.px(170); placeholder: "Name"; maximumLength: 40; onAccepted: root.savePalette() }
+              PillButton { c: root.c; label: "Save"; primary: true; enabled: paletteNameField.text.trim() !== ""; onClicked: root.savePalette() }
+            }
+          }
+        }
+        Column {
+          id: themeColors
+          width: parent.width
+          visible: root.service && root.service.look === "omarchy"
           readonly property bool hasTextFocus: bgRow.hasTextFocus || sbRow.hasTextFocus || fgRow.hasTextFocus || acRow.hasTextFocus || hvRow.hasTextFocus || slRow.hasTextFocus
-          ColourRow { id: bgRow; key: "backgroundColor"; label: "Window background"; description: "The window and popup surface"; fallback: Color.background }
-          ColourRow { id: sbRow; key: "sidebarColor"; label: "Sidebar background"; description: "The room list"; fallback: Color.background }
-          ColourRow { id: fgRow; key: "textColor"; label: "Text"; description: "Message and interface text"; fallback: Color.foreground }
-          ColourRow { id: acRow; key: "accentColor"; label: "Accent"; description: "Links, your name, unread badges"; fallback: Color.accent }
-          ColourRow { id: hvRow; key: "hoverColor"; label: "Hover highlight"; description: "Rows and messages under the pointer"; fallback: Color.menu.selectedBackground }
-          ColourRow { id: slRow; key: "selectionColor"; label: "Selection"; description: "The open room in the list"; fallback: Color.menu.selectedBackground }
+          Note { text: "The Omarchy look follows the desktop theme. Leave a color empty to keep the theme's; set one and it overrides that slot only."; bottomPadding: ui.px(6) }
+          ColorRow { id: bgRow; key: "backgroundColor"; label: "Window background"; description: "The window and popup surface"; fallback: Color.background }
+          ColorRow { id: sbRow; key: "sidebarColor"; label: "Sidebar background"; description: "The room list"; fallback: Color.background }
+          ColorRow { id: fgRow; key: "textColor"; label: "Text"; description: "Message and interface text"; fallback: Color.foreground }
+          ColorRow { id: acRow; key: "accentColor"; label: "Accent"; description: "Links, your name, unread badges"; fallback: Color.accent }
+          ColorRow { id: hvRow; key: "hoverColor"; label: "Hover highlight"; description: "Rows and messages under the pointer"; fallback: Color.menu.selectedBackground }
+          ColorRow { id: slRow; key: "selectionColor"; label: "Selection"; description: "The open room in the list"; fallback: Color.menu.selectedBackground }
         }
       }
 
@@ -408,7 +475,7 @@ Item {
           }
         }
         SettingRow { c: root.c; label: "Show avatars"; description: "In the timeline and the people list"; Toggle { c: root.c; checked: root.flag("showAvatars", true); onToggled: root.service.set("showAvatars", !checked) } }
-        SettingRow { c: root.c; label: "Colour each sender's name"; description: "Off: names use the text colour, yours the accent"; Toggle { c: root.c; checked: root.flag("senderColors", true); onToggled: root.service.set("senderColors", !checked) } }
+        SettingRow { c: root.c; label: "Color each sender's name"; description: "Off: names use the text color, yours the accent"; Toggle { c: root.c; checked: root.flag("senderColors", true); onToggled: root.service.set("senderColors", !checked) } }
         SettingRow {
           c: root.c; label: "Chat text size"; description: "Applies to the timeline only"
           Row {
