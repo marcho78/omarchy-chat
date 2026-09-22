@@ -32,6 +32,8 @@ Item {
   onShowSettingsChanged: if (showSettings) settingsFlick.contentY = 0
   property bool showInfo: false
   property bool showSearch: false
+  property bool showPeople: false
+  function openPeople() { root.showSearch = false; root.showSettings = false; root.showPeople = true; peopleView.reset(); Qt.callLater(function() { peopleView.focusField() }) }
   function openSearch(scoped) {
     root.showSearch = true
     searchView.inRoom = scoped && root.inRoom
@@ -56,6 +58,7 @@ Item {
         if (p && typeof p.pick === "string") { root.showSettings = true; settingsView.pickKey = p.pick }
         if (p && p.info === true) root.showInfo = true
         if (p && typeof p.search === "string") { root.openSearch(false); searchView.reset(); }
+        if (p && p.people === true) root.openPeople()
         if (p && typeof p.space === "string" && service) service.currentSpace = p.space
       } catch (e) { /* ignore */ }
     }
@@ -233,6 +236,13 @@ Item {
             compact: true
           }
 
+          CommunityCard {
+            width: parent.width
+            service: root.service
+            fg: root.fg
+            fontFamily: root.fontFamily
+          }
+
           Flickable {
             id: listFlick
             width: parent.width
@@ -242,6 +252,11 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
+            // Results and Explore replace the list: start them at the top.
+            Connections {
+              target: roomList
+              function onShowingResultsChanged() { if (roomList.showingResults) listFlick.contentY = 0 }
+            }
             RoomList {
               id: roomList
               width: listFlick.width
@@ -250,8 +265,10 @@ Item {
               fontFamily: root.fontFamily
               currentRoom: roomView.roomId
               showSearchButton: true
-              onRoomChosen: function(r) { root.openRoom(r) }
+              showPeopleButton: true
+              onRoomChosen: function(r) { root.openRoom(r); root.showPeople = false }
               onSearchRequested: root.openSearch(false)
+              onPeopleRequested: root.openPeople()
             }
           }
 
@@ -338,6 +355,7 @@ Item {
             PanelSeparator { width: parent.width }
             SettingsView {
               id: settingsView
+              onPeopleRequested: root.openPeople()
               width: parent.width
               service: root.service
               fg: root.fg
@@ -353,7 +371,7 @@ Item {
         // Empty state
         Column {
           anchors.centerIn: parent
-          visible: !root.inRoom && !root.showSettings && !root.showSearch
+          visible: !root.inRoom && !root.showSettings && !root.showSearch && !root.showPeople
           spacing: Style.space(6)
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -392,6 +410,18 @@ Item {
               else roomView.openAt(r, eid)
             }
           }
+        }
+
+        // People: the community directory, in the conversation's place
+        PeopleView {
+          id: peopleView
+          anchors.fill: parent
+          visible: root.showPeople && !root.showSettings
+          service: root.service
+          fg: root.fg
+          fontFamily: root.fontFamily
+          onCloseRequested: { root.showPeople = false; if (roomView.roomId !== "") roomView.focusComposer() }
+          onMessageRequested: function(id) { root.showPeople = false; roomList.openDm(id) }
         }
 
         // Room info: slides over the right side of the conversation
@@ -440,7 +470,7 @@ Item {
 
         Rectangle {
           id: threadPane
-          visible: parent.showThread && root.inRoom && !root.showSettings && !root.showSearch
+          visible: parent.showThread && root.inRoom && !root.showSettings && !root.showSearch && !root.showPeople
           anchors.right: parent.right
           anchors.top: parent.top
           anchors.bottom: parent.bottom
@@ -511,7 +541,7 @@ Item {
           anchors.rightMargin: threadPane.visible && conversation.splitThreads ? Style.space(14) : 0
           anchors.top: parent.top
           anchors.bottom: parent.bottom
-          visible: root.inRoom && !root.showSettings && !root.showSearch && (conversation.splitThreads || !threadPane.visible)
+          visible: root.inRoom && !root.showSettings && !root.showSearch && !root.showPeople && (conversation.splitThreads || !threadPane.visible)
           spacing: Style.space(10)
 
           // Room header (click for room info)
@@ -584,7 +614,7 @@ Item {
             viewId: "window"
             fg: root.fg
             fontFamily: root.fontFamily
-            visible: root.inRoom && !root.showSettings && !root.showSearch && window.visible
+            visible: root.inRoom && !root.showSettings && !root.showSearch && !root.showPeople && window.visible
             onThreadRequested: function(id) { conversation.openThread(id) }
             // Switching rooms closes the thread of the previous one.
             onRoomIdChanged: if (threadView.roomId !== "" && threadView.roomId !== roomId) threadView.close()

@@ -19,6 +19,8 @@ Column {
 
   // Ask the enclosing scroller to bring an unfolded row into view.
   signal reveal(real y)
+  // The Community card's People button: the host shows the directory.
+  signal peopleRequested()
 
   // Delegates report focus and slider drags upward so these stay reactive.
   property int textFocusCount: 0
@@ -173,6 +175,224 @@ Column {
     fg: root.fg
     fontFamily: root.fontFamily
     inSettings: true
+  }
+
+  // Community: membership, the card others see, who may message you, blocks
+  PanelSectionHeader { text: "Community"; visible: root.service && root.service.loggedIn }
+  Rectangle {
+    id: communityCard
+    readonly property var c: root.service ? root.service.community : null
+    readonly property bool joined: c !== null && c.joined === true
+    readonly property var profile: c ? c.profile : null
+    property bool busy: false
+    property bool editing: false
+    property bool confirmLeave: false
+    property string errorText: ""
+    visible: root.service && root.service.loggedIn
+    width: parent.width
+    implicitHeight: visible ? communityCol.implicitHeight + Style.space(24) : 0
+    radius: Style.space(8)
+    color: "transparent"
+    border.width: 1
+    border.color: Util.alpha(root.fg, 0.25)
+    Component.onCompleted: if (root.service) root.service.refreshCommunity()
+    onVisibleChanged: if (visible && root.service) { root.service.refreshCommunity(); root.service.refreshBlocked() }
+    function startEdit() {
+      bioField.text = profile ? profile.bio : ""
+      dmToggle.checked = profile ? profile.open_to_dm === true : true
+      themeToggle.checked = profile ? !!profile.theme : true
+      editing = true
+      Qt.callLater(function() { bioField.forceActiveFocus() })
+    }
+    function publish() {
+      busy = true; errorText = ""
+      root.service.publishProfile(bioField.text, dmToggle.checked, themeToggle.checked ? root.service.themeName : "", function(r) {
+        communityCard.busy = false
+        if (!r.ok) { communityCard.errorText = r.error || "Could not publish"; return }
+        communityCard.editing = false
+      })
+    }
+    Column {
+      id: communityCol
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.margins: Style.space(12)
+      spacing: Style.space(10)
+
+      // Status + join / leave
+      Item {
+        width: parent.width
+        implicitHeight: Math.max(statusCol.implicitHeight, joinButton.implicitHeight)
+        Column {
+          id: statusCol
+          anchors.left: parent.left
+          anchors.right: joinButton.left
+          anchors.rightMargin: Style.space(10)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(2)
+          Text {
+            text: "󰀏  " + (communityCard.c && communityCard.c.name ? communityCard.c.name : "Omarchy community")
+            color: root.fg
+            font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true
+          }
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: {
+              var c = communityCard.c
+              if (!c) return "Checking…"
+              if (!c.exists) return "The space " + (root.service ? root.service.communityAlias : "") + " does not exist yet."
+              var bits = [c.member_count + (c.member_count === 1 ? " member" : " members"), c.rooms.length + (c.rooms.length === 1 ? " room" : " rooms")]
+              return (c.joined ? "Joined  ·  " : "Not joined  ·  ") + bits.join("  ·  ") + (c.joined && c.rooms.length ? "  ·  " + c.rooms.map(function(r) { return r.name }).join(", ") : "")
+            }
+            color: root.fg; opacity: 0.7
+            font.family: root.fontFamily; font.pixelSize: Style.font.caption
+          }
+        }
+        Button {
+          id: joinButton
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          visible: communityCard.c && communityCard.c.exists && !communityCard.confirmLeave
+          text: communityCard.busy ? "…" : (communityCard.joined ? "Leave" : "Join")
+          iconText: communityCard.joined ? "󰗼" : "󰜘"
+          bordered: !communityCard.joined
+          enabled: !communityCard.busy
+          onClicked: {
+            if (communityCard.joined) { communityCard.confirmLeave = true; return }
+            communityCard.busy = true; communityCard.errorText = ""
+            root.service.communityJoin(function(r) { communityCard.busy = false; if (!r.ok) communityCard.errorText = r.error || "Could not join" })
+          }
+        }
+      }
+      Row {
+        visible: communityCard.confirmLeave
+        spacing: Style.spacing.controlGap
+        Text { anchors.verticalCenter: parent.verticalCenter; text: "Leave the space and its rooms? Your card is withdrawn."; color: root.fg; opacity: 0.8; font.family: root.fontFamily; font.pixelSize: Style.font.caption }
+        Button { text: "Leave"; bordered: true; onClicked: { communityCard.confirmLeave = false; communityCard.busy = true; root.service.communityLeave(function(r) { communityCard.busy = false; if (!r.ok) communityCard.errorText = r.error || "Could not leave" }) } }
+        Button { text: "Stay"; onClicked: communityCard.confirmLeave = false }
+      }
+
+      // Your card
+      Column {
+        width: parent.width
+        spacing: Style.space(6)
+        visible: communityCard.joined
+        Rectangle { width: parent.width; height: 1; color: Util.alpha(root.fg, 0.15) }
+        Column {
+          width: parent.width
+          spacing: Style.space(8)
+          Column {
+            id: cardText
+            width: parent.width
+            spacing: Style.space(2)
+            Text { text: "Show me to other Omarchy users"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle }
+            Text {
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: communityCard.profile
+                ? "Listed" + (communityCard.profile.bio ? ": “" + communityCard.profile.bio + "”" : "") + (communityCard.profile.open_to_dm ? "  ·  open to messages" : "  ·  not taking messages") + (communityCard.profile.theme ? "  ·  " + communityCard.profile.theme : "")
+                : "Not listed. Publishing a card puts your name, bio and theme in the People view; only you can change or remove it."
+              color: root.fg; opacity: 0.7
+              font.family: root.fontFamily; font.pixelSize: Style.font.caption
+            }
+          }
+          Flow {
+            id: cardButtons
+            width: parent.width
+            spacing: Style.spacing.controlGap
+            visible: !communityCard.editing
+            Button { text: communityCard.profile ? "Edit card" : "Publish a card"; iconText: "󰏫"; bordered: !communityCard.profile; onClicked: communityCard.startEdit() }
+            Button { visible: !!communityCard.profile; text: "Remove"; iconText: "󰅖"; enabled: !communityCard.busy; onClicked: { communityCard.busy = true; root.service.clearProfile(function(r) { communityCard.busy = false; if (!r.ok) communityCard.errorText = r.error || "Could not remove" }) } }
+            Button { text: "People"; iconText: "󰀏"; onClicked: root.peopleRequested() }
+          }
+        }
+        Column {
+          width: parent.width
+          spacing: Style.space(8)
+          visible: communityCard.editing
+          TextField {
+            id: bioField
+            width: parent.width
+            maximumLength: 280
+            placeholderText: "A line about you (optional)"
+            onAccepted: communityCard.publish()
+          }
+          Row {
+            width: parent.width
+            spacing: Style.space(10)
+            Toggle { id: dmToggle; checked: true }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Open to direct messages from members"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.body }
+          }
+          Row {
+            width: parent.width
+            spacing: Style.space(10)
+            Toggle { id: themeToggle; checked: true }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Show my theme" + (root.service && root.service.themeName ? " (" + root.service.themeName + ")" : ""); color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.body }
+          }
+          Row {
+            spacing: Style.spacing.controlGap
+            Button { text: communityCard.busy ? "Publishing…" : "Publish"; iconText: "󰒊"; bordered: true; enabled: !communityCard.busy; onClicked: communityCard.publish() }
+            Button { text: "Cancel"; enabled: !communityCard.busy; onClicked: communityCard.editing = false }
+          }
+        }
+      }
+
+      // Who may message you
+      Column {
+        width: parent.width
+        spacing: Style.space(4)
+        Rectangle { width: parent.width; height: 1; color: Util.alpha(root.fg, 0.15) }
+        Text { text: "Who can start a direct chat with me"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle }
+        Dropdown {
+          width: parent.width
+          options: [
+            { value: "anyone", label: "Anyone on Matrix" },
+            { value: "community", label: "Omarchy community members and people I already talk to" },
+            { value: "contacts", label: "Only people I already talk to" },
+            { value: "nobody", label: "Nobody — decline all new direct chats" }
+          ]
+          value: root.service ? root.service.dmPolicy : "anyone"
+          onChanged: function(v) { root.service.set("dmPolicy", v) }
+        }
+        Text {
+          width: parent.width
+          wrapMode: Text.WordWrap
+          text: "Invites that fall outside this are declined by the daemon before you see them. Group invites always reach you."
+          color: root.fg; opacity: 0.55
+          font.family: root.fontFamily; font.pixelSize: Style.font.caption
+        }
+      }
+
+      // Blocked users
+      Column {
+        width: parent.width
+        spacing: Style.space(4)
+        visible: root.service && root.service.blocked.length > 0
+        Rectangle { width: parent.width; height: 1; color: Util.alpha(root.fg, 0.15) }
+        Text { text: "Blocked"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle }
+        Repeater {
+          model: root.service ? root.service.blocked : []
+          delegate: Item {
+            required property string modelData
+            width: parent.width
+            implicitHeight: Style.space(30)
+            Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; anchors.right: unblock.left; anchors.rightMargin: Style.space(8); text: modelData; color: root.fg; opacity: 0.8; elide: Text.ElideMiddle; font.family: root.fontFamily; font.pixelSize: Style.font.body }
+            Button { id: unblock; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Unblock"; onClicked: root.service.unignore(modelData) }
+          }
+        }
+      }
+
+      Text {
+        width: parent.width
+        visible: communityCard.errorText !== ""
+        wrapMode: Text.WordWrap
+        text: communityCard.errorText
+        color: Color.urgent
+        font.family: root.fontFamily; font.pixelSize: Style.font.caption
+      }
+    }
   }
 
   // Voice: which microphone and speaker voice messages use

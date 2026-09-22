@@ -23,6 +23,7 @@ Panel {
   readonly property bool inRoom: roomView.roomId !== ""
   property bool showSettings: false
   property bool showInfo: false
+  property bool showPeople: false
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -104,7 +105,7 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       blocked: roomView.hasTextFocus || roomList.hasTextFocus || gate.hasTextFocus || settingsView.hasTextFocus || verifyView.hasTextFocus || infoView.hasTextFocus
-      onCloseRequested: { if (root.showInfo) root.showInfo = false; else if (root.showSettings) root.showSettings = false; else if (root.inThread) root.closeThread(); else if (root.inRoom) root.backToList(); else root.close() }
+      onCloseRequested: { if (root.showInfo) root.showInfo = false; else if (root.showPeople) root.showPeople = false; else if (root.showSettings) root.showSettings = false; else if (root.inThread) root.closeThread(); else if (root.inRoom) root.backToList(); else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Column {
@@ -127,9 +128,9 @@ Panel {
             anchors.verticalCenter: parent.verticalCenter
             MouseArea {
               anchors.fill: parent
-              enabled: root.inRoom || root.showSettings || root.showInfo
+              enabled: root.inRoom || root.showSettings || root.showInfo || root.showPeople
               cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-              onClicked: { if (root.showInfo) root.showInfo = false; else if (root.showSettings) root.showSettings = false; else if (root.inThread) root.closeThread(); else root.backToList() }
+              onClicked: { if (root.showInfo) root.showInfo = false; else if (root.showPeople) root.showPeople = false; else if (root.showSettings) root.showSettings = false; else if (root.inThread) root.closeThread(); else root.backToList() }
             }
           }
 
@@ -143,7 +144,7 @@ Panel {
             spacing: Style.space(2)
 
             Text {
-              text: root.inThread ? "󰻞  Thread" : root.inRoom ? roomView.roomName : "Yapper"
+              text: root.showPeople ? "󰀏  People" : root.inThread ? "󰻞  Thread" : root.inRoom ? roomView.roomName : "Yapper"
               color: root.bar.foreground
               font.family: root.bar.fontFamily
               font.pixelSize: Style.font.title
@@ -224,6 +225,7 @@ Panel {
 
         SettingsView {
           id: settingsView
+          onPeopleRequested: { root.showSettings = false; root.showPeople = true; peopleView.reset() }
           width: parent.width
           visible: root.showSettings
           service: root.service
@@ -231,14 +233,37 @@ Panel {
           fontFamily: root.bar.fontFamily
         }
 
-        RoomList {
-          id: roomList
+        CommunityCard {
           width: parent.width
-          visible: root.loggedIn && !root.inRoom && !root.showSettings
           service: root.service
           fg: root.bar.foreground
           fontFamily: root.bar.fontFamily
+          visible: service && service.loggedIn && !root.inRoom && !root.showSettings && !root.showPeople && service.communityPrompt && community && community.exists && !community.joined
+        }
+
+        RoomList {
+          id: roomList
+          width: parent.width
+          visible: root.loggedIn && !root.inRoom && !root.showSettings && !root.showPeople
+          service: root.service
+          fg: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          showPeopleButton: true
           onRoomChosen: function(r) { root.openRoom(r) }
+          onPeopleRequested: { root.showPeople = true; peopleView.reset() }
+        }
+
+        PeopleView {
+          id: peopleView
+          width: parent.width
+          height: visible ? Style.space(480) : 0
+          visible: root.loggedIn && root.showPeople && !root.showSettings
+          compact: true
+          service: root.service
+          fg: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          onCloseRequested: root.showPeople = false
+          onMessageRequested: function(id) { root.showPeople = false; roomList.openDm(id) }
         }
 
         RoomInfo {

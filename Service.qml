@@ -293,7 +293,7 @@ Item {
           root.starting = false
           root.startError = ""
         } else {
-          root.pending = ({})
+          root.failPending("daemon disconnected")
           root.rooms = []
           root.invites = []
           root.status = ({ logged_in: false, syncing: false })
@@ -313,13 +313,36 @@ Item {
     onTriggered: root.connectSocket()
   }
 
+  // A request that gets no reply — the socket dropped, or the daemon is
+  // stuck — is failed back to its caller, so no button waits forever.
+  readonly property int requestTimeoutMs: 60 * 1000
+  function failPending(reason) {
+    var p = root.pending
+    root.pending = ({})
+    for (var id in p) { try { p[id].cb({ ok: false, error: reason }) } catch (e) { root.log("callback: " + e) } }
+  }
+  Timer {
+    interval: 10 * 1000
+    repeat: true
+    running: root.connected
+    onTriggered: {
+      var now = Date.now(), p = root.pending, late = []
+      for (var id in p) if (now - p[id].at > root.requestTimeoutMs) late.push(id)
+      if (late.length === 0) return
+      var keep = Object.assign({}, p)
+      for (var i = 0; i < late.length; i++) delete keep[late[i]]
+      root.pending = keep
+      for (var j = 0; j < late.length; j++) { try { p[late[j]].cb({ ok: false, error: "no reply from the daemon" }) } catch (e) { root.log("callback: " + e) } }
+    }
+  }
+
   function request(cmd, fields, cb) {
     if (!root.sock || !root.sock.connected) { if (cb) cb({ ok: false, error: "daemon not connected" }); return }
     var id = root.nextId++
     var obj = fields || {}
     obj.id = id
     obj.cmd = cmd
-    if (cb) { var p = root.pending; p[id] = cb; root.pending = p }
+    if (cb) { var p = root.pending; p[id] = { cb: cb, at: Date.now() }; root.pending = p }
     root.sock.write(JSON.stringify(obj) + "\n")
   }
 
@@ -329,10 +352,10 @@ Item {
     var msg
     try { msg = JSON.parse(s) } catch (e) { log("bad line from daemon: " + s.slice(0, 200)); return }
     if (msg.event !== undefined) { root.onEvent(msg); return }
-    var cb = root.pending[msg.id]
-    if (cb) {
+    var entry = root.pending[msg.id]
+    if (entry) {
       var p = root.pending; delete p[msg.id]; root.pending = p
-      cb(msg)
+      entry.cb(msg)
     }
   }
 
@@ -452,7 +475,11 @@ Item {
     })
     return list
   }
-  function refreshRooms() { root.request("rooms", {}, function(r) { if (r.ok) root.rooms = r.result }) }
+  function refreshRooms() {
+    // Membership changes can be the community coming or going.
+    if (root.loggedIn && (root.community === null || root.community.joined !== true)) root.refreshCommunity()
+    root.request("rooms", {}, function(r) { if (r.ok) root.rooms = r.result })
+  }
   function refreshInvites() { root.request("invites", {}, function(r) { if (r.ok) root.invites = r.result }) }
 
   function roomById(id) {
@@ -577,6 +604,58 @@ Item {
   // a local path; thumbnails the same way.
   function download(roomId, eventId, thumbnail, cb) { root.request("download", { room: roomId, event_id: eventId, thumbnail: thumbnail === true }, cb) }
   function sendVoice(roomId, path, cb) { root.request("send_voice", { room: roomId, path: String(path) }, cb) }
+
+  // ---------- the Omarchy community ----------
+  readonly property string communityAlias: String(setting("communitySpace", "#omarchy-community:matrix.org"))
+  readonly property bool communityPrompt: flag("communityPrompt", true)
+  readonly property string dmPolicy: String(setting("dmPolicy", "anyone"))
+  property var community: null          // last community_status result
+  readonly property bool communityJoined: community !== null && community.joined === true
+  property var blocked: []
+  property string themeName: ""
+  function refreshCommunity(cb) {
+    if (!root.loggedIn) { if (cb) cb({ ok: false, error: "not signed in" }); return }
+    root.request("community_status", { alias: root.communityAlias }, function(r) {
+      if (r.ok) root.community = r.result
+      if (cb) cb(r)
+    })
+  }
+  function communityJoin(cb) {
+    root.request("community_join", { alias: root.communityAlias }, function(r) {
+      if (r.ok) { root.community = r.result; root.refreshRooms(); root.set("communityPrompt", false) }
+      if (cb) cb(r)
+    })
+  }
+  function communityLeave(cb) {
+    root.request("community_leave", { alias: root.communityAlias }, function(r) {
+      if (r.ok) { root.refreshRooms(); root.refreshCommunity() }
+      if (cb) cb(r)
+    })
+  }
+  function publishProfile(bio, openToDm, theme, cb) {
+    root.request("publish_profile", { alias: root.communityAlias, bio: String(bio), open_to_dm: openToDm === true, theme: theme || null }, function(r) {
+      if (r.ok) root.refreshCommunity()
+      if (cb) cb(r)
+    })
+  }
+  function clearProfile(cb) {
+    root.request("clear_profile", { alias: root.communityAlias }, function(r) { if (r.ok) root.refreshCommunity(); if (cb) cb(r) })
+  }
+  function people(query, cb) { root.request("people", { alias: root.communityAlias, query: String(query || ""), limit: 200 }, cb) }
+  function ignore(userId, cb) { root.request("ignore", { user: String(userId) }, function(r) { root.refreshBlocked(); if (cb) cb(r) }) }
+  function unignore(userId, cb) { root.request("unignore", { user: String(userId) }, function(r) { root.refreshBlocked(); if (cb) cb(r) }) }
+  function refreshBlocked() { root.request("ignored", {}, function(r) { if (r.ok) root.blocked = r.result }) }
+  // The daemon enforces the policy even when the shell is closed; keep it told.
+  function pushDmPolicy() { if (root.loggedIn) root.request("set_dm_policy", { policy: root.dmPolicy, community: root.communityAlias }, function() {}) }
+  onDmPolicyChanged: pushDmPolicy()
+  onLoggedInChanged: if (loggedIn) { pushDmPolicy(); refreshCommunity(); refreshBlocked() }
+  Process {
+    // The active Omarchy theme, offered on the card.
+    id: themeRead
+    command: ["/usr/bin/bash", "-c", "basename \"$(readlink -f ~/.config/omarchy/current/theme)\""]
+    stdout: SplitParser { onRead: function(line) { root.themeName = String(line).trim() } }
+    running: true
+  }
 
   // ---------- audio devices ----------
   // PipeWire sources and sinks, by node name; "" means the system default.
@@ -704,6 +783,8 @@ Item {
   function openPath(path) { Quickshell.execDetached(["/usr/bin/xdg-open", String(path)]) }
 
   function searchRooms(query, cb) { root.request("search_rooms", { query: String(query) }, cb) }
+  // A page of the public directory; `since` continues from the last page's `next`.
+  function explore(since, cb) { root.request("explore", { query: "", limit: 30, since: since || null }, cb) }
   function searchUsers(query, cb) { root.request("search_users", { query: String(query) }, cb) }
   function join(idOrAlias, cb) { root.request("join", { room: String(idOrAlias) }, function(r) { root.refreshRooms(); cb(r) }) }
   // Unsent composer text per room, shared by the popup and the window for

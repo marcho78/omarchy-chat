@@ -26,6 +26,8 @@ you build from source on your own machine. **No binary is downloaded, ever.**
 | | Threads: 󰻞 on any message starts one; roots show "N replies · who · when"; the thread opens beside the conversation (or in its place when narrow, and in the popup) with its own composer; thread replies stay out of the room timeline |
 | | Spaces, favourites, search across rooms and messages, per-room notification levels |
 | | Bridged rooms (WhatsApp, Telegram, Signal, Discord… via a bridge on your homeserver or Beeper) show the network's logo, "via WhatsApp", who the bridge bot is, and say plainly that encryption stops at the bridge; bridged senders are tagged by name |
+| | **Explore**: the globe with an empty Find field lists your homeserver's public directory, most-joined first, with Load more; typing narrows it |
+| | **Omarchy community**: a one-time offer to join `#omarchy-community:matrix.org` (General, Help, Showcase, Plugins); Settings → Community to publish or withdraw the card other members see (name, a line of bio, your theme, whether you take DMs), a People view of everyone who chose to be listed with Message and Block, a "who can start a direct chat with me" policy enforced by the daemon, and a block list |
 | | Sign in with the browser (Google, GitHub, a password — whatever the homeserver offers) or with a password |
 
 The popup is for a quick reply from the bar. The window is a normal
@@ -133,6 +135,9 @@ from the CLI (`omarchy bar set marcho78.yapper <key> <value>`):
 | `showAvatars` | `true` | Avatars in the timeline and DM list |
 | `senderColors` | `true` | A stable colour per sender's name |
 | `fontScale` | `100` | Chat text size in percent, 80–150 |
+| `communitySpace` | `#omarchy-community:matrix.org` | The community space the join card, Settings → Community and People use |
+| `communityPrompt` | `true` | Show the "Join the Omarchy community?" card until you join or press Not now |
+| `dmPolicy` | `anyone` | Who may start a direct chat with you: `anyone`, `community` (space members and people you already talk to), `contacts`, `nobody` — enforced by the daemon, so it holds while the shell is closed |
 | `linkPreviews` | `true` | Preview card for the first link in a message (your homeserver fetches the page, not this machine) |
 | `voiceInput`, `voiceOutput` | empty | PipeWire node names for the microphone and speaker voice messages use; empty follows the system default. Picked in Settings → Voice, which also has a record-and-play-back test |
 | `voiceVolume` | `100` | Playback volume for voice messages, 20–100 % of the system output; notes are loudness-normalised on the way in and out |

@@ -65,7 +65,7 @@ Item {
       Button {
         id: scopeButton
         text: root.inRoom ? "This room" : "All rooms"
-        iconText: root.inRoom ? "󰭹" : "󰊫"
+        iconText: root.inRoom ? "󰭹" : "󰇧"
         onClicked: { root.inRoom = !root.inRoom; if (root.lastQuery !== "") root.run() }
       }
       Button { id: goButton; text: root.searching ? "…" : "Search"; iconText: "󰍉"; bordered: true; enabled: !root.searching; onClicked: root.run() }

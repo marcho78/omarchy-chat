@@ -26,6 +26,8 @@ Column {
   signal searchRequested()
   // The window shows a message-search button; the popup has no room for it.
   property bool showSearchButton: false
+  property bool showPeopleButton: false
+  signal peopleRequested()
 
   spacing: Style.space(8)
 
@@ -34,7 +36,31 @@ Column {
   // emptying the field, the header's Back, or picking a result.
   readonly property bool showingResults: results.length > 0
   property string resultsQuery: ""
-  function clearResults() { root.results = []; root.resultsKind = ""; root.resultsQuery = ""; root.errorText = ""; searchField.text = "" }
+  // Explore: the directory itself, paged, when the globe is pressed with
+  // nothing typed. `exploreNext` is the cursor for the page after the last.
+  property bool exploring: false
+  property string exploreNext: ""
+  property int exploreTotal: 0
+  property string exploreServer: ""
+  function clearResults() { root.results = []; root.resultsKind = ""; root.resultsQuery = ""; root.errorText = ""; root.exploring = false; root.exploreNext = ""; root.exploreTotal = 0; searchField.text = "" }
+  function explore(more) {
+    if (root.searching) return
+    root.errorText = ""
+    var since = more ? root.exploreNext : ""
+    root.searching = true
+    root.service.explore(since, function(r) {
+      root.searching = false
+      if (!r.ok) { root.fail(r.error || "Could not read the directory"); return }
+      root.exploring = true
+      root.resultsKind = "rooms"
+      root.resultsQuery = ""
+      root.exploreServer = r.result.server || ""
+      root.exploreTotal = Number(r.result.total) || 0
+      root.exploreNext = r.result.next || ""
+      root.results = more ? root.results.concat(r.result.rooms) : r.result.rooms
+      if (root.results.length === 0) root.fail("The directory is empty")
+    })
+  }
   function focusSearch() { searchField.forceActiveFocus() }
   readonly property bool hasTextFocus: searchField.activeFocus || newRoomName.activeFocus
 
@@ -107,13 +133,13 @@ Column {
     spacing: Style.spacing.controlGap
     TextField {
       id: searchField
-      width: parent.width - findButton.width - newRoomButton.width - (msgSearchButton.visible ? msgSearchButton.width + Style.spacing.controlGap : 0) - 2 * Style.spacing.controlGap
+      width: parent.width - findButton.width - newRoomButton.width - (msgSearchButton.visible ? msgSearchButton.width + Style.spacing.controlGap : 0) - (peopleButton.visible ? peopleButton.width + Style.spacing.controlGap : 0) - 2 * Style.spacing.controlGap
       maximumLength: 256
       placeholderText: "Find rooms · #alias · @user"
       enabled: !root.searching
       rightPadding: clearGlyph.visible ? clearGlyph.width + Style.space(12) : Style.spacing.controlPaddingX
-      onAccepted: root.search(searchField.text)
-      onTextChanged: if (text === "" && root.showingResults) root.clearResults()
+      onAccepted: searchField.text.trim() === "" ? root.explore(false) : root.search(searchField.text)
+      onTextChanged: if (text === "" && root.showingResults && !root.exploring) root.clearResults()
       Keys.onEscapePressed: function(event) { if (searchField.text !== "" || root.showingResults) { event.accepted = true; root.clearResults() } }
       // ✕ inside the field once there is something to clear.
       Text {
@@ -138,10 +164,10 @@ Column {
     }
     Button {
       id: findButton
-      text: root.searching ? "…" : (root.showSearchButton ? "" : "Find")
+      text: root.searching ? "…" : (root.showSearchButton ? "" : (searchField.text.trim() === "" ? "Explore" : "Find"))
       iconText: "󰇧"
       enabled: !root.searching
-      onClicked: root.search(searchField.text)
+      onClicked: searchField.text.trim() === "" ? root.explore(false) : root.search(searchField.text)
     }
     Button {
       id: msgSearchButton
@@ -149,6 +175,13 @@ Column {
       iconText: "󰍉"
       text: ""
       onClicked: root.searchRequested()
+    }
+    Button {
+      id: peopleButton
+      visible: root.showPeopleButton && root.service && root.service.communityJoined
+      iconText: "󰀏"
+      text: ""
+      onClicked: root.peopleRequested()
     }
     Button {
       id: newRoomButton
@@ -210,8 +243,12 @@ Column {
         anchors.right: backButton.left
         anchors.rightMargin: Style.space(8)
         anchors.verticalCenter: parent.verticalCenter
+        wrapMode: Text.WordWrap
+        maximumLineCount: 2
         elide: Text.ElideRight
-        text: (root.resultsKind === "users" ? "People" : "Public rooms") + " · " + root.results.length + " for \"" + root.resultsQuery + "\""
+        text: root.exploring
+          ? root.exploreServer + " · " + root.results.length + (root.exploreTotal > root.results.length ? " of " + root.exploreTotal : "") + " public rooms"
+          : (root.resultsKind === "users" ? "People" : "Public rooms") + " · " + root.results.length + " for \"" + root.resultsQuery + "\""
       }
       Button {
         id: backButton
@@ -275,6 +312,13 @@ Column {
           }
         }
       }
+    }
+    Button {
+      visible: root.exploring && root.exploreNext !== ""
+      text: root.searching ? "Loading…" : "Load more"
+      iconText: "󰄼"
+      enabled: !root.searching
+      onClicked: root.explore(true)
     }
   }
 

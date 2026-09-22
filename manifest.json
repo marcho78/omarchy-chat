@@ -41,7 +41,10 @@
       "linkPreviews": true,
       "voiceVolume": 100,
       "voiceInput": "",
-      "voiceOutput": ""
+      "voiceOutput": "",
+      "communitySpace": "#omarchy-community:matrix.org",
+      "communityPrompt": true,
+      "dmPolicy": "anyone"
     },
     "schema": [
       {

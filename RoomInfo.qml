@@ -21,6 +21,8 @@ Item {
 
   signal closeRequested()
   signal memberChosen(var member)
+  property bool confirmBlock: false
+  onMemberChanged: confirmBlock = false
   signal leftRoom()
 
   property string editing: ""         // "" | "name" | "topic" | "invite"
@@ -373,7 +375,21 @@ Item {
         Flow {
           width: parent.width
           spacing: Style.spacing.controlGap
-          Button { text: "Message"; iconText: "󰭹"; bordered: true; visible: root.member && root.member.id !== root.service.userId; onClicked: root.memberChosen(root.member) }
+          Button { text: "Message"; iconText: "󰭹"; bordered: true; visible: root.member && root.member.id !== root.service.userId && !root.confirmBlock; onClicked: root.memberChosen(root.member) }
+          Button {
+            readonly property bool isBlocked: root.member && root.service && root.service.blocked.indexOf(root.member.id) >= 0
+            visible: root.member && root.member.id !== root.service.userId
+            text: root.confirmBlock ? "Block " + root.member.name + "?" : (isBlocked ? "Unblock" : "Block")
+            iconText: isBlocked ? "󰂬" : "󰂭"
+            bordered: root.confirmBlock
+            onClicked: {
+              if (isBlocked) { root.service.unignore(root.member.id); return }
+              if (!root.confirmBlock) { root.confirmBlock = true; return }
+              root.confirmBlock = false
+              root.service.ignore(root.member.id)
+            }
+          }
+          Button { visible: root.confirmBlock; text: "Keep"; onClicked: root.confirmBlock = false }
           Button { text: "Copy ID"; iconText: "󰆏"; onClicked: root.service.copyText(root.member.id) }
           Button { visible: root.details && root.details.can_kick && root.member && root.member.id !== root.service.userId; text: root.busy ? "…" : "Remove"; enabled: !root.busy; onClicked: root.act("kick") }
           Button { visible: root.details && root.details.can_ban && root.member && root.member.id !== root.service.userId; text: root.busy ? "…" : "Ban"; enabled: !root.busy; onClicked: root.act("ban") }
