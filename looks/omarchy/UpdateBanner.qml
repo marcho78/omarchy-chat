@@ -2,6 +2,7 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 import "../../shared"
+import "../../shared/Format.js" as Format
 
 // "An update is available" card. Hidden when there is nothing to do.
 Rectangle {
@@ -49,9 +50,9 @@ Rectangle {
         Text {
           width: parent.width
           wrapMode: Text.WordWrap
-          text: root.service && root.service.installPending
-            ? "Installing " + root.service.installTargetVersion + " in the terminal window."
-            : "You have " + (root.service ? root.service.daemonVersion : "") + ". Updates through pacman in a terminal, then restarts the daemon; your session stays signed in."
+          text: root.service && root.service.installActive
+            ? "Installing " + root.service.installTargetVersion + " in the terminal window" + (root.service.installState && root.service.installState.phase === "build" && Number(root.service.installState.total) > 0 ? ", " + Math.round(100 * root.service.installState.done / root.service.installState.total) + "%" : "") + "  ·  " + Format.clock(root.service.installElapsed)
+            : "You have " + (root.service ? root.service.daemonVersion : "") + ". Updates through pacman in a terminal, prebuilt or from source, then restarts the daemon; your session stays signed in."
           color: root.fg
           opacity: 0.7
           font.family: root.fontFamily
@@ -62,10 +63,10 @@ Rectangle {
         id: daemonButton
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        text: root.service && root.service.installPending ? "Installing…" : "Update"
+        text: root.service && root.service.installActive ? "Installing…" : (root.service && root.service.installKind === "source" ? "Update from source" : "Update prebuilt")
         bordered: true
-        enabled: !(root.service && root.service.installPending)
-        onClicked: root.service.updateDaemon()
+        enabled: !(root.service && root.service.installActive)
+        onClicked: root.service.updateDaemon(root.service.installKind)
       }
     }
 

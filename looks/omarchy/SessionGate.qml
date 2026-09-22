@@ -3,6 +3,7 @@ import QtQuick.Controls
 import qs.Commons
 import qs.Ui
 import "../../shared"
+import "../../shared/Format.js" as Format
 
 // Everything that stands between the user and a signed-in session, in
 // order: the daemon is missing, the daemon is not running, sign in, waiting
@@ -25,48 +26,68 @@ Column {
     if (hsField.visible) hsField.forceActiveFocus()
   }
 
-  // Daemon missing: two ways in, both through pacman in a terminal.
+  // Daemon missing: prebuilt or from source, both through pacman in a terminal.
   Column {
     id: missing
     width: parent.width
     spacing: Style.space(8)
     visible: root.service && root.service.checked && !root.service.installed
-    readonly property bool pending: root.service ? root.service.installPending : false
+    readonly property var st: root.service ? root.service.installState : null
+    property string kind: root.service ? root.service.installKind : "bin"
 
     Text {
       width: parent.width
       wrapMode: Text.WordWrap
-      text: "Yapper needs the omarchy-yapperd daemon, release " + (root.service ? root.service.daemonPinVersion : "") + ", as a pacman package. Both options fetch the daemon's repository at a fixed commit into ~/.cache/omarchy-yapper and run makepkg -si in a terminal, where pacman asks for your password."
+      text: "Yapper needs the omarchy-yapperd daemon, release " + (root.service ? root.service.daemonPinVersion : "") + ", installed as a pacman package from a fixed commit of github.com/marcho78/omarchy-yapperd. pacman asks for your password in a terminal."
       color: root.fg
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
     }
-    Text {
+    Flow {
       width: parent.width
-      wrapMode: Text.WordWrap
-      text: "Prebuilt: the binary the daemon's GitHub Actions workflow built for this release, checksummed in its PKGBUILD. About a minute.\nFrom source: compiles the daemon here; makepkg installs rust and git if missing. 10–25 minutes."
-      color: root.fg
-      opacity: 0.7
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
+      spacing: Style.spacing.controlGap
+      visible: !missing.st
+      Button { text: "Prebuilt · about a minute"; bordered: missing.kind === "bin"; onClicked: missing.kind = "bin" }
+      Button { text: "From source · 10–25 min"; bordered: missing.kind === "source"; onClicked: missing.kind = "source" }
     }
     Flow {
       width: parent.width
       spacing: Style.spacing.controlGap
-      Button { text: "Install prebuilt"; iconText: "󰇚"; bordered: true; enabled: !missing.pending; onClicked: root.service.installDaemon("bin", false) }
-      Button { text: "Build from source"; iconText: "󰣪"; bordered: true; enabled: !missing.pending; onClicked: root.service.installDaemon("source", false) }
-      Button { text: "Copy prebuilt command"; onClicked: root.service.copyText(root.service.installCommand("bin", false)) }
-      Button { text: "Copy source command"; onClicked: root.service.copyText(root.service.installCommand("source", false)) }
+      visible: !missing.st
+      Button { text: "Install in a terminal"; iconText: "󰆍"; bordered: true; onClicked: root.service.installDaemon(missing.kind, false) }
+      Button { text: "Copy the command"; onClicked: root.service.copyText(root.service.installCommand(missing.kind, false)) }
       Button { text: "Check again"; onClicked: root.service.checkInstalled() }
     }
-    Text {
+    // The install as the helper reports it
+    Column {
       width: parent.width
-      visible: missing.pending
-      wrapMode: Text.WordWrap
-      text: "Installing " + (root.service ? root.service.installTargetVersion : "") + " in the terminal window. This updates by itself when the daemon is installed."
-      color: Color.accent
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
+      visible: !!missing.st
+      spacing: Style.space(6)
+      readonly property bool compiling: missing.st && missing.st.phase === "build" && Number(missing.st.total) > 0
+      readonly property bool failed: missing.st && (missing.st.phase === "error" || root.service.installStale)
+      readonly property bool finished: missing.st && missing.st.phase === "done"
+      Text {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        text: missing.st ? ("omarchy-yapperd " + missing.st.version + " — " + (parent.finished ? "installed in " + Format.clock(root.service.installElapsed) : parent.failed ? "did not finish: " + (root.service.installStale ? "no news from the terminal" : missing.st.error) : parent.compiling ? "compiling " + missing.st.done + " of " + missing.st.total + " crates, " + Math.round(100 * missing.st.done / missing.st.total) + "%" : missing.st.phase) + "  ·  " + Format.clock(root.service.installElapsed)) : ""
+        color: parent.failed ? Color.urgent : root.fg
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
+      }
+      Rectangle {
+        width: parent.width
+        height: Style.space(6)
+        radius: Style.space(3)
+        color: Util.alpha(root.fg, 0.15)
+        Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; radius: Style.space(3); color: parent.parent.failed ? Color.urgent : Color.accent; width: parent.parent.finished || parent.parent.failed ? parent.width : parent.parent.compiling ? parent.width * Math.min(1, missing.st.done / missing.st.total) : 0 }
+      }
+      Flow {
+        width: parent.width
+        spacing: Style.spacing.controlGap
+        visible: parent.finished || parent.failed
+        Button { visible: parent.parent.failed; text: "Try again"; bordered: true; onClicked: root.service.installDaemon(missing.st && missing.st.kind === "source" ? "source" : "bin", false) }
+        Button { text: "Dismiss"; onClicked: root.service.dismissInstall() }
+      }
     }
   }
 

@@ -56,7 +56,8 @@ Item {
   // ---- plugin lifecycle ----------------------------------------------------
 
   // One dialog at a time; a new open request starts clean.
-  function closeDialogs() { newRoomDialog.open = false; inviteDialog.open = false; joinDialog.open = false; verifyDialog.open = false }
+  function closeDialogs() { newRoomDialog.open = false; inviteDialog.open = false; joinDialog.open = false; verifyDialog.open = false; installDialog.open = false; quitDialog.open = false }
+  function askInstall(update) { root.closeDialogs(); installDialog.update = update; installDialog.open = true }
   function open(payloadJson) {
     closingFromHost = false
     window.visible = true
@@ -80,6 +81,8 @@ Item {
         if (p && p.join === true) joinDialog.open = true
         if (p && p.verify === true) verifyDialog.open = true
         if (p && p.invite === true) inviteDialog.open = true
+        if (p && p.install === "update") root.askInstall(true)
+        else if (p && p.install === true) root.askInstall(false)
         if (p && typeof p.space === "string" && service) service.currentSpace = p.space
       } catch (e) { /* ignore */ }
     }
@@ -178,6 +181,7 @@ Item {
       c: root.c
       tips: tips
       service: root.service
+      onInstallRequested: root.askInstall(false)
     }
 
     // Signed in: rail, sidebar, conversation
@@ -198,6 +202,7 @@ Item {
         service: root.service
         view: root.view
         onViewRequested: function(v) { if (v === "settings") root.openSettings(""); else root.view = v }
+        onQuitRequested: { root.closeDialogs(); quitDialog.open = true }
         onSpaceRequested: function(id) { if (root.service) root.service.currentSpace = id }
         onVerifyRequested: verifyDialog.open = true
       }
@@ -440,6 +445,7 @@ Item {
           service: root.service
           onCloseRequested: root.view = "chat"
           onPeopleRequested: root.view = "people"
+          onInstallRequested: function(update) { root.askInstall(update) }
         }
 
         Explore {
@@ -486,6 +492,24 @@ Item {
     InviteDialog { id: inviteDialog; c: root.c; tips: tips; service: root.service; roomId: root.roomId; roomName: roomView.roomName }
     JoinDialog { id: joinDialog; c: root.c; tips: tips; service: root.service }
     VerifyDialog { id: verifyDialog; c: root.c; tips: tips; service: root.service }
+    InstallDialog { id: installDialog; c: root.c; tips: tips; service: root.service }
+    // Quit: the window closes and the daemon stops
+    Modal {
+      id: quitDialog
+      c: root.c
+      tips: tips
+      icon: "power"
+      tone: root.c.bad
+      iconBg: Qt.rgba(root.c.bad.r, root.c.bad.g, root.c.bad.b, 0.16)
+      title: "Quit Yapper?"
+      description: "The daemon stops, so notifications pause until you open Yapper again. You stay signed in."
+      dialogWidth: ui.px(420)
+      Row {
+        spacing: ui.px(10)
+        PillButton { c: root.c; label: "Quit"; icon: "power"; danger: true; round: true; onClicked: { quitDialog.close(); root.service.quit(); root.requestClose() } }
+        PillButton { c: root.c; label: "Keep running"; round: true; onClicked: quitDialog.close() }
+      }
+    }
     // Another of your devices asking to verify surfaces by itself.
     Connections {
       target: root.service

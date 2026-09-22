@@ -312,10 +312,13 @@ Item {
 
   function checkInstalled() { if (!statusProc.running) statusProc.running = true }
   // Which pacman package provides the daemon: "omarchy-yapperd" (built from source),
-  // "omarchy-yapperd-bin" (prebuilt release) or "" (not installed).
+  // "omarchy-yapperd-bin" (prebuilt release) or "" (not installed); and whether its unit runs.
   property string daemonPackage: ""
   property string daemonPackageVersion: ""
+  property bool daemonActive: false
   readonly property string daemonKind: daemonPackage === "omarchy-yapperd-bin" ? "bin" : daemonPackage === "omarchy-yapperd" ? "source" : ""
+  property string installStatePath: ""
+  property string dataDir: ""
   Process {
     id: statusProc
     property string out: ""
@@ -327,18 +330,44 @@ Item {
       try { st = JSON.parse(statusProc.out) } catch (e) { st = null }
       root.daemonPackage = st && st.package ? String(st.package) : ""
       root.daemonPackageVersion = st && st.version ? String(st.version) : ""
+      root.daemonActive = st ? st.active === true : false
+      root.installStatePath = st && st.state ? String(st.state) : ""
+      root.dataDir = st && st.data ? String(st.data) : ""
       root.installed = st ? st.binary === true : false
       root.checked = true
-      if (root.installed) root.connectSocket()
+      if (root.installed && root.daemonActive) root.connectSocket()
     }
   }
+
   // ---------- installing the daemon ----------
   // Both ways go through pacman. The helper clones the daemon repository at the pinned
   // commit and runs makepkg -si in an ordinary terminal window, where pacman asks for
-  // the password. "bin" installs the prebuilt release, "source" compiles it.
+  // the password. "bin" installs the prebuilt release, "source" compiles it. While it
+  // runs the helper writes install.json (phase, crates, timing); the panel shows that.
   readonly property string daemonCheckout: "~/.cache/omarchy-yapper/omarchy-yapperd"
-  property bool installPending: false       // a terminal is open; poll until the daemon changes
+  readonly property string installKind: String(setting("daemonInstallKind", "bin")) === "source" ? "source" : "bin"
+  property var installState: null            // the helper's install.json, live
+  readonly property bool installActive: installState !== null && installState.phase !== "done" && installState.phase !== "error" && !installStale
+  readonly property bool installStale: installState !== null && installState.finished === 0 && (Date.now() / 1000 - Number(installState.updated)) > 900
+  property bool installPending: false        // launched from here and not yet finished
   property string installTargetVersion: ""
+  FileView {
+    id: installFile
+    path: root.installStatePath
+    watchChanges: true
+    onFileChanged: reload()
+    onLoaded: {
+      var st = null
+      try { st = JSON.parse(installFile.text()) } catch (e) { st = null }
+      root.installState = st
+      if (st && (st.phase === "done" || st.phase === "error")) { root.installPending = false; root.checkInstalled() }
+    }
+    onLoadFailed: root.installState = null
+  }
+  Timer { id: installClock; interval: 1000; repeat: true; running: root.installActive; onTriggered: root.installNow = Date.now() / 1000 }
+  property real installNow: Date.now() / 1000
+  readonly property int installElapsed: installState ? Math.max(0, Math.floor((installState.finished > 0 ? installState.finished : installNow) - Number(installState.started))) : 0
+  function dismissInstall() { root.installState = null; root.installPending = false }
   function installCommand(kind, update) {
     var commit = update && root.daemonLatestCommit !== "" ? root.daemonLatestCommit : root.daemonPinCommit
     var dir = root.daemonCheckout
@@ -346,36 +375,52 @@ Item {
       + "git -C " + dir + " checkout --detach " + commit + " && cd " + dir + "/packaging" + (kind === "bin" ? "/bin" : "") + " && makepkg -sif --needed"
   }
   function installDaemon(kind, update) {
+    if (root.installActive) return
     var commit = update && root.daemonLatestCommit !== "" ? root.daemonLatestCommit : root.daemonPinCommit
     root.installTargetVersion = update && root.daemonLatest !== "" ? root.daemonLatest : root.daemonPinVersion
     root.installPending = true
-    installPoll.count = 0
+    if (kind !== root.installKind) root.set("daemonInstallKind", kind)
     Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/python3", "-I", root.helperPath, "install", kind, root.daemonRepo, commit])
+    installPoll.count = 0
+    installPoll.running = true
   }
-  function updateDaemon() { root.installDaemon(root.daemonKind !== "" ? root.daemonKind : "bin", true) }
-  // While the terminal runs, look every few seconds for the package to appear or change.
+  function updateDaemon(kind) { root.installDaemon(kind || root.installKind, true) }
+  // The terminal may be closed before the state file says done; look at pacman now and then.
   Timer {
     id: installPoll
     property int count: 0
     interval: 5000
     repeat: true
-    running: root.installPending
     onTriggered: {
       count++
-      if (count > 720) { root.installPending = false; return }   // an hour
+      if (!root.installPending || count > 720) { running = false; return }
       if (!statusProc.running) statusProc.running = true
-      if (root.installed && root.daemonPackageVersion === root.installTargetVersion) {
-        root.installPending = false
-        root.startError = ""
-        root.request("status", {}, function(r) { if (r.ok) root.status = r.result })
-      }
+      if (root.installed && root.daemonPackageVersion === root.installTargetVersion && root.daemonActive) { root.installPending = false; running = false }
     }
   }
+
+  // ---------- stop, start, reset, remove ----------
+  function stopDaemon() { if (!stopProc.running) stopProc.running = true }
+  Process {
+    id: stopProc
+    command: ["/usr/bin/python3", "-I", root.helperPath, "stop"]
+    onExited: function() { root.connected = false; root.starting = false; root.checkInstalled() }
+  }
+  // Quit: the window closes and the daemon stops; notifications pause until Yapper is opened again.
+  function quit() { root.stopDaemon() }
+  function resetData() { if (!resetProc.running) { root.connected = false; resetProc.running = true } }
+  Process {
+    id: resetProc
+    command: ["/usr/bin/python3", "-I", root.helperPath, "reset"]
+    onExited: function() { root.status = ({ logged_in: false, syncing: false }); root.checkInstalled() }
+  }
   function removeCommand() { return "sudo pacman -R " + (root.daemonPackage !== "" ? root.daemonPackage : "omarchy-yapperd") }
-  function removeDaemon() {
+  function removeDaemon(withData) {
     if (root.daemonPackage === "") return
-    Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/sudo", "/usr/bin/pacman", "-R", root.daemonPackage])
-    root.installPending = false
+    var argv = ["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/python3", "-I", root.helperPath, "remove"]
+    if (withData) argv.push("--data")
+    Quickshell.execDetached(argv)
+    root.connected = false
     removePoll.count = 0
     removePoll.running = true
   }
@@ -388,14 +433,14 @@ Item {
       count++
       if (count > 120) { running = false; return }
       if (!statusProc.running) statusProc.running = true
-      if (!root.installed) { running = false; root.connected = false }
+      if (!root.installed) { running = false; root.status = ({ logged_in: false, syncing: false }) }
     }
   }
 
   // Called by a view when it opens: make sure the daemon is up.
   function ensureDaemon() {
     if (!root.checked || !root.installed) { root.checkInstalled(); return }
-    if (!root.connected) { root.connectSocket(); if (root.autostartDaemon) root.startDaemon() }
+    if (!root.connected) { if (root.daemonActive) root.connectSocket(); else if (root.autostartDaemon) root.startDaemon() }
   }
 
   property string startError: ""
@@ -414,7 +459,7 @@ Item {
       if (code !== 0) {
         root.starting = false
         root.startError = "Could not start omarchy-yapperd (systemctl exited " + code + "). Try: systemctl --user start omarchy-yapperd"
-      }
+      } else root.checkInstalled()
     }
   }
 

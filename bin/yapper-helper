@@ -1,38 +1,55 @@
 #!/usr/bin/python3 -I
 """Yapper's helper for the things QML should not do through a shell.
 
-    yapper-helper status                             which daemon package is installed (JSON)
-    yapper-helper toolchain                          which build tools are present (JSON)
+    yapper-helper status                             daemon package, unit state (JSON)
     yapper-helper install <bin|source> <repo> <sha>  clone the daemon at <sha>, then makepkg -si
+    yapper-helper stop                               stop the daemon and wait for it (JSON)
+    yapper-helper start                              start the daemon (JSON)
+    yapper-helper reset                              stop, delete the data directory, start again (JSON)
+    yapper-helper remove [--data]                    stop, disable, pacman -R the package (terminal)
 
-`install` is meant to run inside a terminal: it fetches the daemon repository
-into $XDG_CACHE_HOME/omarchy-yapper/omarchy-yapperd, checks out exactly the
-commit it was given, then hands over to makepkg in packaging/ (compile from
-source) or packaging/bin/ (the prebuilt release binary, checksummed in the
-PKGBUILD). makepkg -si installs the package with pacman, which asks for your
-password in that terminal. Every other program runs by absolute path with a
-deadline and an output budget. Nothing else is downloaded or executed.
+`install` and `remove` are meant to run inside a terminal. `install` fetches
+the daemon repository into $XDG_CACHE_HOME/omarchy-yapper/omarchy-yapperd,
+checks out exactly the commit it was given, then runs makepkg -si in
+packaging/ (compile from source) or packaging/bin/ (the prebuilt release
+binary, checksummed in the PKGBUILD) through a pseudo-terminal: everything
+makepkg prints reaches the window unchanged, pacman asks for the password
+there, and the helper writes what it sees (phase, crates compiled, timing)
+to $XDG_CACHE_HOME/omarchy-yapper/install.json for the panel's progress
+card. Every other program runs by absolute path with a deadline and an
+output budget. Nothing else is downloaded or executed.
 """
+import fcntl
 import json
 import os
+import pty
+import re
 import select
+import shutil
 import signal
 import stat
+import struct
 import subprocess
 import sys
+import termios
 import time
+import tty
 
 HOME = os.path.expanduser("~")
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.join(HOME, ".cache"), "omarchy-yapper")
 CHECKOUT = os.path.join(CACHE, "omarchy-yapperd")
+STATE = os.path.join(CACHE, "install.json")
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local", "share"), "omarchy-yapperd")
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
+SOCKET = os.path.join(RUNTIME, "omarchy-yapper.sock")
 BINARY = "/usr/bin/omarchy-yapperd"
+UNIT = "omarchy-yapperd.service"
 PACKAGES = ("omarchy-yapperd-bin", "omarchy-yapperd")
 
 GIT = "/usr/bin/git"
-CARGO = "/usr/bin/cargo"
-RUSTC = "/usr/bin/rustc"
 PACMAN = "/usr/bin/pacman"
 MAKEPKG = "/usr/bin/makepkg"
+SUDO = "/usr/bin/sudo"
 SYSTEMCTL = "/usr/bin/systemctl"
 
 OUTPUT_BUDGET = 64 * 1024        # bytes kept from any one tool's output
@@ -133,26 +150,209 @@ def say(text=""):
     print(text, flush=True)
 
 
-# ---------- commands ----------
-
-def cmd_toolchain():
-    have = {"git": os.access(GIT, os.X_OK), "cargo": os.access(CARGO, os.X_OK), "rustc": os.access(RUSTC, os.X_OK)}
-    have["ready"] = all(have.values())
-    print(json.dumps(have))
-    return 0
+def unit_state():
+    code, out = run([SYSTEMCTL, "--user", "is-active", UNIT], deadline=30)
+    active = out.strip()
+    code, out = run([SYSTEMCTL, "--user", "is-enabled", UNIT], deadline=30)
+    return active, out.strip()
 
 
-def cmd_status():
-    package, version = "", ""
+def wait_unit(wanted, seconds):
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        active, _ = unit_state()
+        if (active == "active") == wanted:
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def installed_package():
     for name in PACKAGES:
         code, out = run([PACMAN, "-Q", name], deadline=30)
         if code == 0:
             parts = out.split()
             if len(parts) >= 2:
-                package, version = parts[0], parts[1].split("-")[0]
-                break
+                return parts[0], parts[1].split("-")[0]
+    return "", ""
+
+
+# ---------- the install state file ----------
+
+class Progress:
+    """What the panel shows while makepkg runs: written atomically on every change."""
+
+    def __init__(self, kind, version):
+        self.data = {"kind": kind, "version": version, "phase": "fetch", "done": 0, "total": 0,
+                     "started": time.time(), "updated": time.time(), "finished": 0, "ok": False, "error": ""}
+        self.write()
+
+    def set(self, phase=None, done=None, total=None):
+        if phase is not None and phase != self.data["phase"]:
+            self.data["phase"] = phase
+            if phase != "build":
+                self.data["done"], self.data["total"] = 0, 0
+        if done is not None:
+            self.data["done"] = done
+        if total is not None:
+            self.data["total"] = total
+        self.write()
+
+    def finish(self, ok, error=""):
+        self.data.update(phase="done" if ok else "error", finished=time.time(), ok=ok, error=error)
+        self.write()
+
+    def write(self):
+        self.data["updated"] = time.time()
+        fd = private_dir(CACHE)
+        try:
+            tmp = ".install.json.%d" % os.getpid()
+            tfd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+            with os.fdopen(tfd, "w") as f:
+                json.dump(self.data, f)
+            os.rename(tmp, "install.json", src_dir_fd=fd, dst_dir_fd=fd)
+        finally:
+            os.close(fd)
+
+
+# What makepkg and cargo print, mapped to phases. Cargo's bar on a tty:
+#     Building [=====>          ] 123/456: crate, crate
+BUILD_BAR = re.compile(r"Building \[[^\]]*\]\s+(\d+)/(\d+)")
+PHASES = (
+    ("==> Installing missing dependencies", "deps"),
+    ("==> Retrieving sources", "download"),
+    ("==> Validating source files", "verify"),
+    ("==> Starting prepare()", "prepare"),
+    ("==> Starting build()", "build"),
+    ("==> Entering fakeroot environment", "package"),
+    ("==> Installing package", "install"),
+    ("loading packages...", "install"),
+)
+
+
+def run_in_pty(argv, cwd, env, on_text):
+    """Run argv on a pseudo-terminal wired to this terminal: keystrokes go
+    in (sudo's password prompt works), output comes out unchanged and is
+    also handed to on_text. Returns the exit status."""
+    pid, master = pty.fork()
+    if pid == 0:
+        try:
+            os.chdir(cwd)
+            os.execve(argv[0], argv, env)
+        finally:
+            os._exit(127)
+    stdin = sys.stdin.fileno()
+    stdout = sys.stdout.fileno()
+    interactive = os.isatty(stdin)
+
+    def resize(*_):
+        if not interactive:
+            return
+        try:
+            size = fcntl.ioctl(stdin, termios.TIOCGWINSZ, b"\0" * 8)
+            fcntl.ioctl(master, termios.TIOCSWINSZ, size)
+        except OSError:
+            pass
+
+    saved = None
+    if interactive:
+        saved = termios.tcgetattr(stdin)
+        tty.setraw(stdin)
+        signal.signal(signal.SIGWINCH, resize)
+        resize()
+    try:
+        alive = True
+        while alive:
+            fds = [master] + ([stdin] if interactive else [])
+            try:
+                ready, _, _ = select.select(fds, [], [], 1.0)
+            except InterruptedError:
+                continue
+            for fd in ready:
+                if fd == master:
+                    try:
+                        chunk = os.read(master, 65536)
+                    except OSError:
+                        chunk = b""
+                    if not chunk:
+                        alive = False
+                        break
+                    os.write(stdout, chunk)
+                    on_text(chunk.decode("utf-8", "replace"))
+                else:
+                    chunk = os.read(stdin, 4096)
+                    if chunk:
+                        os.write(master, chunk)
+    finally:
+        if saved is not None:
+            termios.tcsetattr(stdin, termios.TCSADRAIN, saved)
+            signal.signal(signal.SIGWINCH, signal.SIG_DFL)
+        os.close(master)
+    _, status = os.waitpid(pid, 0)
+    return os.waitstatus_to_exitcode(status)
+
+
+def clear_stale_git_locks():
+    """A git run that was killed leaves .git/*.lock behind and every later
+    git command refuses to work. Nothing of ours is running now."""
+    gitdir = os.path.join(CHECKOUT, ".git")
+    for name in ("index.lock", "HEAD.lock", "shallow.lock", "config.lock", "packed-refs.lock"):
+        path = os.path.join(gitdir, name)
+        try:
+            st = os.lstat(path)
+        except FileNotFoundError:
+            continue
+        if stat.S_ISREG(st.st_mode) and time.time() - st.st_mtime > 30:
+            os.unlink(path)
+
+
+# ---------- commands ----------
+
+def cmd_status():
+    package, version = installed_package()
     binary = os.path.isfile(BINARY) and os.access(BINARY, os.X_OK)
-    print(json.dumps({"package": package, "version": version, "binary": binary, "checkout": CHECKOUT}))
+    active, enabled = unit_state()
+    print(json.dumps({"package": package, "version": version, "binary": binary, "active": active == "active",
+                      "enabled": enabled == "enabled", "checkout": CHECKOUT, "state": STATE, "data": DATA}))
+    return 0
+
+
+def cmd_stop():
+    run([SYSTEMCTL, "--user", "stop", UNIT], deadline=90)
+    stopped = wait_unit(False, 30)
+    stale = False
+    if stopped and os.path.exists(SOCKET):
+        # The daemon removes its socket on the way out; a leftover means it was killed.
+        stale = True
+        try:
+            os.unlink(SOCKET)
+        except OSError:
+            pass
+    print(json.dumps({"stopped": stopped, "stale_socket": stale}))
+    return 0 if stopped else 1
+
+
+def cmd_start():
+    code, out = run([SYSTEMCTL, "--user", "start", UNIT], deadline=90)
+    started = code == 0 and wait_unit(True, 30)
+    print(json.dumps({"started": started, "error": "" if started else tail(out, 3)}))
+    return 0 if started else 1
+
+
+def cmd_reset():
+    run([SYSTEMCTL, "--user", "stop", UNIT], deadline=90)
+    if not wait_unit(False, 30):
+        raise Failure("the daemon did not stop")
+    shutil.rmtree(DATA, ignore_errors=True)
+    try:
+        os.unlink(SOCKET)
+    except OSError:
+        pass
+    started = False
+    if os.path.isfile(BINARY):
+        code, out = run([SYSTEMCTL, "--user", "start", UNIT], deadline=90)
+        started = code == 0 and wait_unit(True, 30)
+    print(json.dumps({"reset": True, "started": started}))
     return 0
 
 
@@ -167,64 +367,138 @@ def cmd_install(kind, repo, commit):
         if not os.access(path, os.X_OK):
             raise Failure("%s is missing (%s)" % (tool, path))
     env = {"HOME": HOME, "PATH": "/usr/bin", "LANG": "C.UTF-8", "GIT_TERMINAL_PROMPT": "0"}
-    for key in ("XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "TERM", "DISPLAY", "WAYLAND_DISPLAY"):
+    for key in ("XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "TERM", "DISPLAY", "WAYLAND_DISPLAY", "COLORTERM"):
         if key in os.environ:
             env[key] = os.environ[key]
 
-    say("Yapper: %s the omarchy-yapperd daemon at %s" % ("installing the prebuilt release of" if kind == "bin" else "building from source", commit[:12]))
+    say("Yapper: %s omarchy-yapperd at %s" % ("installing the prebuilt release of" if kind == "bin" else "building from source", commit[:12]))
     say("        repository %s" % repo)
     say("        checkout   %s" % CHECKOUT)
     say()
     fd = private_dir(CACHE)
     os.close(fd)
-    if os.path.isdir(os.path.join(CHECKOUT, ".git")):
-        code, out = run([GIT, "-C", CHECKOUT, "fetch", "--quiet", "--tags", "origin"], env=env, deadline=300)
+    progress = Progress(kind, "")
+    try:
+        clear_stale_git_locks()
+        if os.path.isdir(os.path.join(CHECKOUT, ".git")):
+            code, out = run([GIT, "-C", CHECKOUT, "fetch", "--quiet", "--tags", "origin"], env=env, deadline=300)
+            if code != 0:
+                raise Failure("git fetch failed:\n" + tail(out))
+        else:
+            code, out = run([GIT, "clone", "--quiet", repo, CHECKOUT], env=env, deadline=600)
+            if code != 0:
+                raise Failure("git clone failed:\n" + tail(out))
+        code, out = run([GIT, "-C", CHECKOUT, "checkout", "--quiet", "--force", "--detach", commit], env=env, deadline=120)
         if code != 0:
-            raise Failure("git fetch failed:\n" + tail(out))
-    else:
-        code, out = run([GIT, "clone", "--quiet", repo, CHECKOUT], env=env, deadline=600)
+            raise Failure("that commit is not in the repository:\n" + tail(out))
+        # HEAD must be the commit asked for; accept a tag object too, peeled to its commit.
+        code, want = run([GIT, "-C", CHECKOUT, "rev-parse", "--verify", commit + "^{commit}"], env=env, deadline=30)
         if code != 0:
-            raise Failure("git clone failed:\n" + tail(out))
-    code, out = run([GIT, "-C", CHECKOUT, "checkout", "--quiet", "--force", "--detach", commit], env=env, deadline=120)
-    if code != 0:
-        raise Failure("that commit is not in the repository:\n" + tail(out))
-    # HEAD must be the commit asked for; accept a tag object too, peeled to its commit.
-    code, want = run([GIT, "-C", CHECKOUT, "rev-parse", "--verify", commit + "^{commit}"], env=env, deadline=30)
-    if code != 0:
-        raise Failure("%s is not a commit in the repository" % commit)
-    code, head = run([GIT, "-C", CHECKOUT, "rev-parse", "--verify", "HEAD^{commit}"], env=env, deadline=30)
-    if code != 0 or head.strip() != want.strip():
-        raise Failure("checked-out commit %s does not match %s" % (head.strip()[:12], commit[:12]))
-    run([GIT, "-C", CHECKOUT, "clean", "-fdq", "-e", "target", "-e", "src", "-e", "pkg", "-e", "*.tar.gz", "-e", "*.pkg.tar.*"], env=env, deadline=60)
+            raise Failure("%s is not a commit in the repository" % commit)
+        code, head = run([GIT, "-C", CHECKOUT, "rev-parse", "--verify", "HEAD^{commit}"], env=env, deadline=30)
+        if code != 0 or head.strip() != want.strip():
+            raise Failure("checked-out commit %s does not match %s" % (head.strip()[:12], commit[:12]))
+        run([GIT, "-C", CHECKOUT, "clean", "-fdq", "-e", "target", "-e", "src", "-e", "pkg", "-e", "*.tar.gz", "-e", "*.pkg.tar.*"], env=env, deadline=60)
 
-    pkgdir = os.path.join(CHECKOUT, "packaging", "bin" if kind == "bin" else "")
-    if not os.path.isfile(os.path.join(pkgdir, "PKGBUILD")):
-        raise Failure("no PKGBUILD in %s at this commit" % pkgdir)
-    say("Running makepkg -si in %s" % pkgdir)
-    say("pacman will ask for your password to install the package%s." % (" and, if missing, rust and git" if kind == "source" else ""))
-    if kind == "source":
-        say("Compiling matrix-rust-sdk takes 10-25 minutes on a first build.")
+        pkgdir = os.path.join(CHECKOUT, "packaging", "bin" if kind == "bin" else "")
+        pkgbuild = os.path.join(pkgdir, "PKGBUILD")
+        if not os.path.isfile(pkgbuild):
+            raise Failure("no PKGBUILD in %s at this commit" % pkgdir)
+        version = ""
+        with open(pkgbuild) as f:
+            for line in f:
+                if line.startswith("pkgver="):
+                    version = line[len("pkgver="):].strip()
+        progress.data["version"] = version
+        progress.set("deps" if kind == "source" else "download")
+
+        say("Running makepkg -si in %s" % pkgdir)
+        say("pacman will ask for your password to install the package%s." % (" and, if missing, rust and git" if kind == "source" else ""))
+        if kind == "source":
+            say("Compiling matrix-rust-sdk takes 10-25 minutes on a first build.")
+        say()
+
+        # Before pacman swaps the binary, stop the daemon so the file is not in use.
+        active, _ = unit_state()
+        if active == "active":
+            run([SYSTEMCTL, "--user", "stop", UNIT], deadline=90)
+            wait_unit(False, 30)
+
+        pending = [""]
+
+        def on_text(text):
+            # Lines end in \n; cargo redraws its bar with \r.
+            pending[0] += text
+            parts = re.split(r"[\r\n]", pending[0])
+            pending[0] = parts.pop()[-LINE_LIMIT:]
+            for line in parts:
+                for marker, phase in PHASES:
+                    if marker in line:
+                        progress.set(phase)
+                m = BUILD_BAR.search(line)
+                if m:
+                    progress.set("build", int(m.group(1)), int(m.group(2)))
+
+        # -f: rebuild if this version was built before; --needed: no reinstall of an identical package.
+        code = run_in_pty([MAKEPKG, "-sif", "--needed"], pkgdir, dict(env, PATH="/usr/bin:/usr/bin/core_perl"), on_text)
+        say()
+        if code != 0:
+            raise Failure("makepkg exited with %d" % code)
+        progress.set("start")
+        say("Starting the daemon")
+        run([SYSTEMCTL, "--user", "daemon-reload"], env=env, deadline=60)
+        code, out = run([SYSTEMCTL, "--user", "enable", UNIT], env=env, deadline=60)
+        if code != 0:
+            raise Failure("could not enable the unit:\n" + tail(out))
+        code, out = run([SYSTEMCTL, "--user", "restart", UNIT], env=env, deadline=120)
+        if code != 0:
+            raise Failure("could not start the daemon:\n" + tail(out))
+        progress.finish(True)
+        say("Done in %s. Yapper picks the daemon up by itself; you can close this window." % clock(time.time() - progress.data["started"]))
+        return 0
+    except BaseException as e:
+        progress.finish(False, "interrupted" if isinstance(e, KeyboardInterrupt) else str(e))
+        raise
+
+
+def cmd_remove(with_data):
+    package, version = installed_package()
+    say("Yapper: removing the daemon%s" % (" and its data" if with_data else ""))
     say()
-    # makepkg keeps this terminal: it asks, compiles and installs here. -f: rebuild if the same version was built before.
-    proc = subprocess.run([MAKEPKG, "-sif", "--needed"], cwd=pkgdir, env=dict(os.environ, PATH="/usr/bin", GIT_TERMINAL_PROMPT="0"))
-    if proc.returncode != 0:
-        raise Failure("makepkg exited with %d" % proc.returncode)
-    say()
-    say("Starting the daemon")
-    run([SYSTEMCTL, "--user", "daemon-reload"], env=env, deadline=60)
-    code, out = run([SYSTEMCTL, "--user", "enable", "omarchy-yapperd.service"], env=env, deadline=60)
-    if code != 0:
-        raise Failure("could not enable the unit:\n" + tail(out))
-    code, out = run([SYSTEMCTL, "--user", "restart", "omarchy-yapperd.service"], env=env, deadline=120)
-    if code != 0:
-        raise Failure("could not start the daemon:\n" + tail(out))
-    say("Done. Yapper will pick the daemon up by itself; you can close this window.")
+    run([SYSTEMCTL, "--user", "disable", "--now", UNIT], deadline=90)
+    wait_unit(False, 30)
+    try:
+        os.unlink(SOCKET)
+    except OSError:
+        pass
+    if package:
+        say("pacman will ask for your password to remove %s %s." % (package, version))
+        proc = subprocess.run([SUDO, PACMAN, "-R", package], env={"PATH": "/usr/bin", "HOME": HOME, "LANG": "C.UTF-8", "TERM": os.environ.get("TERM", "xterm")})
+        if proc.returncode != 0:
+            raise Failure("pacman exited with %d" % proc.returncode)
+    else:
+        say("No omarchy-yapperd package is installed.")
+    if with_data:
+        shutil.rmtree(DATA, ignore_errors=True)
+        shutil.rmtree(CACHE, ignore_errors=True)
+        say("Removed %s and %s." % (DATA, CACHE))
+    else:
+        say("Kept your data in %s (Settings > Daemon > Reset the data removes it)." % DATA)
+    say("Done.")
     return 0
+
+
+def clock(seconds):
+    seconds = int(seconds)
+    if seconds >= 3600:
+        return "%dh %02dm %02ds" % (seconds // 3600, seconds % 3600 // 60, seconds % 60)
+    return "%dm %02ds" % (seconds // 60, seconds % 60)
 
 
 def pause(text):
     say()
-    say(text)
+    if text:
+        say(text)
     try:
         input("Press Enter to close this window.")
     except (EOFError, KeyboardInterrupt):
@@ -236,22 +510,33 @@ def main(argv):
         print(__doc__)
         return 2
     cmd, args = argv[0], argv[1:]
+    if cmd in ("install", "remove"):
+        # Terminal commands: report in words and wait so the window stays readable.
+        try:
+            if cmd == "install" and len(args) == 3:
+                code = cmd_install(args[0], args[1], args[2])
+            elif cmd == "remove":
+                code = cmd_remove("--data" in args)
+            else:
+                print(__doc__)
+                return 2
+        except Failure as e:
+            pause("Yapper: this did not finish: %s" % e)
+            return 1
+        except KeyboardInterrupt:
+            pause("Yapper: interrupted.")
+            return 130
+        pause("")
+        return code
     try:
         if cmd == "status":
             return cmd_status()
-        if cmd == "toolchain":
-            return cmd_toolchain()
-        if cmd == "install" and len(args) == 3:
-            try:
-                code = cmd_install(args[0], args[1], args[2])
-            except Failure as e:
-                pause("Yapper: the install did not finish: %s" % e)
-                return 1
-            except KeyboardInterrupt:
-                pause("Yapper: the install was interrupted.")
-                return 130
-            pause("")
-            return code
+        if cmd == "stop":
+            return cmd_stop()
+        if cmd == "start":
+            return cmd_start()
+        if cmd == "reset":
+            return cmd_reset()
         print(__doc__)
         return 2
     except Failure as e:

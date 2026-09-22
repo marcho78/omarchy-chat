@@ -207,7 +207,7 @@ Item {
               Row {
                 topPadding: ui.px(5)
                 spacing: ui.px(6)
-                PillButton { c: root.c; label: "Update"; warn: true; round: true; onClicked: { if (root.service.daemonUpdateAvailable) root.service.updateDaemon(); else root.service.updatePlugin(); root.closeRequested() } }
+                PillButton { c: root.c; label: "Update"; warn: true; round: true; onClicked: { if (root.service.daemonUpdateAvailable) root.service.openWindow({ install: "update" }); else root.service.updatePlugin(); root.closeRequested() } }
                 PillButton { c: root.c; label: "Later"; round: true; onClicked: root.updateDismissed = true }
               }
             }

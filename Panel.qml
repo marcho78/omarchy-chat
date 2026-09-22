@@ -59,17 +59,24 @@ Panel {
       })
     }
     function refresh(): void { if (root.service) root.service.refresh() }
-    // The daemon install, for scripts and tests: omarchy-shell marcho78.yapper installDaemon bin|source
+    // The daemon, for scripts and tests: omarchy-shell marcho78.yapper installDaemon bin|source
     function installDaemon(kind: string): string {
       if (!root.service) return "no service"
       if (kind !== "bin" && kind !== "source") return "kind must be bin or source"
       root.service.installDaemon(kind, false)
       return "installing " + root.service.daemonPinVersion + " (" + kind + ") in a terminal"
     }
-    function updateDaemon(): string { if (!root.service) return "no service"; if (!root.service.daemonUpdateAvailable) return "no update"; root.service.updateDaemon(); return "installing " + root.service.daemonLatest + " in a terminal" }
+    function updateDaemon(kind: string): string {
+      if (!root.service) return "no service"
+      if (!root.service.daemonUpdateAvailable) return "no update"
+      root.service.updateDaemon(kind === "source" ? "source" : "bin")
+      return "installing " + root.service.daemonLatest + " in a terminal"
+    }
+    function stopDaemon(): string { if (!root.service) return "no service"; root.service.stopDaemon(); return "stopping" }
+    function startDaemon(): string { if (!root.service) return "no service"; root.service.startDaemon(); return "starting" }
     function daemonStatus(): string {
       var s = root.service
-      return JSON.stringify(s ? { package: s.daemonPackage, version: s.daemonPackageVersion, installed: s.installed, pending: s.installPending, pin: s.daemonPinVersion, latest: s.daemonLatest, latestCommit: s.daemonLatestCommit } : {})
+      return JSON.stringify(s ? { package: s.daemonPackage, version: s.daemonPackageVersion, installed: s.installed, active: s.daemonActive, connected: s.connected, install: s.installState, pending: s.installPending, pin: s.daemonPinVersion, latest: s.daemonLatest, latestCommit: s.daemonLatestCommit } : {})
     }
     // Open the popup on a room: omarchy-shell marcho78.yapper room '!id:server'
     function room(id: string): string {

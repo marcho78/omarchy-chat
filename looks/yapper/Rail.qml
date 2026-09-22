@@ -17,6 +17,7 @@ Item {
   signal viewRequested(string view)
   signal spaceRequested(string spaceId)
   signal verifyRequested()
+  signal quitRequested()
   Ui { id: ui }
 
   width: ui.railWidth
@@ -150,6 +151,7 @@ Item {
     spacing: ui.px(6)
 
     RailButton { icon: "gear-six"; active: root.view === "settings"; tooltip: "Settings"; onClicked: root.viewRequested("settings") }
+    RailButton { icon: "power"; tooltip: "Quit Yapper"; onClicked: root.quitRequested() }
 
     // Encryption: a green shield when this device is verified, a warning
     // ring until then.

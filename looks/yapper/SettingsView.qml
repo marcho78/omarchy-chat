@@ -21,11 +21,13 @@ Item {
   // Section state (kept here: the root id is what children bind to).
   property bool confirmSignOut: false
   property bool confirmRemoveDaemon: false
+  property bool confirmReset: false
   readonly property string dataDir: (Quickshell.env("XDG_DATA_HOME") || (Quickshell.env("HOME") + "/.local/share")) + "/omarchy-yapperd"
   property string storeSizeText: "…"
   readonly property string audioTestState: root.service ? root.service.audioTest : ""
   signal closeRequested()
   signal peopleRequested()
+  signal installRequested(bool update)
   Ui { id: ui }
 
   readonly property var sections: [
@@ -259,7 +261,7 @@ Item {
               width: parent.width - ui.px(36)
               spacing: ui.px(6)
               Text { width: parent.width; wrapMode: Text.Wrap; text: updateCard.daemon ? "omarchy-yapperd " + root.service.daemonLatest + " is available" : "The plugin has " + root.service.pluginUpdateCount + " new change" + (root.service.pluginUpdateCount === 1 ? "" : "s"); color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
-              Note { text: updateCard.daemon ? "You have " + root.service.daemonVersion + " (" + (root.service.daemonKind === "bin" ? "prebuilt" : "built from source") + "). Updates the same way through pacman in a terminal, then restarts the daemon; your session stays signed in." : "Shows the diff in a terminal for you to confirm, then restarts the shell." }
+              Note { text: updateCard.daemon ? "You have " + root.service.daemonVersion + (root.service.daemonKind === "bin" ? ", prebuilt" : root.service.daemonKind === "source" ? ", built from source" : "") + ". Installs through pacman in a terminal, then restarts the daemon; your session stays signed in." : "Shows the diff in a terminal for you to confirm, then restarts the shell." }
               Column {
                 visible: !updateCard.daemon && root.service && root.service.pluginUpdateLog.length > 0
                 width: parent.width
@@ -269,13 +271,14 @@ Item {
                 width: parent.width
                 spacing: ui.px(8)
                 topPadding: ui.px(6)
-                PillButton { c: root.c; label: updateCard.daemon ? (root.service.installPending ? "Installing…" : "Update the daemon") : "Update the plugin"; warn: true; round: true; enabled: !(updateCard.daemon && root.service.installPending); onClicked: updateCard.daemon ? root.service.updateDaemon() : root.service.updatePlugin() }
+                PillButton { c: root.c; label: updateCard.daemon ? "Update the daemon" : "Update the plugin"; warn: true; round: true; enabled: !(updateCard.daemon && root.service.installActive); onClicked: updateCard.daemon ? root.installRequested(true) : root.service.updatePlugin() }
                 PillButton { c: root.c; label: "Release notes"; round: true; onClicked: Quickshell.execDetached(["omarchy-launch-browser", updateCard.daemon ? root.service.daemonRepo + "/releases" : root.service.pluginRepo + "/commits"]) }
                 PillButton { c: root.c; label: "Not now"; round: true; onClicked: { if (updateCard.daemon) updateCard.dismissedDaemon = root.service.daemonLatest; else updateCard.dismissedPlugin = root.service.pluginUpdateCount } }
               }
             }
           }
         }
+        InstallProgress { width: parent.width; visible: root.service && root.service.installState !== null; c: root.c; service: root.service }
         Column {
           width: parent.width
           SettingRow { c: root.c; label: "Plugin"; description: "Checked against its git remote"; ValueText { text: "marcho78.yapper " + (root.service ? root.service.pluginVersion : "") + (root.service && root.service.pluginCommit ? " · " + root.service.pluginCommit : "") } }
@@ -894,23 +897,35 @@ Item {
         SettingRow { c: root.c; label: "Socket"; description: "Mode 0600; the peer's uid is checked on every connection"; ValueText { text: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-yapper.sock" } }
         SettingRow { c: root.c; label: "Data directory"; description: "Mode 0700"; ValueText { text: root.dataDir } }
         SettingRow { c: root.c; label: "Store"; description: "SQLite, encrypted with a random passphrase"; ValueText { text: root.storeSizeText } }
-        SettingRow { c: root.c; label: "Start the daemon when needed"; description: "Runs systemctl --user start omarchy-yapperd when it is installed but not running."; Toggle { c: root.c; checked: root.flag("autostartDaemon", true); onToggled: root.service.set("autostartDaemon", !checked) } }
-        SettingRow { c: root.c; label: "Restart the daemon"; description: "Your session stays signed in."; PillButton { c: root.c; label: "Restart"; round: true; onClicked: root.service.restartDaemon() } }
-        SettingRow { c: root.c; label: "Package"; description: root.service && root.service.daemonKind === "bin" ? "The prebuilt release, installed through pacman from the daemon's packaging/bin/PKGBUILD" : root.service && root.service.daemonKind === "source" ? "Built from source on this machine through pacman from the daemon's packaging/PKGBUILD" : "Not installed"; ValueText { text: root.service && root.service.daemonPackage !== "" ? root.service.daemonPackage + " " + root.service.daemonPackageVersion : "—" } }
+        SettingRow { c: root.c; label: "Start the daemon when needed"; description: "Starts it when Yapper opens and it is installed but not running."; Toggle { c: root.c; checked: root.flag("autostartDaemon", true); onToggled: root.service.set("autostartDaemon", !checked) } }
         SettingRow {
-          c: root.c; label: "Reinstall or switch"; description: "Installs release " + (root.service ? root.service.daemonPinVersion : "") + " again in a terminal; the prebuilt and the source package replace each other. Your session stays signed in."
+          c: root.c; label: "Daemon"; description: root.service && root.service.daemonActive ? "Running. Stopping it pauses notifications; your session stays signed in." : "Stopped."
           Row {
             spacing: ui.px(8)
-            PillButton { c: root.c; label: "Prebuilt"; icon: "download-simple"; round: true; enabled: root.service && !root.service.installPending; onClicked: root.service.installDaemon("bin", false) }
-            PillButton { c: root.c; label: "From source"; icon: "hammer"; round: true; enabled: root.service && !root.service.installPending; onClicked: root.service.installDaemon("source", false) }
+            PillButton { c: root.c; visible: root.service && root.service.daemonActive; label: "Stop"; icon: "stop"; round: true; onClicked: root.service.stopDaemon() }
+            PillButton { c: root.c; visible: root.service && !root.service.daemonActive; label: root.service && root.service.starting ? "Starting…" : "Start"; icon: "play"; primary: true; round: true; enabled: root.service && root.service.installed && !root.service.starting; onClicked: root.service.startDaemon() }
+            PillButton { c: root.c; visible: root.service && root.service.daemonActive; label: "Restart"; icon: "arrow-clockwise"; round: true; onClicked: root.service.restartDaemon() }
+          }
+        }
+        SettingRow { c: root.c; label: "Package"; description: root.service && root.service.daemonKind === "bin" ? "The prebuilt release, installed through pacman from packaging/bin/PKGBUILD" : root.service && root.service.daemonKind === "source" ? "Built from source on this machine through pacman from packaging/PKGBUILD" : "Not installed"; ValueText { text: root.service && root.service.daemonPackage !== "" ? root.service.daemonPackage + " " + root.service.daemonPackageVersion : "—" } }
+        SettingRow { c: root.c; label: "Reinstall"; description: "Installs release " + (root.service ? root.service.daemonPinVersion : "") + " again, prebuilt or from source, in a terminal. Your session stays signed in."; PillButton { c: root.c; label: root.service && root.service.installed ? "Reinstall" : "Install"; icon: "download-simple"; round: true; enabled: root.service && !root.service.installActive; onClicked: root.installRequested(false) } }
+        InstallProgress { width: parent.width; visible: root.service && root.service.installState !== null; c: root.c; service: root.service }
+        SettingRow {
+          c: root.c; label: "Reset the data"; labelColor: root.c.bad; description: root.confirmReset ? "Signs you out on this machine and deletes the encrypted store in " + root.dataDir + ". Messages and keys backed up on the server stay; unbacked keys are lost." : "Stops the daemon, deletes " + root.dataDir + " and starts fresh."
+          Row {
+            spacing: ui.px(8)
+            PillButton { c: root.c; visible: !root.confirmReset; label: "Reset"; round: true; enabled: root.service && root.service.installed && !root.service.installActive; onClicked: root.confirmReset = true }
+            PillButton { c: root.c; visible: root.confirmReset; label: "Delete the data"; danger: true; round: true; onClicked: { root.confirmReset = false; root.service.resetData() } }
+            PillButton { c: root.c; visible: root.confirmReset; label: "Keep"; round: true; onClicked: root.confirmReset = false }
           }
         }
         SettingRow {
-          c: root.c; label: "Remove the daemon"; labelColor: root.c.bad; description: root.confirmRemoveDaemon ? "Runs " + root.service.removeCommand() + " in a terminal. Your encrypted store in ~/.local/share/omarchy-yapperd stays; delete it yourself if you want it gone." : "Uninstalls the pacman package in a terminal."
+          c: root.c; label: "Remove the daemon"; labelColor: root.c.bad; description: root.confirmRemoveDaemon ? "Stops and disables it, then runs " + root.service.removeCommand() + " in a terminal. \"Remove everything\" also deletes " + root.dataDir + " and ~/.cache/omarchy-yapper." : "Uninstalls the pacman package in a terminal."
           Row {
             spacing: ui.px(8)
-            PillButton { c: root.c; visible: !root.confirmRemoveDaemon; label: "Remove"; round: true; enabled: root.service && root.service.daemonPackage !== "" && !root.service.installPending; onClicked: root.confirmRemoveDaemon = true }
-            PillButton { c: root.c; visible: root.confirmRemoveDaemon; label: "Remove in a terminal"; danger: true; round: true; onClicked: { root.confirmRemoveDaemon = false; root.service.removeDaemon() } }
+            PillButton { c: root.c; visible: !root.confirmRemoveDaemon; label: "Remove"; round: true; enabled: root.service && root.service.daemonPackage !== "" && !root.service.installActive; onClicked: root.confirmRemoveDaemon = true }
+            PillButton { c: root.c; visible: root.confirmRemoveDaemon; label: "Remove the package"; danger: true; round: true; onClicked: { root.confirmRemoveDaemon = false; root.service.removeDaemon(false) } }
+            PillButton { c: root.c; visible: root.confirmRemoveDaemon; label: "Remove everything"; danger: true; round: true; onClicked: { root.confirmRemoveDaemon = false; root.service.removeDaemon(true) } }
             PillButton { c: root.c; visible: root.confirmRemoveDaemon; label: "Keep"; round: true; onClicked: root.confirmRemoveDaemon = false }
           }
         }

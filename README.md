@@ -41,36 +41,70 @@ connection to the daemon and stay in step.
 omarchy plugin add https://github.com/marcho78/omarchy-yapper.git --enable
 ```
 
-Click the chat icon. Without the daemon the panel offers two ways to install
-it, both as a pacman package, both in an ordinary terminal window you can
-watch, and both pinned to one commit of the daemon repository:
+Click the chat icon. Without the daemon the panel shows one button,
+**Install omarchy-yapperd**, which asks how:
 
-- **Install the prebuilt daemon** (about a minute): `omarchy-yapperd-bin`,
-  from `packaging/bin/PKGBUILD`. It downloads the tarball that the daemon's
-  GitHub Actions workflow built for the release and checks it against the
-  sha256 recorded in the PKGBUILD. No compiler needed.
-- **Build it from source** (10 to 25 minutes): `omarchy-yapperd`, from
+- **Prebuilt** (about a minute): `omarchy-yapperd-bin`, from
+  `packaging/bin/PKGBUILD` in the daemon repository. It downloads the tarball
+  that the daemon's GitHub Actions workflow built for the release and checks
+  it against the sha256 recorded in the PKGBUILD. No compiler needed.
+- **Build from source** (10 to 25 minutes): `omarchy-yapperd`, from
   `packaging/PKGBUILD`. makepkg installs `rust` and `git` if they are missing
   and compiles the daemon on your machine.
 
-Either button runs `bin/yapper-helper` (Python, shipped with the plugin) in
-a terminal through `/usr/bin/xdg-terminal-exec`. The helper clones
-`https://github.com/marcho78/omarchy-yapperd` into
+Either way the install is a pacman package, pinned to one commit of the
+daemon repository, and runs in an ordinary terminal window:
+`/usr/bin/xdg-terminal-exec` opens `bin/yapper-helper` (Python, shipped with
+the plugin), which clones `https://github.com/marcho78/omarchy-yapperd` into
 `~/.cache/omarchy-yapper/omarchy-yapperd`, checks out the pinned commit,
-verifies it, and runs `makepkg -sif --needed` in the package directory. pacman
-asks for your password in that terminal; nothing else runs as root and the
-plugin itself downloads or executes nothing. **Copy the command** gives you
-the same steps as one shell line to run yourself. When the package is
-installed the helper enables and starts the `omarchy-yapperd` user unit and
-the panel moves on by itself.
+verifies it, and runs `makepkg -sif --needed` in the package directory
+through a pseudo-terminal. pacman asks for your password in that window;
+nothing else runs as root and the plugin itself downloads or executes
+nothing. The helper writes what it sees (phase, crates compiled, timing) to
+`~/.cache/omarchy-yapper/install.json`, and the panel shows a progress card
+with a percentage while compiling, the elapsed time, and how long the
+install took. "Copy the command instead" gives you the same steps as one
+shell line to run yourself. When the package is installed the helper
+enables and starts the `omarchy-yapperd` user unit.
 
-Settings › Daemon shows which package is installed, reinstalls or switches
-between the two, and removes the package (`sudo pacman -R`, again in a
-terminal). Updates are offered when the daemon repository has a newer
-`pkg-vX.Y.Z` tag and install the same way.
+Updates are offered when the daemon repository has a newer `pkg-vX.Y.Z`
+tag and use the same dialog, preselecting how you installed last time.
+Settings › Daemon shows the package and version, stops, starts and restarts
+the daemon, reinstalls or switches between prebuilt and source, resets the
+data, and removes the package.
 
 Once the daemon runs the panel shows the sign-in form. Any
 Matrix homeserver works; `matrix.org` is pre-filled.
+
+## Quit, stop and uninstall
+
+Closing the window only hides it; the daemon keeps syncing so notifications
+arrive. **Quit Yapper**, the power button at the bottom of the rail, closes
+the window and stops the daemon (`systemctl --user stop omarchy-yapperd`).
+You stay signed in and the daemon starts again the next time Yapper opens.
+Settings › Daemon has Stop, Start and Restart for the same unit.
+
+To uninstall, in this order:
+
+1. **Settings › Daemon › Remove** opens a terminal that stops and disables
+   the unit and runs `sudo pacman -R omarchy-yapperd-bin` (or
+   `omarchy-yapperd`). "Remove everything" also deletes
+   `~/.local/share/omarchy-yapperd` (your session and encrypted store) and
+   `~/.cache/omarchy-yapper` (the checkout and build). By hand:
+
+   ```bash
+   systemctl --user disable --now omarchy-yapperd
+   sudo pacman -R omarchy-yapperd-bin   # or omarchy-yapperd
+   rm -rf ~/.local/share/omarchy-yapperd ~/.cache/omarchy-yapper
+   ```
+
+2. Remove the plugin: `omarchy plugin remove marcho78.yapper`. The plugin's
+   settings live in `~/.config/omarchy/shell.json` under its id.
+
+Settings › Daemon › **Reset the data** is the smaller step: it stops the
+daemon, deletes `~/.local/share/omarchy-yapperd`, and starts it again, so
+the panel shows the sign-in form. Keys not backed up on the server are lost
+with it.
 
 ## Encryption, verification and recovery
 
