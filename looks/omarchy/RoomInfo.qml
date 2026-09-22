@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
-import "Format.js" as Format
+import "../../shared"
+import "../../shared/Format.js" as Format
 
 // Room details and members. Used as the window's side pane and the popup's
 // members view. Set `roomId` to load; `close()` clears.

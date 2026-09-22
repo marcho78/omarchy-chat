@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
+import "../../shared"
 
 // Settings, rendered from the manifest schema: booleans as toggles, enums
 // as dropdowns, integers as sliders, strings and paths as text fields.

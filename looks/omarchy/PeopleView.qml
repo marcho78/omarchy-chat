@@ -1,7 +1,8 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
-import "Format.js" as Format
+import "../../shared"
+import "../../shared/Format.js" as Format
 
 // Members of the Omarchy community who chose to be listed: their card,
 // a Message button when they welcome DMs, and Block.

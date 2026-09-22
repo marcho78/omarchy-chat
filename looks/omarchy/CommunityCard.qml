@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "../../shared"
 
 // The one-time offer to join the Omarchy community, shown in the sidebar
 // until the user joins or says "Not now". Joining is the only automatic

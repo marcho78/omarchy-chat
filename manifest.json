@@ -23,6 +23,8 @@
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
+      "look": "omarchy",
+      "theme": "omarchy",
       "homeserver": "https://matrix.org",
       "notifications": true,
       "autostartDaemon": true,

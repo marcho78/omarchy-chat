@@ -2,7 +2,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
-import "Format.js" as Format
+import "shared/Format.js" as Format
+import "shared/Palettes.js" as Palettes
 
 // Yapper service: the single connection to omarchy-yapperd, the session state,
 // the room and invitation lists, and desktop notifications. Mounted when
@@ -115,6 +116,33 @@ Item {
   readonly property bool senderColors: flag("senderColors", true)
   readonly property real voiceVolume: Math.max(0.2, Math.min(1, (Number(setting("voiceVolume", 100)) || 100) / 100))
   readonly property real fontScale: Math.max(0.8, Math.min(1.5, (Number(setting("fontScale", 100)) || 100) / 100))
+
+  // ---------- palettes (the Yapper look) ----------
+  // A palette is the shell's theme or one of the fixed sets in
+  // shared/Palettes.js; the colour settings above override single tones.
+  // (Named `colors`, not `palette`: Item already has a palette.)
+  readonly property string theme: Palettes.order.indexOf(String(setting("theme", "omarchy"))) >= 0 ? String(setting("theme", "omarchy")) : "omarchy"
+  readonly property var colors: {
+    var base = theme === "omarchy"
+      ? Palettes.omarchy(Color.background, Color.foreground, Color.accent, Color.muted, Color.urgent)
+      : Palettes.themes[theme]
+    var v = {}
+    for (var k in base.v) v[k] = Qt.color(base.v[k])
+    v.bg = pickColor("backgroundColor", v.bg)
+    v.sidebar = pickColor("sidebarColor", v.bg2)
+    v.fg = pickColor("textColor", v.fg)
+    v.accent = pickColor("accentColor", v.accent)
+    v.hover = pickColor("hoverColor", v.hover)
+    v.sel = pickColor("selectionColor", v.sel)
+    v.light = base.light
+    v.label = base.label
+    return v
+  }
+  // Phosphor icon faces for the Yapper look, registered once for every view
+  // (shared/Icon.qml names the families).
+  FontLoader { source: Qt.resolvedUrl("fonts/Phosphor.ttf") }
+  FontLoader { source: Qt.resolvedUrl("fonts/Phosphor-Bold.ttf") }
+  FontLoader { source: Qt.resolvedUrl("fonts/Phosphor-Fill.ttf") }
 
   // The manifest schema drives the settings screen, so a new key needs only
   // a manifest entry.
@@ -878,6 +906,9 @@ Item {
   // startup and every six hours; nothing is installed without the user.
 
   readonly property string roomSort: String(setting("roomSort", "activity"))
+  // Which look draws the window and popup: "omarchy" (the original) or
+  // "yapper" (the designed one). Both share this service and RoomSession.
+  readonly property string look: String(setting("look", "omarchy")) === "yapper" ? "yapper" : "omarchy"
   readonly property bool linkPreviews: flag("linkPreviews", true)
   readonly property bool checkUpdates: flag("checkUpdates", true)
   property bool checking: false

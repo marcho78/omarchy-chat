@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
-import "Format.js" as Format
+import "../../shared"
+import "../../shared/Format.js" as Format
 
 // Message search. Scope is one room or everything; results open the room
 // at the message. Encrypted rooms are scanned locally through recent

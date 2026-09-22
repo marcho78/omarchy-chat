@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "../../shared"
 
 // Verify this device. Three ways in, one state machine out:
 //   another device  → request → wait → 7 emoji → match? → done

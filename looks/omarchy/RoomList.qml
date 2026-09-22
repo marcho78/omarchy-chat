@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
-import "Format.js" as Format
+import "../../shared"
+import "../../shared/Format.js" as Format
 
 // Find / create / invitations / rooms. Emits roomChosen(room) when the user
 // picks or lands in a room; the parent decides where to show it.

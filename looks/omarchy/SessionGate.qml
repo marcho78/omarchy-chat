@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
+import "../../shared"
 
 // Everything that stands between the user and a signed-in session, in
 // order: the daemon is missing, the daemon is not running, sign in, waiting

@@ -6,7 +6,7 @@
 set -euo pipefail
 src="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 dst="$HOME/.config/omarchy/plugins/marcho78.yapper"
-cp "$src"/*.qml "$src"/*.js "$src"/manifest.json "$dst"/
+rsync -a --delete --exclude .git --exclude scripts "$src"/ "$dst"/
 sleep 4
 omarchy restart shell >/dev/null 2>&1 || true
 sleep 9

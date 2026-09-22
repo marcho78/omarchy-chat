@@ -4,7 +4,8 @@ import QtMultimedia
 import Quickshell
 import qs.Commons
 import qs.Ui
-import "Format.js" as Format
+import "../../shared"
+import "../../shared/Format.js" as Format
 
 // One message. `header` shows avatar, name and time; a follow-up from the
 // same sender within a few minutes hides them and just adds the body.

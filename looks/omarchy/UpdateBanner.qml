@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "../../shared"
 
 // "An update is available" card. Hidden when there is nothing to do.
 Rectangle {
