@@ -26,9 +26,10 @@ Item {
   readonly property bool opened: window.visible
   // chat | people | explore | search | settings
   property string view: "chat"
-  property var room: null
-  readonly property string roomId: room ? String(room.id) : ""
+  readonly property var room: roomView.room
+  readonly property string roomId: roomView.roomId
   readonly property bool inRoom: roomId !== ""
+  readonly property bool inThread: threadView.roomId !== ""
   Ui { id: ui }
 
   readonly property string titleHint: !loggedIn ? "not signed in"
@@ -42,10 +43,12 @@ Item {
     window.visible = true
     if (service) { service.ensureDaemon(); if (service.loggedIn) service.refresh() }
     var wanted = ""
+    var wantedThread = ""
     if (payloadJson) {
       try {
         var p = JSON.parse(String(payloadJson))
         if (p && typeof p.room === "string") { wanted = p.room; root.view = "chat" }
+        if (p && typeof p.thread === "string") wantedThread = p.thread
         if (p && (p.settings === true || typeof p.pick === "string")) root.view = "settings"
         if (p && typeof p.search === "string") root.view = "search"
         if (p && p.people === true) root.view = "people"
@@ -56,8 +59,10 @@ Item {
       if (wanted !== "" && service) {
         var r = service.roomById(wanted)
         if (r) root.openRoom(r)
+        if (r && wantedThread !== "") root.openThread(wantedThread)
       }
-      if (root.loggedIn && !root.inRoom && root.view === "chat") sidebar.focusFind()
+      if (root.loggedIn && root.inRoom && root.view === "chat") (root.inThread ? threadView : roomView).focusComposer()
+      else if (root.loggedIn && root.view === "chat") sidebar.focusFind()
       else if (!root.loggedIn) gate.focusFirst()
     })
   }
@@ -75,8 +80,15 @@ Item {
     else window.visible = false
   }
 
-  function openRoom(r) { root.room = r; root.view = "chat" }
+  function openRoom(r) { roomView.open(r); root.view = "chat" }
   function show(view) { root.view = view }
+  // A thread takes the conversation's place; its ✕ or Esc goes back.
+  function openThread(eventId) {
+    if (!roomView.room) return
+    threadView.openThread(roomView.room, eventId)
+    Qt.callLater(function() { threadView.focusComposer() })
+  }
+  function closeThread() { if (threadView.roomId !== "") threadView.close(); roomView.focusComposer() }
 
   FloatingWindow {
     id: window
@@ -227,7 +239,7 @@ Item {
           anchors.right: parent.right
           anchors.top: parent.top
           height: ui.headerHeight
-          visible: root.view === "chat" && root.inRoom
+          visible: root.view === "chat" && root.inRoom && !root.inThread
           Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
           Avatar {
             id: headerAvatar
@@ -293,13 +305,74 @@ Item {
           }
         }
 
-        // Where the conversation goes (the next step).
-        Text {
-          anchors.centerIn: parent
-          visible: root.view === "chat" && root.inRoom
-          text: "The conversation view is the next step of the new look."
-          color: root.c.muted
-          font.family: ui.sans; font.pixelSize: ui.f12
+        RoomView {
+          id: roomView
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: roomHeader.bottom
+          anchors.bottom: parent.bottom
+          visible: root.view === "chat" && root.inRoom && !root.inThread && window.visible
+          c: root.c
+          tips: tips
+          service: root.service
+          viewId: "window"
+          onThreadRequested: function(id) { root.openThread(id) }
+          // Switching rooms closes the thread of the previous one.
+          onRoomIdChanged: if (threadView.roomId !== "" && threadView.roomId !== roomId) threadView.close()
+        }
+
+        // Thread header
+        Item {
+          id: threadHeader
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          height: ui.headerHeight
+          visible: root.view === "chat" && root.inThread
+          Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
+          IconButton {
+            id: threadBack
+            anchors.left: parent.left
+            anchors.leftMargin: ui.px(10)
+            anchors.verticalCenter: parent.verticalCenter
+            c: root.c; tips: tips
+            icon: "arrow-left"; size: ui.px(32); iconSize: ui.px(16)
+            tooltip: "Back to the room (Esc)"
+            onClicked: root.closeThread()
+          }
+          Column {
+            anchors.left: threadBack.right
+            anchors.leftMargin: ui.px(8)
+            anchors.right: parent.right
+            anchors.rightMargin: ui.px(14)
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: ui.px(1)
+            Row {
+              spacing: ui.px(7)
+              Icon { anchors.verticalCenter: parent.verticalCenter; name: "tree-structure"; size: ui.px(15); color: root.c.accent }
+              Text { anchors.verticalCenter: parent.verticalCenter; text: "Thread"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f14; font.weight: Font.DemiBold }
+            }
+            Text {
+              width: parent.width
+              elide: Text.ElideRight
+              text: "in " + roomView.roomName
+              color: root.c.muted
+              font.family: ui.sans; font.pixelSize: ui.f11
+            }
+          }
+        }
+        RoomView {
+          id: threadView
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: threadHeader.bottom
+          anchors.bottom: parent.bottom
+          visible: root.view === "chat" && root.inThread && window.visible
+          c: root.c
+          tips: tips
+          service: root.service
+          viewId: "window-thread"
+          onCloseRequested: root.closeThread()
         }
 
         // Nothing picked yet

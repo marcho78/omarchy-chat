@@ -12,6 +12,15 @@ Item {
   property color foreground: Color.foreground
   property color accent: Color.accent
   property int maxLines: 6
+  // The Omarchy look draws the shell's field frame; a look with its own
+  // frame turns this off and sets the paddings and fonts itself.
+  property bool framed: true
+  property real paddingX: Style.spacing.controlPaddingX
+  property real paddingY: Style.spacing.inputPaddingY
+  property string fontFamily: Style.font.family
+  property real fontSize: Style.font.body
+  property color placeholderColor: Qt.darker(foreground, 1.6)
+  property color selectionFill: Style.selectionFillFor(foreground, accent)
   property alias text: area.text
   property alias cursorPosition: area.cursorPosition
   property alias placeholderText: area.placeholderText
@@ -42,6 +51,7 @@ Item {
 
   BorderSurface {
     anchors.fill: parent
+    visible: root.framed
     color: Style.controlFill(root._focused, root._hot, root.foreground, root.accent)
     borderSpec: root._borderSpec
     radius: Style.cornerRadius
@@ -55,21 +65,21 @@ Item {
     interactive: contentHeight > height
     TextArea.flickable: TextArea {
       id: area
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
+      font.family: root.fontFamily
+      font.pixelSize: root.fontSize
       color: root.foreground
-      selectionColor: Style.selectionFillFor(root.foreground, root.accent)
+      selectionColor: root.selectionFill
       selectedTextColor: root.foreground
-      placeholderTextColor: Qt.darker(root.foreground, 1.6)
+      placeholderTextColor: root.placeholderColor
       wrapMode: TextEdit.Wrap
       selectByMouse: true
       persistentSelection: false
       hoverEnabled: true
       background: null
-      leftPadding: Style.spacing.controlPaddingX + Border.left(root._borderSpec)
-      rightPadding: Style.spacing.controlPaddingX + Border.right(root._borderSpec)
-      topPadding: Style.spacing.inputPaddingY + Border.top(root._borderSpec)
-      bottomPadding: Style.spacing.inputPaddingY + Border.bottom(root._borderSpec)
+      leftPadding: root.paddingX + (root.framed ? Border.left(root._borderSpec) : 0)
+      rightPadding: root.paddingX + (root.framed ? Border.right(root._borderSpec) : 0)
+      topPadding: root.paddingY + (root.framed ? Border.top(root._borderSpec) : 0)
+      bottomPadding: root.paddingY + (root.framed ? Border.bottom(root._borderSpec) : 0)
       onTextChanged: if (text.length > limiter.max) { var c = cursorPosition; text = text.substring(0, limiter.max); cursorPosition = Math.min(c, limiter.max) }
       Keys.onPressed: function(event) {
         root.keyPressed(event)
