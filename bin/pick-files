@@ -1,0 +1,70 @@
+#!/usr/bin/python3
+"""Ask the desktop's file portal (xdg-desktop-portal) for files to send.
+
+    pick-files [title]
+
+Prints one path per line and exits 0 when files were chosen; exits 1 when
+the dialog was cancelled; 2 when the portal was not available. The dialog
+is drawn by the portal's own process, so nothing here touches the shell.
+"""
+import os
+import sys
+
+import gi
+
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+
+title = sys.argv[1] if len(sys.argv) > 1 else "Open"
+
+
+def main() -> int:
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    except GLib.Error as e:
+        print("no session bus: %s" % e, file=sys.stderr)
+        return 2
+    sender = bus.get_unique_name()[1:].replace(".", "_")
+    token = "yapper%d" % os.getpid()
+    handle = "/org/freedesktop/portal/desktop/request/%s/%s" % (sender, token)
+    loop = GLib.MainLoop()
+    result = {}
+
+    def on_response(_conn, _sender, _path, _iface, _signal, params):
+        code, results = params.unpack()
+        result["code"] = code
+        result["uris"] = list(results.get("uris", []))
+        loop.quit()
+
+    def subscribe(path):
+        bus.signal_subscribe("org.freedesktop.portal.Desktop", "org.freedesktop.portal.Request", "Response",
+                             path, None, Gio.DBusSignalFlags.NONE, on_response)
+
+    subscribe(handle)
+    options = {
+        "handle_token": GLib.Variant("s", token),
+        "multiple": GLib.Variant("b", True),
+        "accept_label": GLib.Variant("s", "Send"),
+    }
+    try:
+        reply = bus.call_sync("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop",
+                              "org.freedesktop.portal.FileChooser", "OpenFile",
+                              GLib.Variant("(ssa{sv})", ("", title, options)),
+                              GLib.VariantType("(o)"), Gio.DBusCallFlags.NONE, -1, None)
+    except GLib.Error as e:
+        print("file portal unavailable: %s" % e.message, file=sys.stderr)
+        return 2
+    actual = reply.unpack()[0]
+    if actual != handle:  # older portals pick their own handle
+        subscribe(actual)
+    GLib.timeout_add_seconds(3600, loop.quit)
+    loop.run()
+    if result.get("code") != 0:
+        return 1
+    for uri in result["uris"]:
+        print(GLib.filename_from_uri(uri)[0])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

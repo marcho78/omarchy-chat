@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Dialogs
 import Quickshell.Io
 import "Format.js" as Format
 
@@ -598,12 +597,28 @@ Item {
       })
     }
   }
-  function attach() { fileDialog.open() }
-  FileDialog {
-    id: fileDialog
-    title: "Send a file"
-    fileMode: FileDialog.OpenFiles
-    onAccepted: session.sendFiles(selectedFiles)
+  // The file picker is the desktop's portal dialog, run out of process:
+  // Qt's own dialog would start GTK inside the shell (the platform theme
+  // is gtk3) and its dconf worker aborts, taking the shell with it.
+  function attach() { if (!picker.running) picker.running = true }
+  readonly property string pickerPath: Qt.resolvedUrl("../bin/pick-files").toString().replace(/^file:\/\//, "")
+  Process {
+    id: picker
+    property string out: ""
+    property string err: ""
+    command: ["/usr/bin/python3", session.pickerPath, "Send a file"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { picker.out += d } }
+    stderr: SplitParser { splitMarker: ""; onRead: function(d) { picker.err += d } }
+    onStarted: { out = ""; err = "" }
+    onExited: function(code) {
+      if (code === 0) {
+        var paths = picker.out.split("\n").filter(function(l) { return l.trim() !== "" })
+        if (paths.length) session.sendFiles(paths)
+      } else if (code !== 1) {
+        session.errorText = "Could not open the file picker" + (picker.err.trim() !== "" ? ": " + picker.err.trim() : "")
+      }
+      session.focusComposerRequested()
+    }
   }
 
   // Ctrl+V with an image on the clipboard sends it; otherwise it pastes text.
