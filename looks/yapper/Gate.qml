@@ -23,11 +23,11 @@ Item {
   property bool usePassword: false
   property bool busy: false
   property string errorText: ""
-  property bool copied: false
+  property string copied: ""   // which card's command was copied
   property bool confirmForget: false
   function focusFirst() { if (root.state === "signin") homeserverField.forceActiveFocus() }
   function clearSecrets() { passwordField.text = "" }
-  Timer { id: copiedReset; interval: 1600; onTriggered: root.copied = false }
+  Timer { id: copiedReset; interval: 1600; onTriggered: root.copied = "" }
   component Note: Text { width: parent.width; wrapMode: Text.Wrap; lineHeight: 1.35; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f12 }
 
   function startOauth() {
@@ -98,75 +98,87 @@ Item {
         }
       }
 
-      // Missing: build it here, once the tools are present
+      // Missing: two ways in, both through pacman in a terminal you can watch
       Column {
         width: parent.width
         visible: root.state === "missing"
-        spacing: ui.px(14)
-        readonly property bool toolsReady: root.service ? root.service.toolchainReady : false
-        readonly property bool building: root.service ? (root.service.building || root.service.buildPhase === "error" || root.service.buildPhase === "done") : false
-        // The tools you install yourself
-        Rectangle {
+        spacing: ui.px(12)
+        component InstallCard: Rectangle {
+          id: card
+          property string title: ""
+          property string body: ""
+          property string kind: "bin"
+          property string icon: "download-simple"
+          property string time: ""
+          property bool recommended: false
           width: parent.width
-          visible: !parent.toolsReady && !parent.building
-          height: toolsColumn.implicitHeight + ui.px(32)
+          height: cardColumn.implicitHeight + ui.px(32)
           radius: ui.px(10)
           color: root.c.bg2
           border.width: 1
-          border.color: root.c.line
+          border.color: card.recommended ? root.c.accent : root.c.line
           Column {
-            id: toolsColumn
+            id: cardColumn
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: ui.px(16)
             spacing: ui.px(10)
-            Text { text: "Rust and git are needed to build it"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
-            Note { text: "Yapper builds the daemon on your machine and keeps it in your home folder — no package, no root. The only thing to install from the Arch repos is the toolchain, once:" }
-            Rectangle {
+            Row {
               width: parent.width
-              height: ui.px(40)
-              radius: ui.px(7)
-              color: root.c.bg
-              border.width: 1
-              border.color: root.c.line
-              Text { anchors.left: parent.left; anchors.leftMargin: ui.px(12); anchors.verticalCenter: parent.verticalCenter; text: "sudo " + (root.service ? root.service.toolchainCommand : ""); color: root.c.fg; font.family: ui.mono; font.pixelSize: ui.f12 }
+              spacing: ui.px(10)
+              Icon { anchors.verticalCenter: parent.verticalCenter; name: card.icon; weight: "fill"; size: ui.px(18); color: root.c.accent }
+              Text { anchors.verticalCenter: parent.verticalCenter; text: card.title; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
+              Rectangle { anchors.verticalCenter: parent.verticalCenter; visible: card.recommended; height: ui.px(18); width: recLabel.implicitWidth + ui.px(14); radius: ui.px(9); color: root.c.sel; Text { id: recLabel; anchors.centerIn: parent; text: "Recommended"; color: root.c.accent; font.family: ui.sans; font.pixelSize: ui.f10; font.weight: Font.DemiBold } }
+              Text { anchors.verticalCenter: parent.verticalCenter; text: card.time; color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.f11 }
             }
+            Note { text: card.body }
             Flow {
               width: parent.width
               spacing: ui.px(8)
-              PillButton { c: root.c; label: root.copied ? "Copied" : "Copy command"; icon: root.copied ? "check-circle" : "copy"; iconWeight: root.copied ? "fill" : "regular"; primary: true; round: true; onClicked: { root.service.copyText("sudo " + root.service.toolchainCommand); root.copied = true; copiedReset.restart() } }
-              PillButton { c: root.c; label: "Check again"; icon: "arrows-clockwise"; round: true; onClicked: root.service.checkInstalled() }
+              PillButton { c: root.c; label: "Install in a terminal"; icon: "terminal-window"; primary: card.recommended; round: true; enabled: !root.service.installPending; onClicked: root.service.installDaemon(card.kind, false) }
+              PillButton { c: root.c; label: root.copied === card.kind ? "Copied" : "Copy the command"; icon: root.copied === card.kind ? "check-circle" : "copy"; iconWeight: root.copied === card.kind ? "fill" : "regular"; round: true; onClicked: { root.service.copyText(root.service.installCommand(card.kind, false)); root.copied = card.kind; copiedReset.restart() } }
             }
           }
         }
-        // Ready to build
+        Note { text: "Yapper needs the omarchy-yapperd daemon, release " + (root.service ? root.service.daemonPinVersion : "") + ", installed as a pacman package. Pick one; both fetch the daemon's repository at a fixed commit into ~/.cache/omarchy-yapper and run makepkg -si, which asks for your password to install the package. Nothing runs as root apart from pacman." }
+        InstallCard {
+          kind: "bin"; recommended: true; icon: "download-simple"; time: "about a minute"
+          title: "Install the prebuilt daemon"
+          body: "The binary the daemon's GitHub Actions workflow built for this release, verified against the checksum in its PKGBUILD. No compiler needed."
+        }
+        InstallCard {
+          kind: "source"; icon: "hammer"; time: "10–25 minutes"
+          title: "Build it from source"
+          body: "Compiles the daemon on this machine with cargo. makepkg installs rust and git first if they are missing. Compiling matrix-rust-sdk takes a while; you can keep using the desktop."
+        }
+        // While the terminal is open
         Rectangle {
           width: parent.width
-          visible: parent.toolsReady && !parent.building
-          height: readyColumn.implicitHeight + ui.px(32)
+          visible: root.service && root.service.installPending
+          height: pendingRow.implicitHeight + ui.px(28)
           radius: ui.px(10)
           color: root.c.bg2
           border.width: 1
-          border.color: root.c.line
-          Column {
-            id: readyColumn
+          border.color: root.c.accent
+          Row {
+            id: pendingRow
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: ui.px(16)
+            anchors.margins: ui.px(14)
             spacing: ui.px(10)
-            Text { text: "Build the daemon from source"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
-            Note { text: "Release " + (root.service ? root.service.daemonPinVersion : "") + " is fetched from GitHub at a fixed commit, compiled with cargo in ~/.cache/omarchy-yapper, and installed to ~/.local/bin with a systemd user unit. Nothing runs as root and no binary is downloaded. The first build takes a while (10–25 minutes); you can keep working meanwhile." }
-            Flow {
-              width: parent.width
-              spacing: ui.px(8)
-              PillButton { c: root.c; label: "Build and install"; icon: "hammer"; primary: true; round: true; onClicked: root.service.installDaemon(false) }
-              PillButton { c: root.c; label: "Read the source"; icon: "github-logo"; round: true; onClicked: Quickshell.execDetached(["omarchy-launch-browser", root.service.daemonRepo + "/tree/" + root.service.daemonPinCommit]) }
+            Icon { anchors.verticalCenter: parent.verticalCenter; name: "spinner"; size: ui.px(18); color: root.c.accent
+              RotationAnimation on rotation { from: 0; to: 360; duration: 1200; loops: Animation.Infinite; running: parent.visible } }
+            Column {
+              width: parent.width - ui.px(28) - ui.px(120)
+              spacing: ui.px(3)
+              Text { width: parent.width; wrapMode: Text.Wrap; text: "Installing " + root.service.installTargetVersion + " in the terminal window"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
+              Note { text: "This card updates by itself when the daemon is installed. If you closed the terminal, press Check again." }
             }
+            PillButton { anchors.verticalCenter: parent.verticalCenter; c: root.c; label: "Check again"; icon: "arrows-clockwise"; round: true; onClicked: root.service.checkInstalled() }
           }
         }
-        BuildProgress { width: parent.width; visible: parent.building; c: root.c; service: root.service }
       }
 
       // Stopped: the unit

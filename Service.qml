@@ -27,8 +27,10 @@ Item {
   // The daemon release this plugin was tested with: built from exactly this
   // commit by bin/yapper-helper into ~/.local/bin (no package, no root).
   // An update builds the newest release tag instead (see daemonLatestCommit).
-  readonly property string daemonPinVersion: "0.21.1"
-  readonly property string daemonPinCommit: "c65abb77b108373bd4c02e99a4a1c02a0eb35b0a"
+  // The daemon release this plugin installs: the packaging commit tagged pkg-vX.Y.Z in the
+  // daemon repository, which holds both PKGBUILDs for that version with checksums filled in.
+  readonly property string daemonPinVersion: "0.22.0"
+  readonly property string daemonPinCommit: "0000000000000000000000000000000000000000"
   // The one thing the user installs themselves: the build tools.
   readonly property string toolchainCommand: "pacman -S --needed rust git"
   readonly property string helperPath: pluginDir + "/bin/yapper-helper"
@@ -308,13 +310,12 @@ Item {
 
   // ---------- daemon discovery / start ----------
 
-  function checkInstalled() {
-    if (!statusProc.running) statusProc.running = true
-    if (!toolchainProc.running) toolchainProc.running = true
-  }
-  // Where the daemon lives: "" (not installed), "local" (~/.local/bin) or "packaged" (/usr/bin).
-  property string daemonPlace: ""
-  property string buildLogPath: ""
+  function checkInstalled() { if (!statusProc.running) statusProc.running = true }
+  // Which pacman package provides the daemon: "omarchy-yapperd" (built from source),
+  // "omarchy-yapperd-bin" (prebuilt release) or "" (not installed).
+  property string daemonPackage: ""
+  property string daemonPackageVersion: ""
+  readonly property string daemonKind: daemonPackage === "omarchy-yapperd-bin" ? "bin" : daemonPackage === "omarchy-yapperd" ? "source" : ""
   Process {
     id: statusProc
     property string out: ""
@@ -324,95 +325,71 @@ Item {
     onExited: function(code) {
       var st = null
       try { st = JSON.parse(statusProc.out) } catch (e) { st = null }
-      root.daemonPlace = st ? (st.local ? "local" : (st.packaged ? "packaged" : "")) : ""
-      root.buildLogPath = st && st.log ? String(st.log) : ""
-      root.installed = root.daemonPlace !== ""
+      root.daemonPackage = st && st.package ? String(st.package) : ""
+      root.daemonPackageVersion = st && st.version ? String(st.version) : ""
+      root.installed = st ? st.binary === true : false
       root.checked = true
       if (root.installed) root.connectSocket()
     }
   }
-  // Build tools present? { git, cargo, rustc, ready }
-  property var toolchain: null
-  readonly property bool toolchainReady: toolchain !== null && toolchain.ready === true
-  Process {
-    id: toolchainProc
-    property string out: ""
-    command: ["/usr/bin/python3", "-I", root.helperPath, "toolchain"]
-    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (toolchainProc.out.length < 4096) toolchainProc.out += d } }
-    onStarted: out = ""
-    onExited: function() { try { root.toolchain = JSON.parse(toolchainProc.out) } catch (e) { root.toolchain = null } }
-  }
-
-  // ---------- building the daemon ----------
-  // The helper clones the daemon at one commit, builds it with cargo and
-  // installs binary + unit under $HOME, reporting progress as JSON lines.
-  property bool building: false
-  property string buildPhase: ""        // fetch | build | install | start | done | error
-  property int buildDone: 0
-  property int buildTotal: 0
-  property string buildMessage: ""
-  property string buildError: ""
-  property real buildStartedAt: 0
-  property int buildElapsed: 0          // seconds
-  property string buildTarget: ""       // version being built
-  Timer { interval: 1000; repeat: true; running: root.building; onTriggered: root.buildElapsed = Math.floor((Date.now() - root.buildStartedAt) / 1000) }
-  function installDaemon(update) {
-    if (root.building) return
+  // ---------- installing the daemon ----------
+  // Both ways go through pacman. The helper clones the daemon repository at the pinned
+  // commit and runs makepkg -si in an ordinary terminal window, where pacman asks for
+  // the password. "bin" installs the prebuilt release, "source" compiles it.
+  readonly property string daemonCheckout: "~/.cache/omarchy-yapper/omarchy-yapperd"
+  property bool installPending: false       // a terminal is open; poll until the daemon changes
+  property string installTargetVersion: ""
+  function installCommand(kind, update) {
     var commit = update && root.daemonLatestCommit !== "" ? root.daemonLatestCommit : root.daemonPinCommit
-    root.buildTarget = update && root.daemonLatest !== "" ? root.daemonLatest : root.daemonPinVersion
-    root.building = true
-    root.buildPhase = "fetch"; root.buildDone = 0; root.buildTotal = 0; root.buildMessage = "Starting"; root.buildError = ""
-    root.buildStartedAt = Date.now(); root.buildElapsed = 0
-    buildProc.command = ["/usr/bin/setsid", "-w", "/usr/bin/python3", "-I", root.helperPath, "install", root.daemonRepo, commit]
-    buildProc.running = true
+    var dir = root.daemonCheckout
+    return "git -C " + dir + " fetch --tags 2>/dev/null || git clone " + root.daemonRepo + " " + dir + "; "
+      + "git -C " + dir + " checkout --detach " + commit + " && cd " + dir + "/packaging" + (kind === "bin" ? "/bin" : "") + " && makepkg -sif --needed"
   }
-  function updateDaemon() { root.installDaemon(true) }
-  function cancelBuild() {
-    if (!buildProc.running) return
-    // setsid made the helper a group leader: end the whole build group.
-    Quickshell.execDetached(["/usr/bin/kill", "-TERM", "--", "-" + buildProc.processId])
+  function installDaemon(kind, update) {
+    var commit = update && root.daemonLatestCommit !== "" ? root.daemonLatestCommit : root.daemonPinCommit
+    root.installTargetVersion = update && root.daemonLatest !== "" ? root.daemonLatest : root.daemonPinVersion
+    root.installPending = true
+    installPoll.count = 0
+    Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/python3", "-I", root.helperPath, "install", kind, root.daemonRepo, commit])
   }
-  function showBuildLog() {
-    if (root.buildLogPath === "") return
-    Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/less", "+F", root.buildLogPath])
-  }
-  Process {
-    id: buildProc
-    property string err: ""
-    stdout: SplitParser {
-      onRead: function(line) {
-        if (line.length > 4096) return
-        var m = null
-        try { m = JSON.parse(line) } catch (e) { return }
-        if (!m || !m.phase) return
-        root.buildPhase = String(m.phase)
-        root.buildDone = Number(m.done) || 0
-        root.buildTotal = Number(m.total) || 0
-        root.buildMessage = String(m.message || "")
-        if (m.phase === "error") root.buildError = String(m.message || "The build failed")
-      }
-    }
-    stderr: SplitParser { splitMarker: ""; onRead: function(d) { if (buildProc.err.length < 4096) buildProc.err += d } }
-    onStarted: err = ""
-    onExited: function(code) {
-      root.building = false
-      if (code === 0 && root.buildPhase === "done") {
+  function updateDaemon() { root.installDaemon(root.daemonKind !== "" ? root.daemonKind : "bin", true) }
+  // While the terminal runs, look every few seconds for the package to appear or change.
+  Timer {
+    id: installPoll
+    property int count: 0
+    interval: 5000
+    repeat: true
+    running: root.installPending
+    onTriggered: {
+      count++
+      if (count > 720) { root.installPending = false; return }   // an hour
+      if (!statusProc.running) statusProc.running = true
+      if (root.installed && root.daemonPackageVersion === root.installTargetVersion) {
+        root.installPending = false
         root.startError = ""
-        root.checkInstalled()
-      } else if (root.buildError === "") {
-        root.buildError = code === 143 || code === -15 ? "The build was cancelled" : ("The build stopped (exit " + code + ")" + (buildProc.err.trim() !== "" ? ": " + buildProc.err.trim().split("\n").slice(-3).join(" ") : ""))
-        root.buildPhase = "error"
+        root.request("status", {}, function(r) { if (r.ok) root.status = r.result })
       }
     }
   }
-  function removeDaemon(withData) {
-    if (root.building || removeProc.running) return
-    removeProc.command = withData ? ["/usr/bin/python3", "-I", root.helperPath, "remove", "--data"] : ["/usr/bin/python3", "-I", root.helperPath, "remove"]
-    removeProc.running = true
+  function removeCommand() { return "sudo pacman -R " + (root.daemonPackage !== "" ? root.daemonPackage : "omarchy-yapperd") }
+  function removeDaemon() {
+    if (root.daemonPackage === "") return
+    Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/sudo", "/usr/bin/pacman", "-R", root.daemonPackage])
+    root.installPending = false
+    removePoll.count = 0
+    removePoll.running = true
   }
-  Process {
-    id: removeProc
-    onExited: function() { root.connected = false; root.checkInstalled() }
+  Timer {
+    id: removePoll
+    property int count: 0
+    interval: 5000
+    repeat: true
+    onTriggered: {
+      count++
+      if (count > 120) { running = false; return }
+      if (!statusProc.running) statusProc.running = true
+      if (!root.installed) { running = false; root.connected = false }
+    }
   }
 
   // Called by a view when it opens: make sure the daemon is up.
@@ -1119,8 +1096,9 @@ Item {
   Process {
     id: daemonCheck
     property string out: ""
-    // No --refs: annotated tags then also list "tag^{}" with the commit they point at
-    command: ["/usr/bin/git", "ls-remote", "--tags", root.daemonRepo, "refs/tags/v*"]
+    // pkg-vX.Y.Z marks the packaging commit of a release (both PKGBUILDs with checksums).
+    // No --refs: annotated tags then also list "tag^{}" with the commit they point at.
+    command: ["/usr/bin/git", "ls-remote", "--tags", root.daemonRepo, "refs/tags/pkg-v*"]
     environment: ({ GIT_TERMINAL_PROMPT: "0" })
     stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (daemonCheck.out.length < 65536) daemonCheck.out += d } }
     onStarted: out = ""
@@ -1129,7 +1107,7 @@ Item {
       var tagSha = {}, peeledSha = {}
       var lines = daemonCheck.out.split("\n")
       for (var i = 0; i < lines.length; i++) {
-        var m = /^([0-9a-f]{40})\s+refs\/tags\/(v\d+\.\d+\.\d+)(\^\{\})?$/.exec(lines[i].trim())
+        var m = /^([0-9a-f]{40})\s+refs\/tags\/pkg-(v\d+\.\d+\.\d+)(\^\{\})?$/.exec(lines[i].trim())
         if (!m) continue
         if (m[3]) peeledSha[m[2]] = m[1]; else tagSha[m[2]] = m[1]
       }

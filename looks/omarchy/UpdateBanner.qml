@@ -2,7 +2,6 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 import "../../shared"
-import "../../shared/Format.js" as Format
 
 // "An update is available" card. Hidden when there is nothing to do.
 Rectangle {
@@ -50,10 +49,9 @@ Rectangle {
         Text {
           width: parent.width
           wrapMode: Text.WordWrap
-          text: root.service && root.service.building
-            ? "Building " + root.service.buildTarget + " — " + (root.service.buildPhase === "build" && root.service.buildTotal > 0 ? root.service.buildDone + " of " + root.service.buildTotal + " crates" : root.service.buildMessage) + "  ·  " + Format.clock(root.service.buildElapsed)
-            : root.service && root.service.buildPhase === "error" ? "The build stopped: " + root.service.buildError
-            : "You have " + (root.service ? root.service.daemonVersion : "") + ". Builds from source in the background (the first time takes a while), then restarts the daemon; your session stays signed in."
+          text: root.service && root.service.installPending
+            ? "Installing " + root.service.installTargetVersion + " in the terminal window."
+            : "You have " + (root.service ? root.service.daemonVersion : "") + ". Updates through pacman in a terminal, then restarts the daemon; your session stays signed in."
           color: root.fg
           opacity: 0.7
           font.family: root.fontFamily
@@ -64,9 +62,9 @@ Rectangle {
         id: daemonButton
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        text: root.service && root.service.building ? "Building…" : root.service && root.service.buildPhase === "error" ? "Try again" : "Update"
+        text: root.service && root.service.installPending ? "Installing…" : "Update"
         bordered: true
-        enabled: !(root.service && root.service.building)
+        enabled: !(root.service && root.service.installPending)
         onClicked: root.service.updateDaemon()
       }
     }

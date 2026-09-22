@@ -203,11 +203,11 @@ Item {
                 Text { anchors.verticalCenter: parent.verticalCenter; width: parent.width - ui.px(52); elide: Text.ElideRight; text: root.service && root.service.daemonUpdateAvailable ? "Daemon " + root.service.daemonLatest + " available" : "Plugin update available"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
                 IconButton { anchors.verticalCenter: parent.verticalCenter; c: root.c; icon: "x"; size: ui.px(22); iconSize: ui.px(13); radius: ui.px(6); onClicked: root.updateDismissed = true }
               }
-              Text { width: parent.width; wrapMode: Text.Wrap; lineHeight: 1.3; text: root.service && root.service.daemonUpdateAvailable ? "You have " + root.service.daemonVersion + ". Builds in a terminal you can watch; your session stays signed in." : (root.service ? root.service.pluginUpdateCount + " new change" + (root.service.pluginUpdateCount === 1 ? "" : "s") + ". Shows the diff in a terminal, then restarts the shell." : ""); color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
+              Text { width: parent.width; wrapMode: Text.Wrap; lineHeight: 1.3; text: root.service && root.service.daemonUpdateAvailable ? "You have " + root.service.daemonVersion + ". Installs through pacman in a terminal; your session stays signed in." : (root.service ? root.service.pluginUpdateCount + " new change" + (root.service.pluginUpdateCount === 1 ? "" : "s") + ". Shows the diff in a terminal, then restarts the shell." : ""); color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
               Row {
                 topPadding: ui.px(5)
                 spacing: ui.px(6)
-                PillButton { c: root.c; label: "Update"; warn: true; round: true; onClicked: { if (root.service.daemonUpdateAvailable) { root.service.updateDaemon(); root.service.openWindow({ settings: "about" }); root.closeRequested() } else root.service.updatePlugin() } }
+                PillButton { c: root.c; label: "Update"; warn: true; round: true; onClicked: { if (root.service.daemonUpdateAvailable) root.service.updateDaemon(); else root.service.updatePlugin(); root.closeRequested() } }
                 PillButton { c: root.c; label: "Later"; round: true; onClicked: root.updateDismissed = true }
               }
             }

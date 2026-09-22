@@ -41,28 +41,33 @@ connection to the daemon and stay in step.
 omarchy plugin add https://github.com/marcho78/omarchy-yapper.git --enable
 ```
 
-Click the chat icon. Without the daemon the panel offers to build it. The
-plugin never downloads a binary and never asks for root:
+Click the chat icon. Without the daemon the panel offers two ways to install
+it, both as a pacman package, both in an ordinary terminal window you can
+watch, and both pinned to one commit of the daemon repository:
 
-1. If `cargo` or `git` is missing it shows the one command you run yourself
-   (`sudo pacman -S --needed rust git`) with a copy button, then **Check again**.
-2. **Build and install** runs `bin/yapper-helper` (Python, shipped with the
-   plugin) in the background. It clones
-   `https://github.com/marcho78/omarchy-yapperd` into
-   `~/.cache/omarchy-yapper/build/`, checks out the release commit the plugin
-   pins (a full SHA, detached), runs `cargo build --release --locked`, and
-   installs the binary to `~/.local/bin/omarchy-yapperd` with a systemd user
-   unit at `~/.config/systemd/user/omarchy-yapperd.service`, then enables and
-   starts it.
-3. The panel shows the phase (fetch, build, install, start), a progress bar
-   from crates compiled, and the elapsed time. The first build compiles
-   matrix-rust-sdk and takes a while; the build directory is kept so updates
-   are much faster. **Show log** opens `~/.cache/omarchy-yapper/build/build.log`
-   in your terminal; **Cancel** stops the build.
+- **Install the prebuilt daemon** (about a minute): `omarchy-yapperd-bin`,
+  from `packaging/bin/PKGBUILD`. It downloads the tarball that the daemon's
+  GitHub Actions workflow built for the release and checks it against the
+  sha256 recorded in the PKGBUILD. No compiler needed.
+- **Build it from source** (10 to 25 minutes): `omarchy-yapperd`, from
+  `packaging/PKGBUILD`. makepkg installs `rust` and `git` if they are missing
+  and compiles the daemon on your machine.
 
-An existing `omarchy-yapperd` pacman package (from `packaging/PKGBUILD` in the
-daemon repo) keeps working; Settings › Daemon shows which one is in use and
-can rebuild into `~/.local/bin` or remove the local build again.
+Either button runs `bin/yapper-helper` (Python, shipped with the plugin) in
+a terminal through `/usr/bin/xdg-terminal-exec`. The helper clones
+`https://github.com/marcho78/omarchy-yapperd` into
+`~/.cache/omarchy-yapper/omarchy-yapperd`, checks out the pinned commit,
+verifies it, and runs `makepkg -sif --needed` in the package directory. pacman
+asks for your password in that terminal; nothing else runs as root and the
+plugin itself downloads or executes nothing. **Copy the command** gives you
+the same steps as one shell line to run yourself. When the package is
+installed the helper enables and starts the `omarchy-yapperd` user unit and
+the panel moves on by itself.
+
+Settings › Daemon shows which package is installed, reinstalls or switches
+between the two, and removes the package (`sudo pacman -R`, again in a
+terminal). Updates are offered when the daemon repository has a newer
+`pkg-vX.Y.Z` tag and install the same way.
 
 Once the daemon runs the panel shows the sign-in form. Any
 Matrix homeserver works; `matrix.org` is pre-filled.
