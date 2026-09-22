@@ -71,8 +71,9 @@ Item {
         if (p && p.settings === true) root.openSettings("")
         if (p && typeof p.settings === "string") root.openSettings(p.settings)
         if (p && typeof p.pick === "string") root.openSettings("appearance", p.pick)
-        if (p && typeof p.search === "string") root.view = "search"
+        if (p && typeof p.search === "string") { search.scope = ""; search.query = p.search; root.view = "search"; if (p.search !== "") Qt.callLater(search.run) }
         if (p && p.people === true) root.view = "people"
+        if (p && p.explore === true) root.view = "explore"
         if (p && typeof p.space === "string" && service) service.currentSpace = p.space
       } catch (e) { /* ignore */ }
     }
@@ -243,9 +244,9 @@ Item {
         currentRoom: root.view === "chat" ? root.roomId : ""
         onRoomChosen: function(r) { root.openRoom(r) }
         onCreateRequested: root.view = "explore"
-        onExploreRequested: function(q) { root.view = "explore" }
-        onPeopleRequested: function(q) { root.view = "people" }
-        onSearchRequested: function(q) { root.view = "search" }
+        onExploreRequested: function(q) { explore.query = q; root.view = "explore" }
+        onPeopleRequested: function(q) { people.query = q; root.view = "people" }
+        onSearchRequested: function(q) { search.scope = ""; search.query = q; root.view = "search"; Qt.callLater(search.run) }
         onSettingsRequested: function(section) { root.openSettings(section) }
       }
 
@@ -330,7 +331,7 @@ Item {
             anchors.rightMargin: ui.px(14)
             anchors.verticalCenter: parent.verticalCenter
             spacing: ui.px(2)
-            IconButton { c: root.c; tips: tips; icon: "magnifying-glass"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Search this room"; onClicked: root.view = "search" }
+            IconButton { c: root.c; tips: tips; icon: "magnifying-glass"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Search this room"; onClicked: { search.scope = root.roomId; root.view = "search" } }
             IconButton { c: root.c; tips: tips; icon: "users"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Members"; active: root.panel === "info"; onClicked: root.togglePanel("info") }
             IconButton { c: root.c; tips: tips; icon: "info"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Room info"; active: root.panel === "info"; onClicked: root.togglePanel("info") }
           }
@@ -468,51 +469,41 @@ Item {
           onPeopleRequested: root.view = "people"
         }
 
-        // The other views, arriving in later steps
-        Item {
+        Explore {
+          id: explore
           anchors.fill: parent
-          visible: root.view !== "chat" && root.view !== "settings"
-          Item {
-            id: viewHeader
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            height: ui.headerHeight
-            Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: root.c.line }
-            Row {
-              anchors.left: parent.left
-              anchors.leftMargin: ui.px(14)
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: ui.px(10)
-              Icon {
-                anchors.verticalCenter: parent.verticalCenter
-                name: root.view === "people" ? "users-three" : root.view === "explore" ? "compass" : root.view === "search" ? "magnifying-glass" : "gear-six"
-                size: ui.px(18)
-                color: root.c.accent
-              }
-              Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.view === "people" ? "Omarchy community" : root.view === "explore" ? "Explore public rooms" : root.view === "search" ? "Search messages" : "Settings"
-                color: root.c.fg
-                font.family: ui.sans; font.pixelSize: ui.f14; font.weight: Font.DemiBold
-              }
-            }
-            IconButton {
-              anchors.right: parent.right
-              anchors.rightMargin: ui.px(14)
-              anchors.verticalCenter: parent.verticalCenter
-              c: root.c; tips: tips
-              icon: "x"; size: ui.px(32); iconSize: ui.px(16)
-              tooltip: "Back to chat"
-              onClicked: root.view = "chat"
-            }
+          visible: root.view === "explore"
+          c: root.c
+          tips: tips
+          service: root.service
+          onRoomChosen: function(r) { root.openRoom(r) }
+          onCloseRequested: root.view = "chat"
+        }
+        People {
+          id: people
+          anchors.fill: parent
+          visible: root.view === "people"
+          c: root.c
+          tips: tips
+          service: root.service
+          onMessageRequested: function(id) { sidebar.chat(id) }
+          onCloseRequested: root.view = "chat"
+        }
+        Search {
+          id: search
+          anchors.fill: parent
+          visible: root.view === "search"
+          c: root.c
+          tips: tips
+          service: root.service
+          scopeName: roomView.roomName
+          onOpenMessage: function(rid, eid) {
+            var r = root.service.roomById(rid)
+            if (!r) return
+            root.view = "chat"
+            if (roomView.roomId === rid) roomView.jumpTo(eid); else roomView.openAt(r, eid)
           }
-          Text {
-            anchors.centerIn: parent
-            text: "This view is built in a later step of the new look."
-            color: root.c.muted
-            font.family: ui.sans; font.pixelSize: ui.f12
-          }
+          onCloseRequested: root.view = "chat"
         }
       }
     }
