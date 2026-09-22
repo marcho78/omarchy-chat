@@ -16,6 +16,7 @@ Item {
   property string roomId: ""
   signal memberChosen(var member)
   signal leftRoom()
+  signal inviteRequested()
   Ui { id: ui }
 
   property var details: null
@@ -552,7 +553,7 @@ Item {
             Icon { anchors.verticalCenter: parent.verticalCenter; name: "user-plus"; size: ui.px(15); color: inviteMouse.containsMouse ? root.c.accent : root.c.muted }
             Text { anchors.verticalCenter: parent.verticalCenter; text: "Invite people"; color: inviteMouse.containsMouse ? root.c.accent : root.c.muted; font.family: ui.sans; font.pixelSize: ui.px(12.5) }
           }
-          MouseArea { id: inviteMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.startEdit("invite") }
+          MouseArea { id: inviteMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.inviteRequested() }
         }
       }
     }

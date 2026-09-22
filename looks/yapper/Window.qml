@@ -4,7 +4,6 @@ import qs.Commons
 import "../../shared"
 import "../../shared/Palettes.js" as Palettes
 import "../../shared/Format.js" as Format
-import "../omarchy" as Omarchy
 
 // Yapper as an app window, in the designed look: a title strip, the rail,
 // the room list and the conversation, drawn from the chosen palette.
@@ -73,7 +72,11 @@ Item {
         if (p && typeof p.pick === "string") root.openSettings("appearance", p.pick)
         if (p && typeof p.search === "string") { search.scope = ""; search.query = p.search; root.view = "search"; if (p.search !== "") Qt.callLater(search.run) }
         if (p && p.people === true) root.view = "people"
-        if (p && p.explore === true) root.view = "explore"
+        if (p && p.explore === true) { if (typeof p.query === "string") explore.query = p.query; root.view = "explore" }
+        if (p && p.create === true) newRoomDialog.open = true
+        if (p && p.join === true) joinDialog.open = true
+        if (p && p.verify === true) verifyDialog.open = true
+        if (p && p.invite === true) inviteDialog.open = true
         if (p && typeof p.space === "string" && service) service.currentSpace = p.space
       } catch (e) { /* ignore */ }
     }
@@ -160,52 +163,17 @@ Item {
       }
     }
 
-    // Signed out: the gate, centred.
-    Item {
+    // Signed out: the gate
+    Gate {
+      id: gate
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: titleStrip.bottom
       anchors.bottom: parent.bottom
       visible: !root.loggedIn
-      Rectangle {
-        anchors.centerIn: parent
-        width: Math.min(parent.width - ui.px(48), ui.px(520))
-        height: gateColumn.implicitHeight + ui.px(48)
-        radius: ui.px(12)
-        color: root.c.bg2
-        border.width: 1
-        border.color: root.c.line
-        Column {
-          id: gateColumn
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: parent.top
-          anchors.margins: ui.px(24)
-          spacing: ui.px(16)
-          Row {
-            spacing: ui.px(12)
-            Rectangle {
-              anchors.verticalCenter: parent.verticalCenter
-              width: ui.px(36); height: ui.px(36); radius: ui.px(10)
-              color: "#22b8a8"
-              Icon { anchors.centerIn: parent; name: "lock-simple"; weight: "fill"; size: ui.px(18); color: "#062b28" }
-            }
-            Column {
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: ui.px(2)
-              Text { text: "Yapper"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f15; font.weight: Font.DemiBold }
-              Text { text: root.service ? root.service.stateText : ""; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f12 }
-            }
-          }
-          Omarchy.SessionGate {
-            id: gate
-            width: parent.width
-            service: root.service
-            fg: root.c.fg
-            fontFamily: ui.sans
-          }
-        }
-      }
+      c: root.c
+      tips: tips
+      service: root.service
     }
 
     // Signed in: rail, sidebar, conversation
@@ -227,7 +195,7 @@ Item {
         view: root.view
         onViewRequested: function(v) { if (v === "settings") root.openSettings(""); else root.view = v }
         onSpaceRequested: function(id) { if (root.service) root.service.currentSpace = id }
-        onVerifyRequested: root.openSettings("encryption")
+        onVerifyRequested: verifyDialog.open = true
       }
 
       Sidebar {
@@ -243,7 +211,7 @@ Item {
         service: root.service
         currentRoom: root.view === "chat" ? root.roomId : ""
         onRoomChosen: function(r) { root.openRoom(r) }
-        onCreateRequested: root.view = "explore"
+        onCreateRequested: newRoomDialog.open = true
         onExploreRequested: function(q) { explore.query = q; root.view = "explore" }
         onPeopleRequested: function(q) { people.query = q; root.view = "people" }
         onSearchRequested: function(q) { search.scope = ""; search.query = q; root.view = "search"; Qt.callLater(search.run) }
@@ -419,6 +387,7 @@ Item {
             roomId: root.panel === "info" && main.panelOpen ? root.roomId : ""
             onMemberChosen: function(m) { root.closePanel(); sidebar.chat(m.id) }
             onLeftRoom: { root.closePanel(); roomView.close() }
+            onInviteRequested: inviteDialog.open = true
           }
         }
         RoomView {
@@ -505,6 +474,20 @@ Item {
           }
           onCloseRequested: root.view = "chat"
         }
+      }
+    }
+
+    // Dialogs
+    NewRoomDialog { id: newRoomDialog; c: root.c; tips: tips; service: root.service; onCreated: function(r) { root.openRoom(r) } }
+    InviteDialog { id: inviteDialog; c: root.c; tips: tips; service: root.service; roomId: root.roomId; roomName: roomView.roomName }
+    JoinDialog { id: joinDialog; c: root.c; tips: tips; service: root.service }
+    VerifyDialog { id: verifyDialog; c: root.c; tips: tips; service: root.service }
+    // Another of your devices asking to verify surfaces by itself.
+    Connections {
+      target: root.service
+      function onActiveFlowChanged() {
+        var f = root.service.activeFlow
+        if (f && !f.outgoing && f.state === "requested" && root.loggedIn) { window.visible = true; verifyDialog.open = true }
       }
     }
 
