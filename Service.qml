@@ -74,6 +74,10 @@ Item {
   function previewSetting(key, value) {
     var o = Object.assign({}, root.overrides); o[key] = value; root.overrides = o
   }
+  function dropPreview(key) {
+    if (root.overrides[key] === undefined) return
+    var o = Object.assign({}, root.overrides); delete o[key]; root.overrides = o
+  }
   function setting(key, fallback) {
     var o = root.overrides
     if (o[key] !== undefined) return o[key]

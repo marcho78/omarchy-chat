@@ -10,6 +10,9 @@ Rectangle {
   property var c: Palettes.fallback()
   property color value: "#888888"
   property string useLabel: "Use this color"
+  // `changed` fires as the color moves (for a live preview); `picked` on
+  // Use; `cleared` on Reset.
+  signal changed(string hex)
   signal picked(string hex)
   signal cleared()
   Ui { id: ui }
@@ -72,7 +75,7 @@ Rectangle {
         anchors.fill: parent
         cursorShape: Qt.CrossCursor
         preventStealing: true
-        function pick(m) { root.sat = Math.max(0, Math.min(1, m.x / width)); root.val = Math.max(0, Math.min(1, 1 - m.y / height)) }
+        function pick(m) { root.sat = Math.max(0, Math.min(1, m.x / width)); root.val = Math.max(0, Math.min(1, 1 - m.y / height)); root.changed(root.hex) }
         onPressed: function(m) { pick(m) }
         onPositionChanged: function(m) { if (pressed) pick(m) }
       }
@@ -109,7 +112,7 @@ Rectangle {
           anchors.margins: -4
           preventStealing: true
           cursorShape: Qt.PointingHandCursor
-          function pick(m) { root.hue = Math.max(0, Math.min(0.9999, (m.x - 4) / hueBar.width)) }
+          function pick(m) { root.hue = Math.max(0, Math.min(0.9999, (m.x - 4) / hueBar.width)); root.changed(root.hex) }
           onPressed: function(m) { pick(m) }
           onPositionChanged: function(m) { if (pressed) pick(m) }
         }
@@ -142,7 +145,7 @@ Rectangle {
               var t = text.trim().toLowerCase()
               if (t.charAt(0) !== "#") t = "#" + t
               if (!/^#[0-9a-f]{6}$/.test(t)) { text = root.hex; return }
-              if (t !== root.hex) root.load(t)
+              if (t !== root.hex) { root.load(t); root.changed(root.hex) }
             }
           }
         }
