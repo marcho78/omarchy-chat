@@ -6,6 +6,13 @@ All notable changes to the Yapper plugin. The format follows
 
 ## [Unreleased]
 
+## [1.0.1]
+
+### Changed
+- The plugin installs, reinstalls and updates only the daemon commit pinned
+  in the plugin release (`daemonPinCommit`). The run-time lookup of newer
+  `pkg-v*` tags is gone; a newer daemon ships as a new plugin release.
+
 ## [1.0.0]
 
 ### Added
@@ -27,5 +34,6 @@ All notable changes to the Yapper plugin. The format follows
 - Every program the plugin runs is named by absolute path; no shell.
 - American spelling throughout.
 
-[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/marcho78/omarchy-yapper/releases/tag/v1.0.0
