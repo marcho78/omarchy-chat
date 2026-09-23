@@ -1,5 +1,7 @@
 # Yapper
 
+![Yapper — chat for Omarchy](docs/banner.png)
+
 End-to-end encrypted chat, in the bar and as a window. It speaks Matrix, so
 it talks to Element and everyone else on the network; encryption is
 Olm/Megolm via matrix-rust-sdk, the same stack as Element X.
