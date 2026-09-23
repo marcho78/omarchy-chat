@@ -173,7 +173,7 @@ Item {
           Row {
             spacing: ui.px(8)
             PillButton { c: root.c; label: root.service && root.service.starting ? "Starting…" : "Start the daemon"; primary: true; round: true; enabled: !(root.service && root.service.starting); onClicked: root.service.startDaemon() }
-            PillButton { c: root.c; label: "View logs"; round: true; onClicked: Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", "journalctl --user -u omarchy-yapperd -n 200 -f"]) }
+            PillButton { c: root.c; label: "View logs"; round: true; onClicked: Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/journalctl", "--user", "-u", "omarchy-yapperd", "-n", "200", "-f"]) }
           }
         }
       }
