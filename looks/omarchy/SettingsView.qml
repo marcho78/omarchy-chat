@@ -80,7 +80,7 @@ Column {
             width: parent.width
             wrapMode: Text.WordWrap
             text: "Daemon " + (root.service && root.service.daemonVersion ? root.service.daemonVersion : "not running")
-              + (root.service && root.service.daemonLatest ? "  ·  newest " + root.service.daemonLatest : "")
+              + (root.service && root.service.daemonLatest ? "  ·  this plugin pins " + root.service.daemonLatest : "")
             color: root.fg
             opacity: 0.7
             font.family: root.fontFamily

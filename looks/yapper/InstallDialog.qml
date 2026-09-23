@@ -10,7 +10,7 @@ Modal {
   property var service: null
   property bool update: false
   property string kind: "bin"
-  readonly property string version: update && service && service.daemonLatest !== "" ? service.daemonLatest : (service ? service.daemonPinVersion : "")
+  readonly property string version: service ? service.daemonPinVersion : ""
   icon: update ? "arrow-circle-up" : "download-simple"
   iconWeight: "fill"
   title: (update ? "Update to " : "Install the daemon ") + root.version
@@ -86,7 +86,7 @@ Modal {
     PillButton {
       c: root.c; primary: true; round: true; icon: "terminal-window"
       label: root.update ? "Update in a terminal" : "Install in a terminal"
-      onClicked: { root.service.installDaemon(root.kind, root.update); root.close() }
+      onClicked: { root.service.installDaemon(root.kind); root.close() }
     }
     Text {
       anchors.verticalCenter: parent.verticalCenter
@@ -94,7 +94,7 @@ Modal {
       color: copyMouse.containsMouse ? root.c.accent : root.c.muted
       font.family: ui.sans; font.pixelSize: ui.f12
       font.underline: copyMouse.containsMouse
-      MouseArea { id: copyMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.service.copyText(root.service.installCommand(root.kind, root.update)); root.close() } }
+      MouseArea { id: copyMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.service.copyText(root.service.installCommand(root.kind)); root.close() } }
     }
   }
   Text {

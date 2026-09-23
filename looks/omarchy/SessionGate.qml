@@ -54,8 +54,8 @@ Column {
       width: parent.width
       spacing: Style.spacing.controlGap
       visible: !missing.st
-      Button { text: "Install in a terminal"; iconText: "󰆍"; bordered: true; onClicked: root.service.installDaemon(missing.kind, false) }
-      Button { text: "Copy the command"; onClicked: root.service.copyText(root.service.installCommand(missing.kind, false)) }
+      Button { text: "Install in a terminal"; iconText: "󰆍"; bordered: true; onClicked: root.service.installDaemon(missing.kind) }
+      Button { text: "Copy the command"; onClicked: root.service.copyText(root.service.installCommand(missing.kind)) }
       Button { text: "Check again"; onClicked: root.service.checkInstalled() }
     }
     // The install as the helper reports it
@@ -86,7 +86,7 @@ Column {
         width: parent.width
         spacing: Style.spacing.controlGap
         visible: parent.finished || parent.failed
-        Button { visible: parent.parent.failed; text: "Try again"; bordered: true; onClicked: root.service.installDaemon(missing.st && missing.st.kind === "source" ? "source" : "bin", false) }
+        Button { visible: parent.parent.failed; text: "Try again"; bordered: true; onClicked: root.service.installDaemon(missing.st && missing.st.kind === "source" ? "source" : "bin") }
         Button { text: "Dismiss"; onClicked: root.service.dismissInstall() }
       }
     }

@@ -63,7 +63,7 @@ Panel {
     function installDaemon(kind: string): string {
       if (!root.service) return "no service"
       if (kind !== "bin" && kind !== "source") return "kind must be bin or source"
-      root.service.installDaemon(kind, false)
+      root.service.installDaemon(kind)
       return "installing " + root.service.daemonPinVersion + " (" + kind + ") in a terminal"
     }
     function updateDaemon(kind: string): string {
@@ -76,7 +76,7 @@ Panel {
     function startDaemon(): string { if (!root.service) return "no service"; root.service.startDaemon(); return "starting" }
     function daemonStatus(): string {
       var s = root.service
-      return JSON.stringify(s ? { package: s.daemonPackage, version: s.daemonPackageVersion, installed: s.installed, active: s.daemonActive, connected: s.connected, install: s.installState, pending: s.installPending, pin: s.daemonPinVersion, latest: s.daemonLatest, latestCommit: s.daemonLatestCommit } : {})
+      return JSON.stringify(s ? { package: s.daemonPackage, version: s.daemonPackageVersion, installed: s.installed, active: s.daemonActive, connected: s.connected, install: s.installState, pending: s.installPending, pin: s.daemonPinVersion, pinCommit: s.daemonPinCommit } : {})
     }
     // Open the popup on a room: omarchy-shell marcho78.yapper room '!id:server'
     function room(id: string): string {

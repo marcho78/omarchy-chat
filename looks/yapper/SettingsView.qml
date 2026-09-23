@@ -261,7 +261,7 @@ Item {
               width: parent.width - ui.px(36)
               spacing: ui.px(6)
               Text { width: parent.width; wrapMode: Text.Wrap; text: updateCard.daemon ? "omarchy-yapperd " + root.service.daemonLatest + " is available" : "The plugin has " + root.service.pluginUpdateCount + " new change" + (root.service.pluginUpdateCount === 1 ? "" : "s"); color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
-              Note { text: updateCard.daemon ? "You have " + root.service.daemonVersion + (root.service.daemonKind === "bin" ? ", prebuilt" : root.service.daemonKind === "source" ? ", built from source" : "") + ". Installs through pacman in a terminal, then restarts the daemon; your session stays signed in." : "Shows the diff in a terminal for you to confirm, then restarts the shell." }
+              Note { text: updateCard.daemon ? "You have " + root.service.daemonVersion + (root.service.daemonKind === "bin" ? ", prebuilt" : root.service.daemonKind === "source" ? ", built from source" : "") + ". This plugin release pins " + root.service.daemonPinVersion + "; the update installs exactly that commit through pacman in a terminal, then restarts the daemon. Your session stays signed in." : "Shows the diff in a terminal for you to confirm, then restarts the shell." }
               Column {
                 visible: !updateCard.daemon && root.service && root.service.pluginUpdateLog.length > 0
                 width: parent.width
@@ -282,7 +282,7 @@ Item {
         Column {
           width: parent.width
           SettingRow { c: root.c; label: "Plugin"; description: "Checked against its git remote"; ValueText { text: "marcho78.yapper " + (root.service ? root.service.pluginVersion : "") + (root.service && root.service.pluginCommit ? " · " + root.service.pluginCommit : "") } }
-          SettingRow { c: root.c; label: "Daemon"; description: "Checked against the newest pkg-v* tag"; ValueText { text: "omarchy-yapperd " + (root.service && root.service.daemonVersion ? root.service.daemonVersion : "—") } }
+          SettingRow { c: root.c; label: "Daemon"; description: "This plugin release installs and updates to exactly one daemon commit"; ValueText { text: "omarchy-yapperd " + (root.service && root.service.daemonVersion ? root.service.daemonVersion : "—") } }
           SettingRow { c: root.c; label: "Check for updates"; description: "Every six hours and shortly after the shell starts. Nothing is installed without you confirming in a terminal."; Toggle { c: root.c; checked: root.flag("checkUpdates", true); onToggled: root.service.set("checkUpdates", !checked) } }
           SettingRow { c: root.c; label: "Check now"; description: root.service && root.service.updateError ? root.service.updateError : (root.service && root.service.lastChecked ? "Last checked at " + root.service.lastChecked : "Not checked yet"); PillButton { c: root.c; label: root.service && root.service.checking ? "Checking…" : "Check for updates"; round: true; enabled: !(root.service && root.service.checking); onClicked: root.service.checkForUpdates() } }
           SettingRow {

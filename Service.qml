@@ -23,16 +23,12 @@ Item {
   readonly property string daemonRepo: "https://github.com/marcho78/omarchy-yapperd"
   readonly property string pluginRepo: "https://github.com/marcho78/omarchy-yapper"
   readonly property string daemonUnit: "omarchy-yapperd"
-  // Shown to the user verbatim: clone, read, build, install. No binary download.
-  // The daemon release this plugin was tested with: built from exactly this
-  // commit by bin/yapper-helper into ~/.local/bin (no package, no root).
-  // An update builds the newest release tag instead (see daemonLatestCommit).
-  // The daemon release this plugin installs: the packaging commit tagged pkg-vX.Y.Z in the
-  // daemon repository, which holds both PKGBUILDs for that version with checksums filled in.
+  // The only daemon commit this plugin ever installs, updates to or reinstalls: the
+  // packaging commit tagged pkg-vX.Y.Z in the daemon repository, which holds both
+  // PKGBUILDs for that version with checksums filled in. A newer daemon ships as a
+  // new plugin release that moves this pin; nothing is discovered at run time.
   readonly property string daemonPinVersion: "1.0.0"
   readonly property string daemonPinCommit: "07f6b454d43a0f39b839ba43f339bd66d2141e97"
-  // The one thing the user installs themselves: the build tools.
-  readonly property string toolchainCommand: "pacman -S --needed rust git"
   readonly property string helperPath: pluginDir + "/bin/yapper-helper"
   readonly property string glyph: "󰭹"
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, "")
@@ -368,23 +364,24 @@ Item {
   property real installNow: Date.now() / 1000
   readonly property int installElapsed: installState ? Math.max(0, Math.floor((installState.finished > 0 ? installState.finished : installNow) - Number(installState.started))) : 0
   function dismissInstall() { root.installState = null; root.installPending = false }
-  function installCommand(kind, update) {
-    var commit = update && root.daemonLatestCommit !== "" ? root.daemonLatestCommit : root.daemonPinCommit
+  function installCommand(kind) {
+    var commit = root.daemonPinCommit
     var dir = root.daemonCheckout
     return "git -C " + dir + " fetch --tags 2>/dev/null || git clone " + root.daemonRepo + " " + dir + "; "
       + "git -C " + dir + " checkout --detach " + commit + " && cd " + dir + "/packaging" + (kind === "bin" ? "/bin" : "") + " && makepkg -sif --needed"
   }
-  function installDaemon(kind, update) {
+  // Install, reinstall and update are the same action: the pinned commit.
+  function installDaemon(kind) {
     if (root.installActive) return
-    var commit = update && root.daemonLatestCommit !== "" ? root.daemonLatestCommit : root.daemonPinCommit
-    root.installTargetVersion = update && root.daemonLatest !== "" ? root.daemonLatest : root.daemonPinVersion
+    var commit = root.daemonPinCommit
+    root.installTargetVersion = root.daemonPinVersion
     root.installPending = true
     if (kind !== root.installKind) root.set("daemonInstallKind", kind)
     Quickshell.execDetached(["/usr/bin/xdg-terminal-exec", "-e", "/usr/bin/python3", "-I", root.helperPath, "install", kind, root.daemonRepo, commit])
     installPoll.count = 0
     installPoll.running = true
   }
-  function updateDaemon(kind) { root.installDaemon(kind || root.installKind, true) }
+  function updateDaemon(kind) { root.installDaemon(kind || root.installKind) }
   // The terminal may be closed before the state file says done; look at pacman now and then.
   Timer {
     id: installPoll
@@ -1136,7 +1133,9 @@ Item {
   property bool checking: false
   property int pluginUpdateCount: 0
   property var pluginUpdateLog: []        // subjects of the incoming commits
-  property string daemonLatest: ""
+  // The daemon version this plugin release pins; "update available" means the
+  // installed daemon is older than it.
+  readonly property string daemonLatest: daemonPinVersion
   property string lastChecked: ""
   property string updateError: ""
   readonly property string daemonVersion: (status && status.version) ? String(status.version) : ""
@@ -1165,38 +1164,6 @@ Item {
       if (r && r.error) root.updateError = String(r.error)
       root.pluginUpdateCount = r ? (Number(r.behind) || 0) : 0
       root.pluginUpdateLog = r && Array.isArray(r.log) ? r.log.map(String) : []
-      daemonCheck.running = true
-    }
-  }
-
-  // The newest release tag and the commit it points at, so an update
-  // builds exactly that commit.
-  property string daemonLatestCommit: ""
-  Process {
-    id: daemonCheck
-    property string out: ""
-    // pkg-vX.Y.Z marks the packaging commit of a release (both PKGBUILDs with checksums).
-    // No --refs: annotated tags then also list "tag^{}" with the commit they point at.
-    command: ["/usr/bin/git", "ls-remote", "--tags", root.daemonRepo, "refs/tags/pkg-v*"]
-    environment: ({ GIT_TERMINAL_PROMPT: "0" })
-    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (daemonCheck.out.length < 65536) daemonCheck.out += d } }
-    onStarted: out = ""
-    onExited: function(code) {
-      // The commit a tag names: the peeled "^{}" line for an annotated tag, the tag line itself for a lightweight one
-      var tagSha = {}, peeledSha = {}
-      var lines = daemonCheck.out.split("\n")
-      for (var i = 0; i < lines.length; i++) {
-        var m = /^([0-9a-f]{40})\s+refs\/tags\/pkg-(v\d+\.\d+\.\d+)(\^\{\})?$/.exec(lines[i].trim())
-        if (!m) continue
-        if (m[3]) peeledSha[m[2]] = m[1]; else tagSha[m[2]] = m[1]
-      }
-      var best = "", bestSha = ""
-      for (var tag in tagSha) {
-        if (best === "" || Format.compareVersions(tag, best) > 0) { best = tag; bestSha = peeledSha[tag] || tagSha[tag] }
-      }
-      if (best === "" && code !== 0) root.updateError = (root.updateError ? root.updateError + " " : "") + "Could not reach the daemon's repository."
-      root.daemonLatest = best.replace(/^v/, "")
-      root.daemonLatestCommit = bestSha
       root.lastChecked = new Date().toLocaleTimeString(Qt.locale(), "HH:mm")
       root.checking = false
     }

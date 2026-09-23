@@ -75,7 +75,7 @@ Rectangle {
     Row {
       spacing: ui.px(8)
       visible: root.finished || root.failed
-      PillButton { c: root.c; visible: root.failed; label: "Try again"; icon: "arrow-clockwise"; primary: true; round: true; onClicked: root.service.installDaemon(root.st && root.st.kind === "source" ? "source" : "bin", root.service.daemonUpdateAvailable) }
+      PillButton { c: root.c; visible: root.failed; label: "Try again"; icon: "arrow-clockwise"; primary: true; round: true; onClicked: root.service.installDaemon(root.st && root.st.kind === "source" ? "source" : "bin") }
       PillButton { c: root.c; label: root.finished ? "Done" : "Dismiss"; round: true; onClicked: root.service.dismissInstall() }
     }
   }

@@ -273,24 +273,28 @@ sections are laid out by hand in `looks/yapper/SettingsView.qml`.
 
 ## Updates
 
-Once a day (and at startup) Yapper compares the installed plugin with its git
-remote and the running daemon's version with the newest `v*` tag of
-[omarchy-yapperd](https://github.com/marcho78/omarchy-yapperd). When either is
-behind, a 󰚰 appears next to the bar glyph and a card at the top of the popup
-and the window says what is new, with an **Update** button:
+Every six hours, and shortly after the shell starts, Yapper compares the
+installed plugin with its git remote and the running daemon's version with
+the daemon version this plugin release pins (`daemonPinVersion` and
+`daemonPinCommit` in `Service.qml`). When either is behind, a 󰚰 appears next
+to the bar glyph and a card at the top of the popup and the window offers an
+**Update** button:
 
-* **Plugin** runs `omarchy plugin update marcho78.yapper` in a floating
-  terminal — it shows the diff and asks before pulling — then restarts the shell.
-* **Daemon** clones the repo, checks out exactly the release the card
-  named, builds it with `makepkg -si` and restarts the daemon's unit. Your
-  session stays signed in. Updates are never step-by-step: from any version,
-  one update lands on the newest release.
+* **Plugin** runs `omarchy plugin update marcho78.yapper` in a terminal; it
+  shows the diff and asks before pulling.
+* **Daemon** installs the pinned commit through the same dialog as the first
+  install, prebuilt or from source, then restarts the daemon's unit. Your
+  session stays signed in.
+
+The plugin never looks up daemon releases on its own and never installs a
+commit other than the pinned one. A newer daemon reaches you as a new plugin
+release that moves the pin, so every daemon version users can install has
+been part of a reviewed plugin commit.
 
 Nothing is ever installed without you confirming in that terminal. The
 About card at the top of Settings shows both versions, when the last check
-ran, and a **Check for updates** button; the daily check can be turned off
-under Settings → Updates. The version line under your account in the
-window's sidebar lights up too.
+ran, and a **Check for updates** button; the periodic check can be turned
+off there.
 
 ## IPC
 
@@ -299,7 +303,7 @@ omarchy-shell marcho78.yapper toggle
 omarchy-shell marcho78.yapper status     # {installed, connected, loggedIn, userId, syncing, unread, rooms, opened}
 omarchy-shell marcho78.yapper refresh
 omarchy-shell marcho78.yapper checkUpdates
-omarchy-shell marcho78.yapper updates      # {daemon, daemonLatest, daemonUpdate, pluginBehind, pluginUpdate, lastChecked, error, checking}
+omarchy-shell marcho78.yapper updates      # {daemon, daemonLatest (the pinned version), daemonUpdate, pluginBehind, pluginUpdate, lastChecked, error, checking}
 omarchy-shell marcho78.yapper room '!id:server'   # open the popup on a room
 omarchy-shell marcho78.yapper setLook yapper      # or omarchy
 omarchy-shell marcho78.yapper setTheme tokyonight # a palette for the Yapper look (built-in or custom:<id>)
