@@ -128,7 +128,7 @@ Item {
           Column {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(2)
-            Text { text: "Yapper"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
+            Text { textFormat: Text.PlainText; text: "Yapper"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
             Text { text: root.service ? root.service.stateText : ""; color: root.fg; opacity: 0.7; font.family: root.fontFamily; font.pixelSize: Style.font.caption }
           }
         }
@@ -185,8 +185,9 @@ Item {
               anchors.rightMargin: Style.space(8)
               anchors.verticalCenter: parent.verticalCenter
               spacing: Style.space(2)
-              Text { text: "Yapper"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
+              Text { textFormat: Text.PlainText; text: "Yapper"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: root.service ? root.service.userId : ""
                 color: root.fg; opacity: 0.6
@@ -501,8 +502,9 @@ Item {
                 anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Style.space(2)
-                Text { text: "󰻞  Thread"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
+                Text { textFormat: Text.PlainText; text: "󰻞  Thread"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   text: roomView.roomName
                   color: root.fg; opacity: 0.6
@@ -575,6 +577,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               spacing: Style.space(2)
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: roomView.roomName
                 color: root.fg

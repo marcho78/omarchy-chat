@@ -96,6 +96,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       spacing: ui.px(1)
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         elide: Text.ElideRight
         text: root.inThread ? "Thread" : root.inRoom ? roomView.roomName : "Yapper"
@@ -103,6 +104,7 @@ Item {
         font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold
       }
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         elide: Text.ElideRight
         text: root.inThread ? "in " + roomView.roomName
@@ -233,7 +235,7 @@ Item {
                 Icon { anchors.verticalCenter: parent.verticalCenter; name: "users-three"; weight: "fill"; size: ui.px(15); color: root.c.accent }
                 Text { anchors.verticalCenter: parent.verticalCenter; text: "Join the Omarchy community?"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
               }
-              Text { width: parent.width; wrapMode: Text.Wrap; lineHeight: 1.3; text: (root.service && root.service.community ? root.service.community.rooms.map(function(r) { return r.name }).join(", ") + " — " + root.service.community.rooms.length + " rooms under one space." : "") + " Asked once."; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
+              Text { textFormat: Text.PlainText; width: parent.width; wrapMode: Text.Wrap; lineHeight: 1.3; text: (root.service && root.service.community ? root.service.community.rooms.map(function(r) { return r.name }).join(", ") + " — " + root.service.community.rooms.length + " rooms under one space." : "") + " Asked once."; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
               Row {
                 topPadding: ui.px(5)
                 spacing: ui.px(6)

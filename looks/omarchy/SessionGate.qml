@@ -67,6 +67,7 @@ Column {
       readonly property bool failed: missing.st && (missing.st.phase === "error" || root.service.installStale)
       readonly property bool finished: missing.st && missing.st.phase === "done"
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         wrapMode: Text.WordWrap
         text: missing.st ? ("omarchy-yapperd " + missing.st.version + " — " + (parent.finished ? "installed in " + Format.clock(root.service.installElapsed) : parent.failed ? "did not finish: " + (root.service.installStale ? "no news from the terminal" : missing.st.error) : parent.compiling ? "compiling " + missing.st.done + " of " + missing.st.total + " crates, " + Math.round(100 * missing.st.done / missing.st.total) + "%" : missing.st.phase) + "  ·  " + Format.clock(root.service.installElapsed)) : ""
@@ -266,6 +267,7 @@ Column {
     visible: root.service && root.service.pendingLogin
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       wrapMode: Text.WordWrap
       text: "Finish signing in in your browser. This updates by itself when the homeserver sends you back."
@@ -278,6 +280,7 @@ Column {
   }
 
   Text {
+    textFormat: Text.PlainText
     width: parent.width
     wrapMode: Text.WordWrap
     visible: root.errorText !== ""

@@ -41,6 +41,7 @@ Item {
     border.width: 1
     border.color: root.c.line
     Text {
+      textFormat: Text.PlainText
       id: labelText
       anchors.centerIn: parent
       text: root.text

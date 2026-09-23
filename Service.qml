@@ -859,8 +859,10 @@ Item {
   Process {
     // The active Omarchy theme, offered on the card.
     id: themeRead
-    command: ["/usr/bin/bash", "-c", "basename \"$(readlink -f ~/.config/omarchy/current/theme)\""]
-    stdout: SplitParser { onRead: function(line) { root.themeName = String(line).trim() } }
+    property string out: ""
+    command: ["/usr/bin/python3", "-I", root.helperPath, "theme"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (themeRead.out.length < 4096) themeRead.out += d } }
+    onExited: function() { try { root.themeName = String(JSON.parse(themeRead.out).name || "") } catch (e) { root.themeName = "" } }
     running: true
   }
 
@@ -874,26 +876,15 @@ Item {
   Process {
     id: deviceList
     property string out: ""
-    command: ["/usr/bin/bash", "-c", "pactl --format=json list sources; echo '@@'; pactl --format=json list sinks"]
-    stdout: SplitParser { splitMarker: ""; onRead: function(d) { deviceList.out += d } }
+    command: ["/usr/bin/python3", "-I", root.helperPath, "audio"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (deviceList.out.length < 262144) deviceList.out += d } }
     onStarted: out = ""
     onExited: function(code) {
       if (code !== 0) return
-      var parts = deviceList.out.split("@@")
-      function parse(text, dropMonitors) {
-        var list = []
-        try {
-          var arr = JSON.parse(text)
-          for (var i = 0; i < arr.length; i++) {
-            var d = arr[i]
-            if (dropMonitors && String(d.name).indexOf(".monitor") >= 0) continue
-            list.push({ value: String(d.name), label: String(d.description || d.name) })
-          }
-        } catch (e) { root.log("audio devices: " + e) }
-        return list
-      }
-      root.audioInputs = parse(parts[0] || "[]", true)
-      root.audioOutputs = parse(parts[1] || "[]", false)
+      var r = null
+      try { r = JSON.parse(deviceList.out) } catch (e) { root.log("audio devices: " + e); return }
+      root.audioInputs = Array.isArray(r.inputs) ? r.inputs : []
+      root.audioOutputs = Array.isArray(r.outputs) ? r.outputs : []
     }
   }
 
@@ -902,7 +893,27 @@ Item {
   property int audioTestLeft: 0
   function testAudio() {
     if (root.recording || root.audioTest !== "") return
-    root.recordPath = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-yapper-test.wav"
+    root.recordPath = ""
+    tempProc.after = "test"
+    tempProc.running = true
+  }
+  // A fresh private file for the recorder, then the recorder.
+  Process {
+    id: tempProc
+    property string after: ""
+    property string out: ""
+    command: ["/usr/bin/python3", "-I", root.helperPath, "tempfile", ".wav"]
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (tempProc.out.length < 4096) tempProc.out += d } }
+    onStarted: out = ""
+    onExited: function(code) {
+      var p = ""
+      try { p = String(JSON.parse(tempProc.out).path || "") } catch (e) { p = "" }
+      if (p === "") { root.log("no temp file for the recording"); root.audioTest = ""; root.recording = false; return }
+      root.recordPath = p
+      if (tempProc.after === "test") root.startTestRecording(); else root.startVoiceRecording()
+    }
+  }
+  function startTestRecording() {
     var cmd = ["/usr/bin/pw-record", "--format=s16", "--rate=48000", "--channels=1"]
     if (root.voiceInput !== "") cmd.push("--target=" + root.voiceInput)
     cmd.push(root.recordPath)
@@ -947,17 +958,21 @@ Item {
   readonly property int recordLimit: 5 * 60
   signal voiceSent(string roomId, bool ok, string error)
   function startRecording(roomId) {
-    if (root.recording || !roomId) return
-    root.recordPath = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-yapper-voice-" + Date.now() + ".wav"
+    if (root.recording || !roomId || tempProc.running) return
+    root.recording = true
     root.recordingRoom = roomId
     root.recordSeconds = 0
     root.recordSend = false
+    root.recordPath = ""
+    tempProc.after = "voice"
+    tempProc.running = true
+  }
+  function startVoiceRecording() {
     var cmd = ["/usr/bin/pw-record", "--format=s16", "--rate=48000", "--channels=1"]
     if (root.voiceInput !== "") cmd.push("--target=" + root.voiceInput)
     cmd.push(root.recordPath)
     recorder.command = cmd
     recorder.running = true
-    root.recording = true
   }
   // Stop; with `send`, the file goes to the daemon once pw-record has closed it.
   function stopRecording(send) {

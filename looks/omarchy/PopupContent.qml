@@ -84,6 +84,7 @@ Column {
       spacing: Style.space(2)
 
       Text {
+        textFormat: Text.PlainText
         text: root.showPeople ? "󰀏  People" : root.inThread ? "󰻞  Thread" : root.inRoom ? roomView.roomName : "Yapper"
         color: root.bar.foreground
         font.family: root.bar.fontFamily
@@ -93,6 +94,7 @@ Column {
         width: parent.width
       }
       Text {
+        textFormat: Text.PlainText
         text: root.showInfo ? roomView.roomName
           : root.inThread ? roomView.roomName
           : root.showSettings ? "Applied as you change them"
@@ -257,6 +259,7 @@ Column {
     implicitHeight: Math.max(footerText.implicitHeight, signOut.implicitHeight)
 
     Text {
+      textFormat: Text.PlainText
       id: footerText
       anchors.left: parent.left
       anchors.right: signOut.left

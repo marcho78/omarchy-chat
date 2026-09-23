@@ -94,7 +94,7 @@ Item {
       Rectangle {
         width: serverText.implicitWidth + ui.px(20); height: ui.px(24); radius: height / 2
         color: root.c.chip
-        Text { id: serverText; anchors.centerIn: parent; text: root.server !== "" ? root.server : "your homeserver"; color: root.c.fg; font.family: ui.mono; font.pixelSize: ui.f11 }
+        Text { textFormat: Text.PlainText; id: serverText; anchors.centerIn: parent; text: root.server !== "" ? root.server : "your homeserver"; color: root.c.fg; font.family: ui.mono; font.pixelSize: ui.f11 }
       }
     }
     IconButton { anchors.right: parent.right; anchors.rightMargin: ui.px(16); anchors.top: parent.top; anchors.topMargin: ui.px(14); c: root.c; tips: root.tips; icon: "x"; size: ui.px(32); iconSize: ui.px(16); tooltip: "Back to chat (Esc)"; onClicked: root.closeRequested() }
@@ -172,12 +172,13 @@ Item {
             Row {
               width: parent.width
               spacing: ui.px(7)
-              Text { anchors.verticalCenter: parent.verticalCenter; width: Math.min(implicitWidth, parent.width * 0.6); elide: Text.ElideRight; text: card.modelData.name; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
-              Text { anchors.verticalCenter: parent.verticalCenter; width: parent.width - x; elide: Text.ElideRight; text: card.modelData.alias || card.modelData.id; color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+              Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; width: Math.min(implicitWidth, parent.width * 0.6); elide: Text.ElideRight; text: card.modelData.name; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
+              Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; width: parent.width - x; elide: Text.ElideRight; text: card.modelData.alias || card.modelData.id; color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
             }
-            Text { width: parent.width; text: card.modelData.topic ? Format.oneLine(card.modelData.topic) : "No topic"; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f12 }
+            Text { textFormat: Text.PlainText; width: parent.width; text: card.modelData.topic ? Format.oneLine(card.modelData.topic) : "No topic"; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f12 }
           }
           Text {
+            textFormat: Text.PlainText
             id: membersText
             anchors.right: actionButton.left
             anchors.rightMargin: ui.px(14)
@@ -201,6 +202,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         visible: root.errorText !== ""
         topPadding: ui.px(8)

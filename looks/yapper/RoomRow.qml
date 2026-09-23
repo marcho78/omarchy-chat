@@ -106,6 +106,7 @@ Item {
         color: root.c.ok
       }
       Text {
+        textFormat: Text.PlainText
         width: parent.width - (root.room && root.room.encrypted === true ? ui.px(9.5) + parent.spacing : 0)
         text: root.room ? root.room.name : ""
         color: root.muted ? root.c.muted : root.c.fg
@@ -126,6 +127,7 @@ Item {
         color: root.c.warn
       }
       Text {
+        textFormat: Text.PlainText
         width: parent.width - (root.draft !== "" ? ui.px(10) + parent.spacing : 0)
         text: root.preview
         color: root.c.muted

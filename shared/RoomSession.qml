@@ -626,12 +626,12 @@ Item {
   Process {
     id: pasteProc
     property string out: ""
-    command: ["/usr/bin/bash", "-c",
-      "if wl-paste -l 2>/dev/null | grep -q '^image/'; then f=\"${XDG_RUNTIME_DIR:-/tmp}/yapper-paste-$(date +%s%N).png\"; wl-paste -t image/png > \"$f\" && echo \"$f\"; fi"]
-    stdout: SplitParser { splitMarker: ""; onRead: function(d) { pasteProc.out += d } }
+    command: session.service ? ["/usr/bin/python3", "-I", session.service.helperPath, "paste"] : []
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (pasteProc.out.length < 4096) pasteProc.out += d } }
     onStarted: out = ""
     onExited: function() {
-      var p = pasteProc.out.trim()
+      var p = ""
+      try { p = String(JSON.parse(pasteProc.out).path || "") } catch (e) { p = "" }
       if (p !== "") session.sendFiles([p])
       else if (session.composer) session.composer.paste()
     }

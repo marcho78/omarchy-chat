@@ -117,6 +117,7 @@ Item {
       color: root.c.muted
     }
     Text {
+      textFormat: Text.PlainText
       anchors.left: groupIcon.right
       anchors.leftMargin: ui.px(6)
       anchors.verticalCenter: parent.verticalCenter
@@ -315,6 +316,7 @@ Item {
     Hint { visible: !root.joinable && !root.userId && !root.userName; icon: "magnifying-glass"; key: root.query; detail: "search what people said"; onPicked: root.searchRequested(root.query) }
   }
   Text {
+    textFormat: Text.PlainText
     id: errorLine
     anchors.left: parent.left
     anchors.right: parent.right
@@ -384,6 +386,7 @@ Item {
               Text { text: "Invitation"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f12; font.weight: Font.DemiBold }
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               topPadding: ui.px(3)
               text: inviteCard.modelData.name
@@ -391,6 +394,7 @@ Item {
               font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.Medium
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: "from " + (inviteCard.modelData.inviter_name || inviteCard.modelData.inviter || "someone") + (inviteCard.modelData.direct ? " · direct chat" : "")
               color: root.c.muted; elide: Text.ElideRight
@@ -429,6 +433,7 @@ Item {
       Group { icon: "hash"; label: "ROOMS"; list: root.rooms }
 
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         visible: root.favourites.length + root.people.length + root.rooms.length === 0
         topPadding: ui.px(18)
@@ -489,6 +494,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       spacing: ui.px(1)
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         text: footer.userId
         color: root.c.fg

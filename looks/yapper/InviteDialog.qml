@@ -95,8 +95,8 @@ Modal {
           anchors.rightMargin: ui.px(10)
           anchors.verticalCenter: parent.verticalCenter
           spacing: ui.px(1)
-          Text { width: parent.width; text: modelData.name || modelData.id; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.Medium }
-          Text { width: parent.width; text: modelData.id; color: root.c.muted; elide: Text.ElideMiddle; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+          Text { textFormat: Text.PlainText; width: parent.width; text: modelData.name || modelData.id; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.Medium }
+          Text { textFormat: Text.PlainText; width: parent.width; text: modelData.id; color: root.c.muted; elide: Text.ElideMiddle; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
         }
         Icon { id: check; anchors.right: parent.right; anchors.rightMargin: ui.px(12); anchors.verticalCenter: parent.verticalCenter; visible: parent.on; name: "check-circle"; weight: "fill"; size: ui.px(17); color: root.c.accent }
         MouseArea { id: hitMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.toggle(parent.modelData) }
@@ -117,12 +117,12 @@ Modal {
         color: root.c.sel
         border.width: 1
         border.color: root.c.accent
-        Text { id: pickText; anchors.left: parent.left; anchors.leftMargin: ui.px(10); anchors.verticalCenter: parent.verticalCenter; text: modelData.name || modelData.id; color: root.c.accent; font.family: ui.sans; font.pixelSize: ui.f11 }
+        Text { textFormat: Text.PlainText; id: pickText; anchors.left: parent.left; anchors.leftMargin: ui.px(10); anchors.verticalCenter: parent.verticalCenter; text: modelData.name || modelData.id; color: root.c.accent; font.family: ui.sans; font.pixelSize: ui.f11 }
         Icon { anchors.right: parent.right; anchors.rightMargin: ui.px(8); anchors.verticalCenter: parent.verticalCenter; name: "x"; size: ui.px(11); color: root.c.accent }
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggle(parent.modelData) }
       }
     }
   }
-  Text { width: parent.width; visible: root.errorText !== "" || root.doneText !== ""; wrapMode: Text.Wrap; text: root.errorText !== "" ? root.errorText : root.doneText; color: root.errorText !== "" ? root.c.bad : root.c.ok; font.family: ui.sans; font.pixelSize: ui.f11 }
+  Text { textFormat: Text.PlainText; width: parent.width; visible: root.errorText !== "" || root.doneText !== ""; wrapMode: Text.Wrap; text: root.errorText !== "" ? root.errorText : root.doneText; color: root.errorText !== "" ? root.c.bad : root.c.ok; font.family: ui.sans; font.pixelSize: ui.f11 }
   PillButton { c: root.c; width: parent.width; label: root.busy ? "Sending…" : (root.picked.length > 1 ? "Send " + root.picked.length + " invitations" : "Send invitation"); primary: true; enabled: !root.busy && root.picked.length > 0; onClicked: root.send() }
 }

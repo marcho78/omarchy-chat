@@ -178,7 +178,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: ui.px(10)
             Icon { anchors.verticalCenter: parent.verticalCenter; name: parent.parent.modelData.icon; size: ui.px(15); color: parent.parent.on ? root.c.accent : root.c.fg }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: parent.parent.modelData.label; color: parent.parent.on ? root.c.accent : root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: parent.parent.on ? Font.DemiBold : Font.Medium }
+            Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: parent.parent.modelData.label; color: parent.parent.on ? root.c.accent : root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: parent.parent.on ? Font.DemiBold : Font.Medium }
           }
           MouseArea { id: navMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.show(parent.modelData.key) }
         }
@@ -205,7 +205,7 @@ Item {
       width: Math.min(content.width - ui.px(56), ui.px(620))
       spacing: ui.px(6)
 
-      Text { text: root.current.label; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(20); font.weight: Font.DemiBold; font.letterSpacing: -0.4 }
+      Text { textFormat: Text.PlainText; text: root.current.label; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(20); font.weight: Font.DemiBold; font.letterSpacing: -0.4 }
       Note { text: root.current.desc; bottomPadding: ui.px(14) }
 
       // ===== About =====
@@ -355,7 +355,7 @@ Item {
                   Rectangle { width: ui.px(11); height: ui.px(11); radius: ui.px(3); color: parent.parent.parent.v.warn }
                   Rectangle { width: ui.px(11); height: ui.px(11); radius: ui.px(3); color: parent.parent.parent.v.bad }
                 }
-                Text { width: ui.px(110); elide: Text.ElideRight; text: parent.parent.label; color: parent.parent.v.fg; font.family: ui.sans; font.pixelSize: ui.f11; font.weight: Font.Medium }
+                Text { textFormat: Text.PlainText; width: ui.px(110); elide: Text.ElideRight; text: parent.parent.label; color: parent.parent.v.fg; font.family: ui.sans; font.pixelSize: ui.f11; font.weight: Font.Medium }
               }
               MouseArea { id: cardMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.service.set("theme", parent.modelData) }
               // A saved palette can go again.
@@ -376,7 +376,7 @@ Item {
           visible: root.deletingPalette !== ""
           topPadding: ui.px(8)
           spacing: ui.px(8)
-          Text { anchors.verticalCenter: parent.verticalCenter; text: "Delete the palette “" + (root.service && root.service.paletteFor(root.deletingPalette) ? root.service.paletteFor(root.deletingPalette).label : "") + "”?"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f12 }
+          Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: "Delete the palette “" + (root.service && root.service.paletteFor(root.deletingPalette) ? root.service.paletteFor(root.deletingPalette).label : "") + "”?"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f12 }
           PillButton { c: root.c; label: "Delete"; danger: true; round: true; onClicked: { root.service.deletePalette(root.deletingPalette.replace(/^custom:/, "")); root.deletingPalette = "" } }
           PillButton { c: root.c; label: "Keep"; round: true; onClicked: root.deletingPalette = "" }
         }
@@ -490,7 +490,7 @@ Item {
                     Rectangle { width: parent.width * 0.44; height: ui.px(20); radius: parent.parent.parent.parent.bubbles ? ui.px(12) : ui.px(5); color: parent.parent.parent.parent.bubbles ? root.c.own : root.c.surface }
                   }
                 }
-                Text { text: parent.parent.modelData.label; color: parent.parent.on ? root.c.accent : root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
+                Text { textFormat: Text.PlainText; text: parent.parent.modelData.label; color: parent.parent.on ? root.c.accent : root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
                 Note { text: parent.parent.modelData.desc; font.pixelSize: ui.f11 }
               }
               MouseArea { id: styleMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.service.set("messageStyle", parent.modelData.value) }
@@ -614,7 +614,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               width: parent.width - ui.px(30) - joinButton.width - ui.px(12)
               spacing: ui.px(3)
-              Text { text: communitySection.community && communitySection.community.name ? communitySection.community.name : "Omarchy community"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
+              Text { textFormat: Text.PlainText; text: communitySection.community && communitySection.community.name ? communitySection.community.name : "Omarchy community"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
               Note {
                 text: {
                   var cm = communitySection.community
@@ -725,7 +725,7 @@ Item {
                 anchors.top: parent.top
                 anchors.topMargin: ui.px(11)
                 spacing: ui.px(2)
-                Text { text: parent.parent.modelData.label; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
+                Text { textFormat: Text.PlainText; text: parent.parent.modelData.label; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
                 Note { text: parent.parent.modelData.desc; font.pixelSize: ui.f11 }
               }
               MouseArea { id: policyMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.service.set("dmPolicy", parent.modelData.value) }
@@ -771,7 +771,7 @@ Item {
           SettingRow { c: root.c; label: "Community space"; description: "The space the join card, People and this page use"; Field { id: spaceField; c: root.c; width: ui.px(250); text: root.service ? root.service.communityAlias : ""; maximumLength: 256; onAccepted: root.service.set("communitySpace", text.trim()); onHasFocusChanged: if (!hasFocus && root.service && text.trim() !== root.service.communityAlias) root.service.set("communitySpace", text.trim()) } }
           SettingRow { c: root.c; label: "Show the join card"; description: "Until you join or press Not now"; Toggle { c: root.c; checked: root.flag("communityPrompt", true); onToggled: root.service.set("communityPrompt", !checked) } }
         }
-        Text { width: parent.width; visible: communitySection.errorText !== ""; wrapMode: Text.Wrap; text: communitySection.errorText; color: root.c.bad; font.family: ui.sans; font.pixelSize: ui.f11 }
+        Text { textFormat: Text.PlainText; width: parent.width; visible: communitySection.errorText !== ""; wrapMode: Text.Wrap; text: communitySection.errorText; color: root.c.bad; font.family: ui.sans; font.pixelSize: ui.f11 }
       }
 
       // ===== Encryption =====
@@ -814,9 +814,9 @@ Item {
                 Row {
                   spacing: ui.px(8)
                   Icon { anchors.verticalCenter: parent.verticalCenter; name: parent.parent.parent.modelData.icon; weight: "fill"; size: ui.px(15); color: parent.parent.parent.modelData.color }
-                  Text { anchors.verticalCenter: parent.verticalCenter; text: parent.parent.parent.modelData.label; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f12 }
+                  Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: parent.parent.parent.modelData.label; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f12 }
                 }
-                Text { text: parent.parent.modelData.value; color: parent.parent.modelData.color; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
+                Text { textFormat: Text.PlainText; text: parent.parent.modelData.value; color: parent.parent.modelData.color; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
               }
             }
           }
@@ -854,8 +854,8 @@ Item {
                     anchors.rightMargin: ui.px(10)
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: ui.px(1)
-                    Text { width: parent.width; text: modelData.name || modelData.id; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.Medium }
-                    Text { width: parent.width; text: modelData.id; color: root.c.muted; elide: Text.ElideRight; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+                    Text { textFormat: Text.PlainText; width: parent.width; text: modelData.name || modelData.id; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.Medium }
+                    Text { textFormat: Text.PlainText; width: parent.width; text: modelData.id; color: root.c.muted; elide: Text.ElideRight; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
                   }
                   Rectangle {
                     id: deviceState
@@ -869,7 +869,7 @@ Item {
                       anchors.centerIn: parent
                       spacing: ui.px(5)
                       Icon { anchors.verticalCenter: parent.verticalCenter; name: modelData.verified ? "shield-check" : "shield-warning"; weight: modelData.verified ? "fill" : "regular"; size: ui.px(11); color: modelData.verified ? root.c.ok : root.c.warn }
-                      Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.verified ? "Verified" : "Unverified"; color: modelData.verified ? root.c.ok : root.c.warn; font.family: ui.sans; font.pixelSize: ui.f11 }
+                      Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: modelData.verified ? "Verified" : "Unverified"; color: modelData.verified ? root.c.ok : root.c.warn; font.family: ui.sans; font.pixelSize: ui.f11 }
                     }
                   }
                 }
@@ -891,8 +891,11 @@ Item {
         visible: root.section === "daemon"
         Process {
           id: storeSize
-          command: ["/usr/bin/bash", "-c", "du -sh \"$0\" 2>/dev/null | cut -f1", root.dataDir]
-          stdout: SplitParser { onRead: function(line) { root.storeSizeText = String(line).trim() || "—" } }
+          property string out: ""
+          command: ["/usr/bin/python3", "-I", root.service.helperPath, "store-size", root.dataDir]
+          stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (storeSize.out.length < 4096) storeSize.out += d } }
+          onStarted: out = ""
+          onExited: function() { try { root.storeSizeText = String(JSON.parse(storeSize.out).human || "—") } catch (e) { root.storeSizeText = "—" } }
         }
         SettingRow { c: root.c; label: "Socket"; description: "Mode 0600; the peer's uid is checked on every connection"; ValueText { text: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-yapper.sock" } }
         SettingRow { c: root.c; label: "Data directory"; description: "Mode 0700"; ValueText { text: root.dataDir } }

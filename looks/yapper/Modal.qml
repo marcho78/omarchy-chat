@@ -79,8 +79,8 @@ Item {
         anchors.top: parent.top
         anchors.topMargin: ui.px(19)
         spacing: ui.px(3)
-        Text { width: parent.width; text: root.title; color: root.c.fg; wrapMode: Text.Wrap; font.family: ui.sans; font.pixelSize: ui.px(15.5); font.weight: Font.DemiBold; font.letterSpacing: -0.2 }
-        Text { width: parent.width; text: root.description; color: root.c.muted; wrapMode: Text.Wrap; lineHeight: 1.3; font.family: ui.sans; font.pixelSize: ui.px(12.5) }
+        Text { textFormat: Text.PlainText; width: parent.width; text: root.title; color: root.c.fg; wrapMode: Text.Wrap; font.family: ui.sans; font.pixelSize: ui.px(15.5); font.weight: Font.DemiBold; font.letterSpacing: -0.2 }
+        Text { textFormat: Text.PlainText; width: parent.width; text: root.description; color: root.c.muted; wrapMode: Text.Wrap; lineHeight: 1.3; font.family: ui.sans; font.pixelSize: ui.px(12.5) }
       }
       IconButton { id: closeButton; anchors.right: parent.right; anchors.rightMargin: ui.px(16); anchors.top: parent.top; anchors.topMargin: ui.px(19); c: root.c; tips: root.tips; icon: "x"; size: ui.px(30); iconSize: ui.px(16); radius: ui.px(8); tooltip: "Close (Esc)"; onClicked: root.close() }
     }

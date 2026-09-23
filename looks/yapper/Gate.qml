@@ -324,6 +324,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         visible: root.errorText !== ""
         horizontalAlignment: Text.AlignHCenter

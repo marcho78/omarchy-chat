@@ -226,9 +226,9 @@ Item {
               color: root.c.surface
               border.width: 1
               border.color: root.c.line
-              Text { anchors.centerIn: parent; text: modelData.symbol; font.pixelSize: parent.width * 0.5 }
+              Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: modelData.symbol; font.pixelSize: parent.width * 0.5 }
             }
-            Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: modelData.description; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f11 }
+            Text { textFormat: Text.PlainText; width: parent.width; horizontalAlignment: Text.AlignHCenter; text: modelData.description; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f11 }
           }
         }
       }
@@ -299,6 +299,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: root.errorText !== ""
       wrapMode: Text.Wrap

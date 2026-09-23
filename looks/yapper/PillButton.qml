@@ -33,7 +33,7 @@ Rectangle {
     anchors.centerIn: parent
     spacing: ui.px(6)
     Icon { anchors.verticalCenter: parent.verticalCenter; visible: root.icon !== ""; name: root.icon; weight: root.iconWeight; size: ui.px(13); color: root.filled ? root.c.bg2 : root.c.fg }
-    Text { anchors.verticalCenter: parent.verticalCenter; text: root.label; color: root.filled ? root.c.bg2 : root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: root.filled ? Font.DemiBold : Font.Normal }
+    Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: root.label; color: root.filled ? root.c.bg2 : root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: root.filled ? Font.DemiBold : Font.Normal }
   }
   MouseArea {
     id: pillMouse

@@ -126,6 +126,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(2)
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           text: root.details ? root.details.name : "Room"
           color: root.fg
@@ -184,6 +185,7 @@ Item {
 
     // Topic + alias
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: root.details && !!root.details.topic && root.editing === ""
       wrapMode: Text.WordWrap
@@ -197,6 +199,7 @@ Item {
       visible: root.details && !!root.details.alias
       spacing: Style.space(6)
       Text {
+        textFormat: Text.PlainText
         text: root.details && root.details.alias ? String(root.details.alias) : ""
         color: root.accent
         font.family: root.fontFamily; font.pixelSize: Style.font.caption
@@ -230,6 +233,7 @@ Item {
           spacing: Style.space(8)
           Text { anchors.verticalCenter: parent.verticalCenter; text: parent.parent.parent.bridge ? Format.bridgeGlyph(parent.parent.parent.bridge.protocol) : ""; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle }
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             readonly property var b: parent.parent.parent.bridge
             text: b ? "Bridged to " + b.name + (b.channel ? " · " + b.channel : "") : ""
@@ -294,6 +298,7 @@ Item {
         anchors.rightMargin: Style.space(8)
         spacing: Style.space(10)
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           width: parent.width - Style.space(10) - leaveButtons.width
           wrapMode: Text.WordWrap
@@ -361,7 +366,7 @@ Item {
           Column {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - Style.space(40) - Style.space(10) - sheetClose.width - Style.space(10)
-            Text { width: parent.width; text: root.member ? root.member.name : ""; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true; elide: Text.ElideRight }
+            Text { textFormat: Text.PlainText; width: parent.width; text: root.member ? root.member.name : ""; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true; elide: Text.ElideRight }
             Text { width: parent.width; text: root.member ? root.member.id + (root.member.via ? "  ·  via " + root.member.via : "") + (root.member.role !== "member" ? "  ·  " + (root.member.role === "admin" ? "Admin" : "Moderator") : "") : ""; color: root.fg; opacity: 0.6; font.family: root.fontFamily; font.pixelSize: Style.font.caption; elide: Text.ElideMiddle }
           }
           Button { id: sheetClose; anchors.verticalCenter: parent.verticalCenter; iconText: "󰅖"; text: ""; onClicked: root.member = null }
@@ -416,6 +421,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: root.errorText !== ""
       wrapMode: Text.WordWrap
@@ -462,6 +468,7 @@ Item {
             width: parent.width - Style.space(28) - Style.space(10) - (roleBadge.visible ? roleBadge.width + Style.space(10) : 0)
             spacing: 0
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: row.modelData.name
               color: root.fg
@@ -469,6 +476,7 @@ Item {
               elide: Text.ElideRight
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: (row.modelData.via ? "via " + row.modelData.via + "  ·  " : "") + row.modelData.id
               color: root.fg; opacity: 0.45
@@ -487,6 +495,7 @@ Item {
             border.width: 1
             border.color: root.accent
             Text {
+              textFormat: Text.PlainText
               id: roleText
               anchors.centerIn: parent
               text: row.modelData.role === "admin" ? "Admin" : "Mod"
@@ -504,6 +513,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         visible: root.members.length === 0 && !root.loading && root.details !== null
         text: search.text !== "" ? "No one matches" : "No members loaded"

@@ -301,12 +301,14 @@ Rectangle {
               radius: Style.space(10)
               color: Util.alpha(root.fg, 0.08)
               Text {
+                textFormat: Text.PlainText
                 anchors.centerIn: parent
                 text: modelData.symbol
                 font.pixelSize: parent.width * 0.55
               }
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               horizontalAlignment: Text.AlignHCenter
               text: modelData.description
@@ -401,6 +403,7 @@ Rectangle {
     }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       wrapMode: Text.WordWrap
       visible: root.errorText !== ""

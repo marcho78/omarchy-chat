@@ -152,11 +152,12 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - ui.px(51)
                 spacing: ui.px(1)
-                Text { width: parent.width; text: card.modelData.name || card.modelData.user_id; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
-                Text { width: parent.width; text: card.modelData.user_id; color: root.c.muted; elide: Text.ElideMiddle; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+                Text { textFormat: Text.PlainText; width: parent.width; text: card.modelData.name || card.modelData.user_id; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
+                Text { textFormat: Text.PlainText; width: parent.width; text: card.modelData.user_id; color: root.c.muted; elide: Text.ElideMiddle; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
               }
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               height: Math.max(implicitHeight, ui.px(38))
               text: card.modelData.bio && card.modelData.bio !== "" ? card.modelData.bio : "No bio."
@@ -179,7 +180,7 @@ Item {
                   anchors.centerIn: parent
                   spacing: ui.px(6)
                   Rectangle { anchors.verticalCenter: parent.verticalCenter; width: ui.px(8); height: ui.px(8); radius: ui.px(3); color: root.themeColor(card.modelData.theme) }
-                  Text { anchors.verticalCenter: parent.verticalCenter; text: card.modelData.theme || ""; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.px(10.5) }
+                  Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: card.modelData.theme || ""; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.px(10.5) }
                 }
               }
               Rectangle {
@@ -210,6 +211,7 @@ Item {
       }
     }
     Text {
+      textFormat: Text.PlainText
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.margins: ui.px(8)

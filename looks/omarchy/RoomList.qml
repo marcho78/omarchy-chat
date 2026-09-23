@@ -280,6 +280,7 @@ Column {
           anchors.verticalCenter: parent.verticalCenter
           spacing: Style.space(1)
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: root.resultsKind === "users" ? (resultRow.modelData.name || resultRow.modelData.id) : resultRow.modelData.name
             color: root.fg
@@ -347,6 +348,7 @@ Column {
           anchors.verticalCenter: parent.verticalCenter
           spacing: Style.space(1)
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: inviteRow.modelData.name
             color: root.fg
@@ -356,6 +358,7 @@ Column {
             elide: Text.ElideRight
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: "from " + (inviteRow.modelData.inviter_name || inviteRow.modelData.inviter || "unknown")
             color: root.fg
@@ -437,6 +440,7 @@ Column {
           // A bridged room wears its network's logo; the lock only applies
           // to the Matrix leg there, so the subtitle says so instead.
           Text {
+            textFormat: Text.PlainText
             anchors.centerIn: parent
             text: row.modelData.bridge ? Format.bridgeGlyph(row.modelData.bridge.protocol) : (row.modelData.encrypted ? "󰌾" : "󰌿")
             color: row.modelData.bridge ? root.fg : (row.modelData.encrypted ? root.accent : Color.urgent)
@@ -453,6 +457,7 @@ Column {
           width: parent.width
           spacing: Style.space(6)
           Text {
+            textFormat: Text.PlainText
             width: parent.width - (muteGlyph.visible ? muteGlyph.implicitWidth + Style.space(6) : 0)
             text: row.modelData.name
             color: row.selected ? Color.menu.selectedText : root.fg
@@ -487,6 +492,7 @@ Column {
         }
       }
       Text {
+        textFormat: Text.PlainText
         id: star
         anchors.verticalCenter: parent.verticalCenter
         visible: rowMouse.containsMouse || row.modelData.favourite === true
@@ -630,6 +636,7 @@ Column {
   }
 
   Text {
+    textFormat: Text.PlainText
     width: parent.width
     wrapMode: Text.WordWrap
     visible: root.errorText !== ""

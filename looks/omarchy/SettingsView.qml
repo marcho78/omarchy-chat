@@ -233,6 +233,7 @@ Column {
           anchors.verticalCenter: parent.verticalCenter
           spacing: Style.space(2)
           Text {
+            textFormat: Text.PlainText
             text: "󰀏  " + (communityCard.c && communityCard.c.name ? communityCard.c.name : "Omarchy community")
             color: root.fg
             font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true
@@ -324,13 +325,13 @@ Column {
             width: parent.width
             spacing: Style.space(10)
             Toggle { id: dmToggle; checked: true }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: "Open to direct messages from members"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.body }
+            Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: "Open to direct messages from members"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.body }
           }
           Row {
             width: parent.width
             spacing: Style.space(10)
             Toggle { id: themeToggle; checked: true }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: "Show my theme" + (root.service && root.service.themeName ? " (" + root.service.themeName + ")" : ""); color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.body }
+            Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: "Show my theme" + (root.service && root.service.themeName ? " (" + root.service.themeName + ")" : ""); color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.body }
           }
           Row {
             spacing: Style.spacing.controlGap
@@ -379,13 +380,14 @@ Column {
             required property string modelData
             width: parent.width
             implicitHeight: Style.space(30)
-            Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; anchors.right: unblock.left; anchors.rightMargin: Style.space(8); text: modelData; color: root.fg; opacity: 0.8; elide: Text.ElideMiddle; font.family: root.fontFamily; font.pixelSize: Style.font.body }
+            Text { textFormat: Text.PlainText; anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; anchors.right: unblock.left; anchors.rightMargin: Style.space(8); text: modelData; color: root.fg; opacity: 0.8; elide: Text.ElideMiddle; font.family: root.fontFamily; font.pixelSize: Style.font.body }
             Button { id: unblock; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Unblock"; onClicked: root.service.unignore(modelData) }
           }
         }
       }
 
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         visible: communityCard.errorText !== ""
         wrapMode: Text.WordWrap
@@ -514,6 +516,7 @@ Column {
         width: parent.width
         spacing: Style.space(4)
         Text {
+          textFormat: Text.PlainText
           text: String(field.modelData.label || field.key)
           color: root.fg
           font.family: root.fontFamily
@@ -526,6 +529,7 @@ Column {
           onChanged: function(v) { root.service.set(field.key, v) }
         }
         Text {
+          textFormat: Text.PlainText
           visible: !!field.modelData.description
           width: parent.width
           wrapMode: Text.WordWrap
@@ -545,6 +549,7 @@ Column {
         Row {
           width: parent.width
           Text {
+            textFormat: Text.PlainText
             text: String(field.modelData.label || field.key)
             color: root.fg
             font.family: root.fontFamily
@@ -552,6 +557,7 @@ Column {
           }
           Item { width: parent.width - parent.children[0].implicitWidth - valueLabel.implicitWidth; height: 1 }
           Text {
+            textFormat: Text.PlainText
             id: valueLabel
             text: String(slider.dragging ? Math.round(slider.liveValue) : (Number(field.value) || field.modelData.defaultValue || 0)) + (field.key === "fontScale" ? "%" : "")
             color: Color.accent
@@ -609,12 +615,14 @@ Column {
               width: parent.width - Style.space(28) - Style.space(12) - stateLabel.width - Style.space(12)
               spacing: Style.space(1)
               Text {
+                textFormat: Text.PlainText
                 text: String(field.modelData.label || field.key)
                 color: root.fg
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.subtitle
               }
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: String(field.modelData.description || "")
                 color: root.fg
@@ -667,6 +675,7 @@ Column {
         width: parent.width
         spacing: Style.space(4)
         Text {
+          textFormat: Text.PlainText
           text: String(field.modelData.label || field.key)
           color: root.fg
           font.family: root.fontFamily
@@ -686,6 +695,7 @@ Column {
           }
         }
         Text {
+          textFormat: Text.PlainText
           visible: !!field.modelData.description && field.type !== "string"
           width: parent.width
           wrapMode: Text.WordWrap

@@ -44,10 +44,10 @@ Modal {
           Row {
             spacing: ui.px(7)
             Icon { anchors.verticalCenter: parent.verticalCenter; name: "hash"; size: ui.px(12); color: root.c.muted }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.name; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
+            Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: modelData.name; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
           }
-          Text { width: parent.width; text: modelData.topic ? Format.oneLine(modelData.topic) : ""; color: root.c.muted; elide: Text.ElideRight; maximumLineCount: 1; font.family: ui.sans; font.pixelSize: ui.f11 }
-          Text { text: modelData.members + (modelData.members === 1 ? " member" : " members") + (modelData.joined ? " · joined" : ""); color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+          Text { textFormat: Text.PlainText; width: parent.width; text: modelData.topic ? Format.oneLine(modelData.topic) : ""; color: root.c.muted; elide: Text.ElideRight; maximumLineCount: 1; font.family: ui.sans; font.pixelSize: ui.f11 }
+          Text { textFormat: Text.PlainText; text: modelData.members + (modelData.members === 1 ? " member" : " members") + (modelData.joined ? " · joined" : ""); color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
         }
       }
     }
@@ -58,7 +58,7 @@ Modal {
     Icon { name: "info"; size: ui.px(14); color: root.c.muted }
     Text { width: parent.width - ui.px(24); wrapMode: Text.Wrap; lineHeight: 1.35; text: "Joining lists you in nothing. A card with your name and a line of bio is published only if you write one in Settings › Community."; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
   }
-  Text { width: parent.width; visible: root.errorText !== ""; wrapMode: Text.Wrap; text: root.errorText; color: root.c.bad; font.family: ui.sans; font.pixelSize: ui.f11 }
+  Text { textFormat: Text.PlainText; width: parent.width; visible: root.errorText !== ""; wrapMode: Text.Wrap; text: root.errorText; color: root.c.bad; font.family: ui.sans; font.pixelSize: ui.f11 }
   Row {
     width: parent.width
     spacing: ui.px(9)

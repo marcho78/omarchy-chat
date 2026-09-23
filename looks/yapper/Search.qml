@@ -35,8 +35,8 @@ Item {
     root.searching = true; root.errorText = ""; root.lastQuery = q
     root.service.searchMessages(q, root.scope, function(r) {
       root.searching = false
-      if (!r.ok) { root.errorText = r.error || "Search failed"; root.hits = []; root.stats = null; return }
-      root.hits = r.result.hits
+      if (!r.ok || !r.result) { root.errorText = r.ok ? "Search returned nothing" : (r.error || "Search failed"); root.hits = []; root.stats = null; return }
+      root.hits = r.result.hits || []
       root.stats = r.result
     })
   }
@@ -112,7 +112,7 @@ Item {
           color: on ? root.c.sel : (chipMouse.containsMouse ? root.c.hover : "transparent")
           border.width: 1
           border.color: on ? root.c.accent : root.c.line
-          Text { id: chipText; anchors.centerIn: parent; text: parent.modelData.label; color: parent.on ? root.c.accent : root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
+          Text { textFormat: Text.PlainText; id: chipText; anchors.centerIn: parent; text: parent.modelData.label; color: parent.on ? root.c.accent : root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
           MouseArea { id: chipMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { if (parent.modelData.value === "__current") return; root.scope = parent.modelData.value; if (root.lastQuery !== "") root.run() } }
         }
       }
@@ -173,8 +173,8 @@ Item {
               width: parent.width
               spacing: ui.px(8)
               Icon { anchors.verticalCenter: parent.verticalCenter; name: "hash"; size: ui.px(12); color: root.c.muted }
-              Text { anchors.verticalCenter: parent.verticalCenter; width: parent.width - ui.px(100); elide: Text.ElideRight; text: hit.modelData.room_name; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f12; font.weight: Font.DemiBold }
-              Text { anchors.verticalCenter: parent.verticalCenter; text: Format.timeOf(Number(hit.modelData.ts)); color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+              Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; width: parent.width - ui.px(100); elide: Text.ElideRight; text: hit.modelData.room_name; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f12; font.weight: Font.DemiBold }
+              Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: Format.timeOf(Number(hit.modelData.ts)); color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
             }
             Row {
               width: parent.width
@@ -183,7 +183,7 @@ Item {
               Column {
                 width: parent.width - ui.px(36)
                 spacing: ui.px(2)
-                Text { text: hit.mine ? "You" : hit.modelData.sender_name; color: hit.who; font.family: ui.sans; font.pixelSize: ui.f12; font.weight: Font.DemiBold }
+                Text { textFormat: Text.PlainText; text: hit.mine ? "You" : hit.modelData.sender_name; color: hit.who; font.family: ui.sans; font.pixelSize: ui.f12; font.weight: Font.DemiBold }
                 Text {
                   width: parent.width
                   textFormat: Text.StyledText

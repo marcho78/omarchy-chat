@@ -55,7 +55,7 @@ Modal {
       anchors.rightMargin: ui.px(12)
       anchors.verticalCenter: parent.verticalCenter
       spacing: ui.px(2)
-      Text { text: parent.parent.label; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
+      Text { textFormat: Text.PlainText; text: parent.parent.label; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold }
       Text { width: parent.width; text: parent.parent.detail; color: root.c.muted; wrapMode: Text.Wrap; font.family: ui.sans; font.pixelSize: ui.f11 }
     }
     Toggle { id: cardToggle; anchors.right: parent.right; anchors.rightMargin: ui.px(13); anchors.verticalCenter: parent.verticalCenter; c: root.c; checked: parent.on; onToggled: parent.toggled() }
@@ -75,7 +75,7 @@ Modal {
   }
   ToggleCard { icon: "lock-simple"; tone: root.c.ok; label: "End-to-end encrypted"; detail: "Only members can read it, not even the server. Cannot be turned off later."; on: root.encrypted; onToggled: root.encrypted = !root.encrypted }
   ToggleCard { icon: "eye-slash"; tone: root.c.accent; label: "Private"; detail: "Invite only. Off makes it public: anyone can find and join it."; on: root.isPrivate; onToggled: root.isPrivate = !root.isPrivate }
-  Text { width: parent.width; visible: root.errorText !== ""; wrapMode: Text.Wrap; text: root.errorText; color: root.c.bad; font.family: ui.sans; font.pixelSize: ui.f11 }
+  Text { textFormat: Text.PlainText; width: parent.width; visible: root.errorText !== ""; wrapMode: Text.Wrap; text: root.errorText; color: root.c.bad; font.family: ui.sans; font.pixelSize: ui.f11 }
   Row {
     width: parent.width
     spacing: ui.px(9)

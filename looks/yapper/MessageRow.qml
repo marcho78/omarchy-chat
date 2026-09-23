@@ -184,6 +184,7 @@ Item {
         spacing: ui.px(8)
         Icon { anchors.verticalCenter: parent.verticalCenter; name: "info"; size: ui.px(12); color: root.c.muted }
         Text {
+          textFormat: Text.PlainText
           id: sysText
           width: parent.width - ui.px(20)
           text: root.body
@@ -240,6 +241,7 @@ Item {
           visible: root.header && !root.own
           spacing: ui.px(8)
           Text {
+            textFormat: Text.PlainText
             anchors.baseline: parent.bottom
             text: root.mine ? "You" : root.senderName
             color: root.senderColor
@@ -323,6 +325,7 @@ Item {
                     font.family: ui.sans; font.pixelSize: ui.f11; font.weight: Font.DemiBold
                   }
                   Text {
+                    textFormat: Text.PlainText
                     id: quoteBody
                     width: Math.min(parent.width, ui.px(420))
                     text: root.replyTo ? Format.oneLine(root.replyTo.body) : ""
@@ -382,6 +385,7 @@ Item {
                   spacing: ui.px(6)
                   Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "image"; size: ui.px(22); color: root.c.muted }
                   Text {
+                    textFormat: Text.PlainText
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: root.fetchError !== "" ? root.fetchError : (root.attachment ? root.attachment.name : "")
                     color: root.c.muted
@@ -395,6 +399,7 @@ Item {
                   opacity: imageMouse.containsMouse ? 1 : 0
                   Behavior on opacity { NumberAnimation { duration: 120 } }
                   Text {
+                    textFormat: Text.PlainText
                     id: imageCaption
                     anchors.left: parent.left; anchors.right: parent.right; anchors.margins: ui.px(10)
                     anchors.verticalCenter: parent.verticalCenter
@@ -434,6 +439,7 @@ Item {
                   anchors.verticalCenter: parent.verticalCenter
                   spacing: ui.px(1)
                   Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: root.attachment ? root.attachment.name : ""
                     color: root.c.fg
@@ -654,6 +660,7 @@ Item {
                   anchors.verticalCenter: parent.verticalCenter
                   spacing: ui.px(3)
                   Text {
+                    textFormat: Text.PlainText
                     visible: text !== ""
                     width: parent.width
                     text: root.preview && root.preview.site ? String(root.preview.site) : ""
@@ -661,12 +668,14 @@ Item {
                     font.family: ui.mono; font.pixelSize: ui.f10; font.letterSpacing: 0.4
                   }
                   Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: root.preview ? String(root.preview.title || root.firstUrl) : ""
                     color: root.c.accent; elide: Text.ElideRight
                     font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.DemiBold
                   }
                   Text {
+                    textFormat: Text.PlainText
                     visible: text !== ""
                     width: parent.width
                     text: root.preview && root.preview.description ? String(root.preview.description) : ""
@@ -703,8 +712,8 @@ Item {
                 id: reactionRow
                 anchors.centerIn: parent
                 spacing: ui.px(5)
-                Text { anchors.verticalCenter: parent.verticalCenter; text: parent.parent.modelData.key; font.pixelSize: ui.f12 }
-                Text { anchors.verticalCenter: parent.verticalCenter; text: String(parent.parent.modelData.count); color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+                Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: parent.parent.modelData.key; font.pixelSize: ui.f12 }
+                Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: String(parent.parent.modelData.count); color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
               }
               MouseArea {
                 id: reactionMouse
@@ -727,7 +736,7 @@ Item {
                 border.width: 1
                 border.color: root.c.line
                 z: 20
-                Text { id: reactionTipText; anchors.centerIn: parent; text: parent.parent.modelData.senders.map(function(u) { return u.name }).join(", "); color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f11 }
+                Text { textFormat: Text.PlainText; id: reactionTipText; anchors.centerIn: parent; text: parent.parent.modelData.senders.map(function(u) { return u.name }).join(", "); color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f11 }
               }
             }
           }
@@ -852,7 +861,7 @@ Item {
             border.width: 1
             border.color: root.c.line
             z: 20
-            Text { id: readTipText; anchors.centerIn: parent; text: "Seen by " + root.readBy.map(function(u) { return u.name }).join(", "); color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f11 }
+            Text { textFormat: Text.PlainText; id: readTipText; anchors.centerIn: parent; text: "Seen by " + root.readBy.map(function(u) { return u.name }).join(", "); color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f11 }
           }
         }
       }

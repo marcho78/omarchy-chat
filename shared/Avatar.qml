@@ -33,6 +33,7 @@ Item {
     color: root.fallbackColor
     visible: image.status !== Image.Ready
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       text: Format.initial(root.name || root.userId)
       color: root.initialColor

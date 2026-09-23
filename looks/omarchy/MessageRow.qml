@@ -127,6 +127,7 @@ Item {
     anchors.topMargin: Style.space(3)
     implicitHeight: sysText.implicitHeight
     Text {
+      textFormat: Text.PlainText
       id: sysText
       anchors.horizontalCenter: parent.horizontalCenter
       width: Math.min(parent.width, implicitWidth)
@@ -260,7 +261,7 @@ Item {
               width: Style.space(26); height: Style.space(26)
               radius: Style.space(5)
               color: aMouse.containsMouse ? root.hover : "transparent"
-              Text { anchors.centerIn: parent; text: parent.modelData.icon; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.icon }
+              Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: parent.modelData.icon; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.icon }
               MouseArea {
                 id: aMouse
                 anchors.fill: parent
@@ -356,6 +357,7 @@ Item {
           anchors.right: root.bubbles && root.mine ? parent.right : undefined
           spacing: Style.space(8)
           Text {
+            textFormat: Text.PlainText
             text: root.senderName + (root.via !== "" ? "  ·  " + root.via : "")
             color: root.nameColor
             font.family: root.fontFamily
@@ -397,6 +399,7 @@ Item {
               font.family: root.fontFamily; font.pixelSize: root.captionSize; font.bold: true
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: root.replyTo ? root.replyTo.body : ""
               color: root.fg; opacity: 0.75
@@ -473,6 +476,7 @@ Item {
               opacity: 0
               Behavior on opacity { NumberAnimation { duration: 120 } }
               Text {
+                textFormat: Text.PlainText
                 id: captionText
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -636,6 +640,7 @@ Item {
               width: parent.width - Style.space(10) * 2 - Style.space(28) - openButton.width
               spacing: Style.space(1)
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: root.attachment ? root.attachment.name : ""
                 color: root.fg
@@ -732,6 +737,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               spacing: Style.space(2)
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 visible: root.preview && !!root.preview.site
                 text: root.preview ? String(root.preview.site) : ""
@@ -740,6 +746,7 @@ Item {
                 font.family: root.fontFamily; font.pixelSize: root.captionSize
               }
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: root.preview ? String(root.preview.title || root.firstUrl) : ""
                 color: root.fg
@@ -749,6 +756,7 @@ Item {
                 font.family: root.fontFamily; font.pixelSize: root.bodySize; font.bold: true
               }
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 visible: root.preview && !!root.preview.description
                 text: root.preview ? String(root.preview.description) : ""
@@ -871,8 +879,8 @@ Item {
                 id: chipRow
                 anchors.centerIn: parent
                 spacing: Style.space(4)
-                Text { text: parent.parent.modelData.key; font.pixelSize: root.captionSize + 1 }
-                Text { text: String(parent.parent.modelData.count); color: root.fg; font.family: root.fontFamily; font.pixelSize: root.captionSize; font.bold: parent.parent.own }
+                Text { textFormat: Text.PlainText; text: parent.parent.modelData.key; font.pixelSize: root.captionSize + 1 }
+                Text { textFormat: Text.PlainText; text: String(parent.parent.modelData.count); color: root.fg; font.family: root.fontFamily; font.pixelSize: root.captionSize; font.bold: parent.parent.own }
               }
               MouseArea {
                 anchors.fill: parent
@@ -895,6 +903,7 @@ Item {
                 border.color: Color.tooltip.border
                 border.width: 1
                 Text {
+                  textFormat: Text.PlainText
                   id: chipTipText
                   anchors.centerIn: parent
                   text: parent.parent.modelData.senders.map(function(u) { return u.name }).join(", ")
@@ -954,6 +963,7 @@ Item {
             border.color: Color.tooltip.border
             border.width: 1
             Text {
+              textFormat: Text.PlainText
               id: seenText
               anchors.centerIn: parent
               text: "Seen by " + root.readBy.map(function(u) { return u.name }).join(", ")

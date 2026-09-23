@@ -8,6 +8,11 @@
     yapper-helper reset                              stop, delete the data directory, start again (JSON)
     yapper-helper remove [--data]                    stop, disable, pacman -R the package (terminal)
     yapper-helper plugin-check <dir>                 commits the plugin checkout is behind its remote (JSON)
+    yapper-helper theme                              the active Omarchy theme's name (JSON)
+    yapper-helper audio                              PipeWire sources and sinks (JSON)
+    yapper-helper paste                              save a clipboard image to a private temp file (JSON)
+    yapper-helper tempfile <suffix>                  create a private temp file in $XDG_RUNTIME_DIR (JSON)
+    yapper-helper store-size <dir>                   bytes under a directory, human readable (JSON)
 
 `install` and `remove` are meant to run inside a terminal. `install` fetches
 the daemon repository into $XDG_CACHE_HOME/omarchy-yapper/omarchy-yapperd,
@@ -49,6 +54,8 @@ PACKAGES = ("omarchy-yapperd-bin", "omarchy-yapperd")
 
 GIT = "/usr/bin/git"
 PACMAN = "/usr/bin/pacman"
+PACTL = "/usr/bin/pactl"
+WL_PASTE = "/usr/bin/wl-paste"
 MAKEPKG = "/usr/bin/makepkg"
 SUDO = "/usr/bin/sudo"
 SYSTEMCTL = "/usr/bin/systemctl"
@@ -526,6 +533,113 @@ def cmd_plugin_check(plugin_dir):
     return 0
 
 
+def cmd_theme():
+    """Omarchy writes the active theme's name to ~/.local/state/omarchy/current/theme.name."""
+    path = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local", "state"), "omarchy", "current", "theme.name")
+    name = ""
+    try:
+        with open(path) as f:
+            name = f.read(256).strip()
+    except OSError:
+        pass
+    # Shown as Omarchy shows it: "tokyo-night" -> "Tokyo Night"
+    name = " ".join(w[:1].upper() + w[1:] for w in name.split("-") if w)
+    print(json.dumps({"name": name}))
+    return 0
+
+
+def cmd_audio():
+    env = {"PATH": "/usr/bin", "HOME": HOME, "LANG": "C.UTF-8"}
+    for key in ("XDG_RUNTIME_DIR", "PULSE_SERVER", "PIPEWIRE_RUNTIME_DIR"):
+        if key in os.environ:
+            env[key] = os.environ[key]
+    out = {"inputs": [], "outputs": []}
+    for kind, key, drop_monitors in (("sources", "inputs", True), ("sinks", "outputs", False)):
+        code, text = run([PACTL, "--format=json", "list", kind], env=env, deadline=15)
+        if code != 0:
+            continue
+        try:
+            for d in json.loads(text):
+                name = str(d.get("name", ""))
+                if drop_monitors and ".monitor" in name:
+                    continue
+                out[key].append({"value": name, "label": str(d.get("description") or name)})
+        except ValueError:
+            pass
+    print(json.dumps(out))
+    return 0
+
+
+def private_tempfile(suffix):
+    """A fresh, exclusively created file in $XDG_RUNTIME_DIR (mode 0700, ours);
+    returns its path. Nothing else can have planted it."""
+    if not os.path.isdir(RUNTIME):
+        raise Failure("no runtime directory")
+    fd = os.open(RUNTIME, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        st = os.fstat(fd)
+        if st.st_uid != os.getuid():
+            raise Failure("runtime directory is not ours")
+        for _ in range(64):
+            name = "yapper-%s%s" % (os.urandom(8).hex(), suffix)
+            try:
+                tfd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+            except FileExistsError:
+                continue
+            return tfd, os.path.join(RUNTIME, name)
+        raise Failure("could not create a temp file")
+    finally:
+        os.close(fd)
+
+
+def cmd_tempfile(suffix):
+    if not suffix.startswith(".") or "/" in suffix or len(suffix) > 16:
+        raise Failure("suffix must be like .wav")
+    tfd, path = private_tempfile(suffix)
+    os.close(tfd)
+    print(json.dumps({"path": path}))
+    return 0
+
+
+def cmd_paste():
+    """If the clipboard holds an image, write it as PNG to a private temp file."""
+    env = {"PATH": "/usr/bin", "HOME": HOME}
+    for key in ("XDG_RUNTIME_DIR", "WAYLAND_DISPLAY"):
+        if key in os.environ:
+            env[key] = os.environ[key]
+    code, types = run([WL_PASTE, "-l"], env=env, deadline=10)
+    if code != 0 or not any(t.startswith("image/") for t in types.split()):
+        print(json.dumps({"path": ""}))
+        return 0
+    tfd, path = private_tempfile(".png")
+    with os.fdopen(tfd, "wb") as f:
+        proc = subprocess.run([WL_PASTE, "-t", "image/png"], env=env, stdout=f, stderr=subprocess.DEVNULL, timeout=30)
+    if proc.returncode != 0 or os.path.getsize(path) == 0:
+        os.unlink(path)
+        print(json.dumps({"path": ""}))
+        return 0
+    print(json.dumps({"path": path}))
+    return 0
+
+
+def cmd_store_size(root_dir):
+    total = 0
+    for dirpath, dirnames, filenames in os.walk(root_dir, followlinks=False):
+        for name in filenames:
+            try:
+                st = os.lstat(os.path.join(dirpath, name))
+            except OSError:
+                continue
+            if stat.S_ISREG(st.st_mode):
+                total += st.st_size
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if total < 1024 or unit == "GiB":
+            break
+        total /= 1024.0
+    print(json.dumps({"human": ("%d %s" % (total, unit)) if unit == "B" else ("%.1f %s" % (total, unit))}))
+    return 0
+
+
 def clock(seconds):
     seconds = int(seconds)
     if seconds >= 3600:
@@ -577,6 +691,16 @@ def main(argv):
             return cmd_reset()
         if cmd == "plugin-check" and len(args) == 1:
             return cmd_plugin_check(args[0])
+        if cmd == "theme":
+            return cmd_theme()
+        if cmd == "audio":
+            return cmd_audio()
+        if cmd == "paste":
+            return cmd_paste()
+        if cmd == "tempfile" and len(args) == 1:
+            return cmd_tempfile(args[0])
+        if cmd == "store-size" and len(args) == 1:
+            return cmd_store_size(args[0])
         print(__doc__)
         return 2
     except Failure as e:

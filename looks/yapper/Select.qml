@@ -74,6 +74,7 @@ Item {
             radius: ui.px(6)
             color: on ? root.c.sel : (optMouse.containsMouse ? root.c.hover : "transparent")
             Text {
+              textFormat: Text.PlainText
               anchors.left: parent.left
               anchors.leftMargin: ui.px(9)
               anchors.right: check.left

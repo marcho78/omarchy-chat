@@ -280,6 +280,7 @@ Item {
           spacing: Style.space(1)
           Text { text: "Delete this message?"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.bold: true }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: session.confirmDelete ? (session.confirmDelete.body || "(attachment)") : ""
             color: root.fg; opacity: 0.7; elide: Text.ElideRight
@@ -328,6 +329,7 @@ Item {
             font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.bold: true
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: session.editing ? session.editing.body : (session.replyTo ? session.replyTo.body : "")
             color: root.fg; opacity: 0.7
@@ -452,6 +454,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       id: errorLabel
       width: parent.width
       wrapMode: Text.WordWrap
@@ -475,6 +478,7 @@ Item {
         onClicked: leaveButton.confirm = true
       }
       Text {
+        textFormat: Text.PlainText
         visible: leaveButton.confirm
         anchors.verticalCenter: parent.verticalCenter
         text: "Leave " + root.roomName + "?"
@@ -519,8 +523,9 @@ Item {
             id: hintCol
             anchors.centerIn: parent
             spacing: 0
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.e; font.pixelSize: Style.space(17) }
+            Text { textFormat: Text.PlainText; anchors.horizontalCenter: parent.horizontalCenter; text: modelData.e; font.pixelSize: Style.space(17) }
             Text {
+              textFormat: Text.PlainText
               id: hintLabel
               anchors.horizontalCenter: parent.horizontalCenter
               text: ":" + (modelData.k.length > 14 ? modelData.k.substring(0, 13) + "…" : modelData.k)

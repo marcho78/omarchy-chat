@@ -121,6 +121,7 @@ Item {
     Rectangle { anchors.fill: parent; radius: ui.px(7); color: actionMouse.containsMouse ? root.c.hover : "transparent" }
     Icon { id: actionIcon; anchors.left: parent.left; anchors.leftMargin: ui.px(10); anchors.verticalCenter: parent.verticalCenter; name: parent.icon; size: ui.px(16); color: parent.tone }
     Text {
+      textFormat: Text.PlainText
       anchors.left: actionIcon.right
       anchors.leftMargin: ui.px(10)
       anchors.right: actionValue.left
@@ -177,6 +178,7 @@ Item {
           fontFamily: ui.sans
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width - ui.px(28)
           anchors.horizontalCenter: parent.horizontalCenter
           horizontalAlignment: Text.AlignHCenter
@@ -186,6 +188,7 @@ Item {
           font.family: ui.sans; font.pixelSize: ui.f15; font.weight: Font.DemiBold
         }
         Text {
+          textFormat: Text.PlainText
           visible: text !== ""
           width: parent.width - ui.px(28)
           anchors.horizontalCenter: parent.horizontalCenter
@@ -196,6 +199,7 @@ Item {
           font.family: ui.mono; font.pixelSize: ui.px(10.5)
         }
         Text {
+          textFormat: Text.PlainText
           visible: text !== ""
           width: parent.width - ui.px(28)
           anchors.horizontalCenter: parent.horizontalCenter
@@ -258,6 +262,7 @@ Item {
           spacing: ui.px(8)
           Icon { anchors.verticalCenter: parent.verticalCenter; name: "plugs-connected"; weight: "fill"; size: ui.px(15); color: root.c.warn }
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             readonly property var b: parent.parent.bridge
             text: b ? "Bridged to " + b.name + (b.channel ? " · " + b.channel : "") : ""
@@ -330,7 +335,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - ui.px(50) - ui.px(30)
             spacing: ui.px(1)
-            Text { width: parent.width; text: root.member ? root.member.name : ""; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
+            Text { textFormat: Text.PlainText; width: parent.width; text: root.member ? root.member.name : ""; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.DemiBold }
             Text {
               width: parent.width
               text: root.member ? root.member.id + (root.member.via ? " · via " + root.member.via : "") + (root.member.role && root.member.role !== "member" ? " · " + root.member.role : "") : ""
@@ -414,6 +419,7 @@ Item {
             anchors.margins: ui.px(11)
             spacing: ui.px(8)
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               wrapMode: Text.WordWrap
               text: "Leave " + (root.details ? root.details.name : "this room") + "? " + (root.details && root.details.join_rule === "public" ? "You can rejoin any time." : "You will need a new invitation to come back.")
@@ -432,6 +438,7 @@ Item {
       Rectangle { width: parent.width; height: 1; color: root.c.line; visible: root.details !== null && root.editing === "" && root.member === null }
 
       Text {
+        textFormat: Text.PlainText
         width: parent.width - ui.px(24)
         x: ui.px(12)
         visible: root.errorText !== ""
@@ -500,8 +507,8 @@ Item {
             anchors.rightMargin: ui.px(22)
             anchors.verticalCenter: parent.verticalCenter
             spacing: ui.px(1)
-            Text { width: parent.width; text: memberRow.modelData.name; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.Medium }
-            Text { width: parent.width; text: (memberRow.modelData.via ? "via " + memberRow.modelData.via + " · " : "") + memberRow.modelData.id; color: root.c.muted; elide: Text.ElideMiddle; font.family: ui.mono; font.pixelSize: ui.f10 }
+            Text { textFormat: Text.PlainText; width: parent.width; text: memberRow.modelData.name; color: root.c.fg; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.weight: Font.Medium }
+            Text { textFormat: Text.PlainText; width: parent.width; text: (memberRow.modelData.via ? "via " + memberRow.modelData.via + " · " : "") + memberRow.modelData.id; color: root.c.muted; elide: Text.ElideMiddle; font.family: ui.mono; font.pixelSize: ui.f10 }
           }
           Rectangle {
             id: roleChip
@@ -514,6 +521,7 @@ Item {
             radius: height / 2
             color: root.c.chip
             Text {
+              textFormat: Text.PlainText
               id: roleText
               anchors.centerIn: parent
               text: memberRow.modelData.role === "admin" ? "Admin" : "Moderator"
@@ -532,6 +540,7 @@ Item {
         padding: ui.px(12)
         spacing: ui.px(8)
         Text {
+          textFormat: Text.PlainText
           visible: root.members.length === 0 && !root.loading && root.details !== null
           width: parent.width - ui.px(24)
           horizontalAlignment: Text.AlignHCenter

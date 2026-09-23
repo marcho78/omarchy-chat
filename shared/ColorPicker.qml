@@ -166,7 +166,7 @@ Column {
           color: Color.tooltip.background
           border.color: Color.tooltip.border
           border.width: 1
-          Text { id: tipText; anchors.centerIn: parent; text: String(parent.parent.modelData.label); color: Color.tooltip.text; font.family: root.fontFamily; font.pixelSize: Style.font.caption }
+          Text { textFormat: Text.PlainText; id: tipText; anchors.centerIn: parent; text: String(parent.parent.modelData.label); color: Color.tooltip.text; font.family: root.fontFamily; font.pixelSize: Style.font.caption }
         }
       }
     }

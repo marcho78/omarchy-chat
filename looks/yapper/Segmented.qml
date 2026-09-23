@@ -26,7 +26,7 @@ Rectangle {
         height: ui.px(24)
         radius: height / 2
         color: on ? root.c.accent : (segMouse.containsMouse ? root.c.hover : "transparent")
-        Text { id: segText; anchors.centerIn: parent; text: parent.modelData.label; color: parent.on ? root.c.bg2 : root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11; font.weight: parent.on ? Font.DemiBold : Font.Normal }
+        Text { textFormat: Text.PlainText; id: segText; anchors.centerIn: parent; text: parent.modelData.label; color: parent.on ? root.c.bg2 : root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11; font.weight: parent.on ? Font.DemiBold : Font.Normal }
         MouseArea { id: segMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.chosen(String(parent.modelData.value)) }
       }
     }

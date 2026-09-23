@@ -282,6 +282,7 @@ Item {
                 name: "lock-simple"; weight: "fill"; size: ui.px(11); color: root.c.ok
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(implicitWidth, parent.width - ui.px(40))
                 elide: Text.ElideRight
@@ -296,6 +297,7 @@ Item {
               }
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               elide: Text.ElideRight
               text: root.room && root.room.topic ? Format.oneLine(root.room.topic) : (root.room && root.room.encrypted ? "End-to-end encrypted" : "Not encrypted")
@@ -361,7 +363,7 @@ Item {
                 width: parent.width - ui.px(25)
                 spacing: ui.px(1)
                 Text { text: root.panel === "thread" ? "Thread" : "Room info"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.px(13.5); font.weight: Font.DemiBold }
-                Text { width: parent.width; visible: root.panel === "thread" || !main.split; text: "in " + roomView.roomName; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f11 }
+                Text { textFormat: Text.PlainText; width: parent.width; visible: root.panel === "thread" || !main.split; text: "in " + roomView.roomName; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f11 }
               }
             }
             IconButton {

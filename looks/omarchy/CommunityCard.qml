@@ -33,7 +33,7 @@ Rectangle {
     spacing: Style.space(8)
     Row {
       spacing: Style.space(8)
-      Text { text: "󰀏"; color: root.service ? root.service.accent : Color.accent; font.family: root.fontFamily; font.pixelSize: Style.font.title }
+      Text { textFormat: Text.PlainText; text: "󰀏"; color: root.service ? root.service.accent : Color.accent; font.family: root.fontFamily; font.pixelSize: Style.font.title }
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: "Join the Omarchy community?"
@@ -52,6 +52,7 @@ Rectangle {
       font.family: root.fontFamily; font.pixelSize: Style.font.caption
     }
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: root.errorText !== ""
       wrapMode: Text.WordWrap

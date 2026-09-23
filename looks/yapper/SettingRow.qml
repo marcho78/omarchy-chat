@@ -22,8 +22,8 @@ Item {
     anchors.rightMargin: ui.px(18)
     anchors.verticalCenter: parent.verticalCenter
     spacing: ui.px(3)
-    Text { width: parent.width; text: root.label; color: root.labelColor; wrapMode: Text.Wrap; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.Medium }
-    Text { visible: root.description !== ""; width: parent.width; text: root.description; color: root.c.muted; wrapMode: Text.Wrap; lineHeight: 1.3; font.family: ui.sans; font.pixelSize: ui.f11 }
+    Text { textFormat: Text.PlainText; width: parent.width; text: root.label; color: root.labelColor; wrapMode: Text.Wrap; font.family: ui.sans; font.pixelSize: ui.f13; font.weight: Font.Medium }
+    Text { textFormat: Text.PlainText; visible: root.description !== ""; width: parent.width; text: root.description; color: root.c.muted; wrapMode: Text.Wrap; lineHeight: 1.3; font.family: ui.sans; font.pixelSize: ui.f11 }
   }
   Item {
     id: slot

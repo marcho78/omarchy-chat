@@ -122,11 +122,13 @@ Item {
             width: parent.width
             spacing: Style.space(8)
             Text {
+              textFormat: Text.PlainText
               text: hit.modelData.sender_name
               color: Qt.hsla(Format.hueFor(hit.modelData.sender) / 360, 0.6, 0.62, 1)
               font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.bold: true
             }
             Text {
+              textFormat: Text.PlainText
               visible: !root.inRoom
               text: "in " + hit.modelData.room_name
               color: root.fg; opacity: 0.6
@@ -134,6 +136,7 @@ Item {
               elide: Text.ElideRight
             }
             Text {
+              textFormat: Text.PlainText
               text: Format.dayLabel(hit.modelData.ts, Date.now()) + " " + Qt.formatTime(new Date(hit.modelData.ts), "HH:mm")
               color: root.fg; opacity: 0.45
               font.family: root.fontFamily; font.pixelSize: Style.font.caption

@@ -58,7 +58,7 @@ Rectangle {
         anchors.rightMargin: Style.space(8)
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(2)
-        Text { text: "󰀏  People"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
+        Text { textFormat: Text.PlainText; text: "󰀏  People"; color: root.fg; font.family: root.fontFamily; font.pixelSize: Style.font.title; font.bold: true }
         Text {
           width: parent.width
           text: root.loading ? "Loading…" : root.people.length + (root.people.length === 1 ? " Omarchy user listed" : " Omarchy users listed") + "  ·  only people who chose to be"
@@ -81,6 +81,7 @@ Rectangle {
     Timer { id: searchDebounce; interval: 250; onTriggered: root.load() }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: root.errorText !== ""
       wrapMode: Text.WordWrap
@@ -90,6 +91,7 @@ Rectangle {
     }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: !root.loading && root.people.length === 0 && root.errorText === ""
       wrapMode: Text.WordWrap
@@ -139,12 +141,14 @@ Rectangle {
               width: parent.width
               spacing: Style.space(8)
               Text {
+                textFormat: Text.PlainText
                 text: card.modelData.name
                 color: root.fg
                 font.family: root.fontFamily; font.pixelSize: Style.font.subtitle; font.bold: true
                 elide: Text.ElideRight
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.baseline: parent.children[0].baseline
                 text: card.modelData.user_id
                 color: root.fg; opacity: 0.5
@@ -153,6 +157,7 @@ Rectangle {
               }
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               visible: !!card.modelData.bio
               wrapMode: Text.WordWrap
@@ -169,21 +174,21 @@ Rectangle {
                 height: Style.space(20)
                 radius: Style.space(5)
                 color: Util.alpha(root.accent, 0.15)
-                Text { id: themeText; anchors.centerIn: parent; text: "󰏘 " + (card.modelData.theme || ""); color: root.accent; font.family: root.fontFamily; font.pixelSize: Style.font.caption - 1 }
+                Text { textFormat: Text.PlainText; id: themeText; anchors.centerIn: parent; text: "󰏘 " + (card.modelData.theme || ""); color: root.accent; font.family: root.fontFamily; font.pixelSize: Style.font.caption - 1 }
               }
               Rectangle {
                 width: dmText.implicitWidth + Style.space(12)
                 height: Style.space(20)
                 radius: Style.space(5)
                 color: Util.alpha(root.fg, 0.08)
-                Text { id: dmText; anchors.centerIn: parent; text: card.modelData.open_to_dm ? "󰭹 Open to messages" : "󰭼 Not taking messages"; color: root.fg; opacity: 0.7; font.family: root.fontFamily; font.pixelSize: Style.font.caption - 1 }
+                Text { textFormat: Text.PlainText; id: dmText; anchors.centerIn: parent; text: card.modelData.open_to_dm ? "󰭹 Open to messages" : "󰭼 Not taking messages"; color: root.fg; opacity: 0.7; font.family: root.fontFamily; font.pixelSize: Style.font.caption - 1 }
               }
               Rectangle {
                 visible: !!card.modelData.updated
                 width: listedText.implicitWidth + Style.space(4)
                 height: Style.space(20)
                 color: "transparent"
-                Text { id: listedText; anchors.centerIn: parent; text: card.modelData.updated ? "listed " + Format.timeOf(Number(card.modelData.updated)) : ""; color: root.fg; opacity: 0.45; font.family: root.fontFamily; font.pixelSize: Style.font.caption - 1 }
+                Text { textFormat: Text.PlainText; id: listedText; anchors.centerIn: parent; text: card.modelData.updated ? "listed " + Format.timeOf(Number(card.modelData.updated)) : ""; color: root.fg; opacity: 0.45; font.family: root.fontFamily; font.pixelSize: Style.font.caption - 1 }
               }
             }
             Row {

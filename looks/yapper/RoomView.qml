@@ -82,7 +82,7 @@ Item {
     color: "transparent"
     border.width: 1
     border.color: root.c.line
-    Text { id: kbdText; anchors.centerIn: parent; text: parent.label; color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
+    Text { textFormat: Text.PlainText; id: kbdText; anchors.centerIn: parent; text: parent.label; color: root.c.muted; font.family: ui.mono; font.pixelSize: ui.px(10.5) }
   }
   component CircleButton: Rectangle {
     property string icon: ""
@@ -287,7 +287,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: ui.px(2)
         Text { text: "Delete this message?"; color: root.c.fg; font.family: ui.sans; font.pixelSize: ui.f12; font.weight: Font.DemiBold }
-        Text { width: parent.width; text: session.confirmDelete ? Format.oneLine(session.confirmDelete.body || "(attachment)") : ""; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f11 }
+        Text { textFormat: Text.PlainText; width: parent.width; text: session.confirmDelete ? Format.oneLine(session.confirmDelete.body || "(attachment)") : ""; color: root.c.muted; elide: Text.ElideRight; font.family: ui.sans; font.pixelSize: ui.f11 }
       }
       Row {
         id: deleteButtons
@@ -312,6 +312,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: session.errorText !== ""
       text: session.errorText
@@ -409,8 +410,8 @@ Item {
                 anchors.leftMargin: ui.px(9)
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: ui.px(10)
-                Text { anchors.verticalCenter: parent.verticalCenter; text: parent.parent.modelData.e; font.pixelSize: ui.px(16) }
-                Text { anchors.verticalCenter: parent.verticalCenter; text: ":" + parent.parent.modelData.k; color: root.c.fg; font.family: ui.mono; font.pixelSize: ui.f11 }
+                Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: parent.parent.modelData.e; font.pixelSize: ui.px(16) }
+                Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: ":" + parent.parent.modelData.k; color: root.c.fg; font.family: ui.mono; font.pixelSize: ui.f11 }
               }
               MouseArea { id: hitMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: session.insertEmoji(index) }
             }
