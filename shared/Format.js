@@ -32,34 +32,166 @@ var URL_RE = /((?:https?:\/\/|www\.)[^\s<>"']+[^\s<>"'.,;:!?)])/g
 function linkify(plain, linkColor) {
   var style = linkColor ? ' style="color:' + linkColor + '"' : ""
   var out = escapeHtml(plain).replace(URL_RE, function(m) {
-    var href = m.indexOf("://") === -1 ? "https://" + m : m
-    return '<a href="' + href + '"' + style + '>' + m + '</a>'
+    var href = safeUrl(m.indexOf("://") === -1 ? "https://" + m : m)
+    if (href === "") return m
+    return '<a href="' + escapeAttr(href) + '"' + style + '>' + m + '</a>'
   })
   return out.replace(/\n/g, "<br>")
 }
 
-// Matrix formatted_body -> something Qt's rich text can show. Qt handles a
-// small HTML subset; strip what it cannot and neutralise mx-reply quotes.
-function cleanHtml(html, linkColor) {
-  var s = String(html)
-  if (linkColor) s = s.replace(/<a\s/gi, '<a style="color:' + linkColor + '" ')
-  s = s.replace(/<mx-reply>[\s\S]*?<\/mx-reply>/gi, "")
-  s = s.replace(/<img[^>]*>/gi, "[image]")
-  s = s.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
-  s = s.replace(/<blockquote>/gi, '<blockquote style="margin-left:12px">')
-  s = s.replace(/<code>/gi, '<code style="font-family:monospace">')
-  // Bare URLs in text nodes (markdown leaves them alone) become links too,
-  // but never inside an existing <a> or <code>.
-  var parts = s.split(/(<a\s[\s\S]*?<\/a>|<code[\s\S]*?<\/code>|<[^>]+>)/i)
-  for (var i = 0; i < parts.length; i++) {
-    if (parts[i].charAt(0) === "<") continue
-    parts[i] = parts[i].replace(/(https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)])/g, function(u) {
-      return '<a href="' + u + '"' + (linkColor ? ' style="color:' + linkColor + '"' : '') + '>' + u + '</a>'
-    })
-  }
-  return parts.join("")
+// ---------- HTML from other people ----------
+// A message's formatted_body is written by whoever sent it. It is rebuilt
+// here from scratch: every tag is checked against ALLOWED_TAGS, every
+// attribute against the tag's list, every href against SAFE_SCHEMES, and
+// all text is re-escaped. Anything else becomes text or disappears.
+
+// Tag -> attributes kept. Everything Qt's rich text can draw from the Matrix
+// formatting subset; nothing that executes, embeds, or loads.
+var ALLOWED_TAGS = {
+  b: [], strong: [], i: [], em: [], u: [], s: [], del: [], strike: [],
+  code: [], pre: [], blockquote: [], p: [], br: [], hr: [],
+  ul: [], ol: [], li: [], h1: [], h2: [], h3: [], h4: [], h5: [], h6: [],
+  sup: [], sub: [], div: [], span: ["data-mx-color"], font: ["color", "data-mx-color"],
+  a: ["href"],
+  table: [], thead: [], tbody: [], tr: [], th: [], td: []
+}
+// Tags whose whole content is dropped, not just the tag.
+var DROPPED_WITH_CONTENT = { script: 1, style: 1, "mx-reply": 1, iframe: 1, object: 1, embed: 1, svg: 1, math: 1, template: 1, noscript: 1 }
+var VOID_TAGS = { br: 1, hr: 1, img: 1 }
+var SAFE_SCHEMES = ["https://", "http://", "mailto:"]
+var COLOR_RE = /^#[0-9a-fA-F]{6}$/
+// Text nodes: keep the entities we know, escape stray ampersands and brackets.
+var ENTITY_RE = /&(?:amp|lt|gt|quot|apos|nbsp|#\d{1,7}|#x[0-9a-fA-F]{1,6});/g
+
+// A URL the desktop may open: an explicit safe scheme, no control characters. "" otherwise.
+function safeUrl(url) {
+  var u = String(url || "").trim()
+  if (u.length > 2048 || /[\u0000-\u001f\u007f]/.test(u)) return ""
+  var lower = u.toLowerCase()
+  for (var i = 0; i < SAFE_SCHEMES.length; i++) if (lower.indexOf(SAFE_SCHEMES[i]) === 0) return u
+  return ""
 }
 
+function escapeText(t) {
+  // Entities the sender wrote survive; every other & < > " is escaped.
+  var out = ""
+  var last = 0
+  var m
+  ENTITY_RE.lastIndex = 0
+  while ((m = ENTITY_RE.exec(t)) !== null) {
+    out += escapeHtml(t.substring(last, m.index)) + m[0]
+    last = m.index + m[0].length
+  }
+  return out + escapeHtml(t.substring(last))
+}
+
+function escapeAttr(v) {
+  return String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+// name="value" | name='value' | name=value | name
+var ATTR_RE = /([A-Za-z_:][-A-Za-z0-9_:.]*)\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
+
+function parseAttrs(raw) {
+  var attrs = {}
+  var m
+  ATTR_RE.lastIndex = 0
+  while ((m = ATTR_RE.exec(raw)) !== null) {
+    var value = m[2] !== undefined ? m[2] : (m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : ""))
+    attrs[m[1].toLowerCase()] = value
+  }
+  return attrs
+}
+
+// Rebuild one opening tag from its allowed attributes, or "" to drop it.
+function buildTag(name, attrs, linkColor) {
+  var keep = ALLOWED_TAGS[name]
+  var out = "<" + name
+  if (name === "a") {
+    var href = safeUrl(attrs.href)
+    if (href === "") return ""          // no safe target: the link text stays as plain text
+    out += ' href="' + escapeAttr(href) + '"'
+    if (linkColor) out += ' style="color:' + escapeAttr(linkColor) + '"'
+  } else if (name === "font" || name === "span") {
+    var color = attrs.color || attrs["data-mx-color"] || ""
+    if (COLOR_RE.test(color)) out += ' color="' + color + '"'
+    if (name === "span") { name = "font" ; out = "<font" + (COLOR_RE.test(color) ? ' color="' + color + '"' : "") }
+  } else if (name === "code") {
+    out += ' style="font-family:monospace"'
+  } else if (name === "blockquote") {
+    out += ' style="margin-left:12px"'
+  }
+  return out + ">"
+}
+
+// Matrix formatted_body -> rich text Qt can show, rebuilt from an allowlist.
+function cleanHtml(html, linkColor) {
+  var src = String(html)
+  var out = ""
+  var open = []          // names of allowed tags currently open, for balance
+  var dropDepth = 0      // inside a tag whose content is dropped
+  var dropName = ""
+  var inLink = 0, inCode = 0
+  var i = 0
+  var TAG_RE = /<\/?([A-Za-z][A-Za-z0-9-]*)((?:\s+[^<>]*?)?)\s*\/?>|<!--[\s\S]*?-->|<[^>]*>/g
+  TAG_RE.lastIndex = 0
+  var m
+  while ((m = TAG_RE.exec(src)) !== null) {
+    var text = src.substring(i, m.index)
+    if (dropDepth === 0 && text !== "") out += textNode(text, inLink || inCode, linkColor)
+    i = m.index + m[0].length
+    var tok = m[0]
+    var name = m[1] ? m[1].toLowerCase() : ""
+    if (name === "") continue                            // comments, junk: gone
+    var closing = tok.charAt(1) === "/"
+    if (dropDepth > 0) {
+      if (name === dropName) { if (closing) dropDepth--; else dropDepth++ }
+      continue
+    }
+    if (DROPPED_WITH_CONTENT[name]) {
+      if (!closing && !VOID_TAGS[name]) { dropDepth = 1; dropName = name }
+      continue
+    }
+    if (name === "img") { out += "[image]"; continue }
+    if (!ALLOWED_TAGS.hasOwnProperty(name)) continue     // unknown tag: its text stays, the tag goes
+    var emitted = name === "span" ? "font" : name
+    if (closing) {
+      var at = open.lastIndexOf(emitted)
+      if (at === -1) continue
+      // close everything opened after it, then it
+      while (open.length > at) {
+        var n = open.pop()
+        out += "</" + n + ">"
+        if (n === "a") inLink--
+        if (n === "code" || n === "pre") inCode--
+      }
+      continue
+    }
+    if (VOID_TAGS[name]) { out += "<" + name + ">"; continue }
+    var attrs = parseAttrs(m[2] || "")
+    var built = buildTag(name, attrs, linkColor)
+    if (built === "") continue
+    out += built
+    open.push(emitted)
+    if (emitted === "a") inLink++
+    if (emitted === "code" || emitted === "pre") inCode++
+  }
+  var tail = src.substring(i)
+  if (dropDepth === 0 && tail !== "") out += textNode(tail, inLink || inCode, linkColor)
+  while (open.length) out += "</" + open.pop() + ">"
+  return out
+}
+
+// A text node: escaped, with bare URLs turned into links unless inside a link or code.
+function textNode(text, noLinks, linkColor) {
+  if (noLinks) return escapeText(text)
+  var style = linkColor ? ' style="color:' + escapeAttr(linkColor) + '"' : ""
+  return escapeText(text).replace(/(https?:\/\/[^\s<>"'&]+[^\s<>"'&.,;:!?)])/g, function(u) {
+    return '<a href="' + escapeAttr(u) + '"' + style + '>' + u + '</a>'
+  })
+}
+
+// "10:42" today, "Yesterday", or a short date.
 function dayLabel(ts, now) {
   var d = new Date(ts), n = new Date(now)
   var sameDay = function(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate() }

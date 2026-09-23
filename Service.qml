@@ -657,7 +657,7 @@ Item {
     homeserver = String(homeserver).trim()
     if (homeserver === "") { cb({ ok: false, error: "Enter a homeserver." }); return }
     root.request("login_oauth", { homeserver: homeserver }, function(r) {
-      if (r.ok) Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", String(r.result.url)])
+      if (r.ok) { var u = Format.safeUrl(r.result.url); if (u !== "") Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", u]); else r = { ok: false, error: "The homeserver returned a login link that is not https." } }
       cb(r)
     })
   }

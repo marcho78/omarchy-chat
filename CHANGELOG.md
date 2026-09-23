@@ -6,6 +6,16 @@ All notable changes to the Yapper plugin. The format follows
 
 ## [Unreleased]
 
+## [1.0.2]
+
+### Security
+- Message HTML (`formatted_body`) is rebuilt from an allowlist of formatting
+  tags and attributes; every other tag and attribute is dropped and all text
+  is re-escaped. Links keep only `https://`, `http://` and `mailto:` targets,
+  and every browser launch, from a message link, a link preview or the
+  homeserver's sign-in URL, is refused unless the URL has one of those
+  schemes.
+
 ## [1.0.1]
 
 ### Changed
@@ -34,6 +44,7 @@ All notable changes to the Yapper plugin. The format follows
 - Every program the plugin runs is named by absolute path; no shell.
 - American spelling throughout.
 
-[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/marcho78/omarchy-yapper/releases/tag/v1.0.0
