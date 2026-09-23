@@ -6,7 +6,11 @@ Olm/Megolm via matrix-rust-sdk, the same stack as Element X.
 
 The plugin is QML only. Everything that touches keys or the network lives in
 [omarchy-yapperd](https://github.com/marcho78/omarchy-yapperd), a small daemon
-you build from source on your own machine. **No binary is downloaded, ever.**
+installed as a pacman package from its own repository: prebuilt by GitHub
+Actions and checksummed, or compiled from source on your machine. **The
+plugin itself downloads and executes nothing.**
+
+![Yapper: a room open in the window](docs/screenshots/chat.png)
 
 ## What you get
 
@@ -34,6 +38,20 @@ The popup is for a quick reply from the bar. The window is a normal
 Hyprland toplevel — tiled, resizable, title `Yapper` — with the room list on
 the left and the conversation on the right. Both are views over one
 connection to the daemon and stay in step.
+
+## Screenshots
+
+All at 2× on a 1280×820 window, the Yapper look on the Omarchy theme.
+
+| | |
+|---|---|
+| ![Room info](docs/screenshots/info.png) Room info: encryption, members, notifications | ![Explore](docs/screenshots/explore.png) Explore your homeserver's public directory |
+| ![Search](docs/screenshots/search.png) Search: server search plus a local scan of decrypted messages | ![Appearance](docs/screenshots/settings-appearance.png) Appearance: look, palettes, colors |
+| ![Encryption](docs/screenshots/settings-encryption.png) Encryption: verification, key backup, recovery | ![Daemon](docs/screenshots/settings-daemon.png) Daemon: stop, start, package, reinstall, reset, remove |
+| ![Install](docs/screenshots/install.png) Install the daemon: prebuilt or from source | ![About](docs/screenshots/settings-about.png) About: versions, the update check |
+| ![New room](docs/screenshots/create.png) New room | ![Join the community](docs/screenshots/join.png) Join the Omarchy community |
+| ![Invite](docs/screenshots/invite.png) Invite people | ![Verify](docs/screenshots/verify.png) Encryption dialog |
+| ![Latte](docs/screenshots/latte-appearance.png) The Catppuccin Latte palette | |
 
 ## Install
 
@@ -187,14 +205,6 @@ rsvg-convert -w 48 -h 48 $P/icon.svg -o ~/.local/share/icons/hicolor/48x48/apps/
 
 Window rules match on `title:^Yapper` (the class is `org.quickshell`, shared
 with the shell's other windows).
-
-## Remove
-
-```bash
-omarchy plugin remove marcho78.yapper
-pacman -R omarchy-yapperd                  # optional
-rm -rf ~/.local/share/omarchy-yapperd      # optional: drops the session and keys
-```
 
 ## Settings
 

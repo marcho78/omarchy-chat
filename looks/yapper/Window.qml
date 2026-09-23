@@ -71,6 +71,7 @@ Item {
         if (p && typeof p.room === "string") { wanted = p.room; root.view = "chat" }
         if (p && typeof p.thread === "string") wantedThread = p.thread
         if (p && p.info === true) root.panel = "info"
+        if (p && p.info === false) root.panel = ""
         if (p && p.settings === true) root.openSettings("")
         if (p && typeof p.settings === "string") root.openSettings(p.settings)
         if (p && typeof p.pick === "string") root.openSettings("appearance", p.pick)

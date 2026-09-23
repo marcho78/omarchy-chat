@@ -112,6 +112,14 @@ Panel {
       return root.service.deletePalette(String(id).replace(/^custom:/, "")) ? "deleted" : "unknown palette: " + id
     }
     function app(): void { if (root.service) root.service.openWindow() }
+    // Open the window onto something: omarchy-shell marcho78.yapper show '{"settings":"daemon"}'
+    function show(payload: string): string {
+      if (!root.service) return "no service"
+      var p = null
+      try { p = JSON.parse(payload) } catch (e) { return "payload must be JSON" }
+      root.service.openWindow(p)
+      return "opened"
+    }
     function checkUpdates(): string {
       if (!root.service) return "no service"
       root.service.checkForUpdates()
