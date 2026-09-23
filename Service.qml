@@ -399,6 +399,34 @@ Item {
     }
   }
 
+  // ---------- the Hyprland shortcut ----------
+  // One o.bind line in ~/.config/hypr/bindings.lua, written only from Settings.
+  property bool shortcutPresent: false
+  property string shortcutCombo: ""
+  property string shortcutFile: ""
+  property string shortcutError: ""
+  function readShortcut() { shortcutProc.args = ["get"]; shortcutProc.running = true }
+  function setShortcut(combo) { shortcutProc.args = ["set", combo]; shortcutProc.running = true }
+  function removeShortcut() { shortcutProc.args = ["remove"]; shortcutProc.running = true }
+  Process {
+    id: shortcutProc
+    property var args: ["get"]
+    property string out: ""
+    command: ["/usr/bin/python3", "-I", root.helperPath, "shortcut"].concat(args)
+    stdout: SplitParser { splitMarker: ""; onRead: function(d) { if (shortcutProc.out.length < 4096) shortcutProc.out += d } }
+    onStarted: out = ""
+    onExited: function() {
+      var r = null
+      try { r = JSON.parse(shortcutProc.out) } catch (e) { r = null }
+      if (!r) { root.shortcutError = "Could not read the bindings file"; return }
+      root.shortcutError = r.error ? String(r.error) : ""
+      if (r.error) return
+      root.shortcutPresent = r.present === true
+      root.shortcutCombo = String(r.combo || "")
+      root.shortcutFile = String(r.file || "")
+    }
+  }
+
   // ---------- stop, start, reset, remove ----------
   function stopDaemon() { if (!stopProc.running) stopProc.running = true }
   Process {
@@ -1200,5 +1228,5 @@ Item {
     if (root.shell && typeof root.shell.summon === "function") root.shell.summon(root.pluginId, payload ? JSON.stringify(payload) : "{}")
   }
 
-  Component.onCompleted: checkInstalled()
+  Component.onCompleted: { checkInstalled(); readShortcut() }
 }

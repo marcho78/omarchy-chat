@@ -211,10 +211,15 @@ conversation does that is not drawing) and the shared pieces in `shared/`.
 Switch from the shell: `omarchy-shell marcho78.yapper setLook omarchy`,
 `omarchy-shell marcho78.yapper setTheme latte`.
 
-A keybinding, in `~/.config/hypr/bindings.lua` (`SUPER+SHIFT+C` is Omarchy's
-calendar, so pick something free):
+A keyboard shortcut: Settings › Rooms & notifications › **Keyboard
+shortcut** shows a combo (default `SUPER + SHIFT + T`) and **Add to
+Hyprland**. Pressing it appends these two lines to
+`~/.config/hypr/bindings.lua`, which Hyprland reloads on save; **Remove**
+takes them out again. Nothing is written to that file until you press the
+button, and the plugin touches no other line in it:
 
 ```lua
+-- Yapper: toggle the chat window (marcho78.yapper plugin).
 o.bind("SUPER + SHIFT + T", "Yapper", "omarchy-shell shell toggle marcho78.yapper '{}'")
 ```
 

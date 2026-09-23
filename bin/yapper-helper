@@ -13,6 +13,9 @@
     yapper-helper paste                              save a clipboard image to a private temp file (JSON)
     yapper-helper tempfile <suffix>                  create a private temp file in $XDG_RUNTIME_DIR (JSON)
     yapper-helper store-size <dir>                   bytes under a directory, human readable (JSON)
+    yapper-helper shortcut get                       the Yapper line in ~/.config/hypr/bindings.lua (JSON)
+    yapper-helper shortcut set <combo>               add or replace that line (JSON)
+    yapper-helper shortcut remove                    remove it (JSON)
 
 `install` and `remove` are meant to run inside a terminal. `install` fetches
 the daemon repository into $XDG_CACHE_HOME/omarchy-yapper/omarchy-yapperd,
@@ -640,6 +643,89 @@ def cmd_store_size(root_dir):
     return 0
 
 
+# ---------- the Hyprland shortcut ----------
+# One line in the user's own bindings file, added and removed only on request
+# from Settings. Hyprland reloads the file on save.
+BINDINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config"), "hypr", "bindings.lua")
+SHORTCUT_MARK = "-- Yapper: toggle the chat window (marcho78.yapper plugin)."
+SHORTCUT_ACTION = "omarchy-shell shell toggle marcho78.yapper '{}'"
+COMBO_RE = re.compile(r"^[A-Za-z0-9]+( \+ [A-Za-z0-9]+)*$")
+
+
+def shortcut_line(combo):
+    return 'o.bind("%s", "Yapper", "%s")' % (combo, SHORTCUT_ACTION)
+
+
+def read_bindings():
+    try:
+        with open(BINDINGS) as f:
+            return f.read(512 * 1024).split("\n")
+    except FileNotFoundError:
+        return None
+
+
+def write_bindings(lines):
+    """Replace the file through a private temp file in the same directory, keeping its mode."""
+    dir_path = os.path.dirname(BINDINGS)
+    os.makedirs(dir_path, mode=0o700, exist_ok=True)
+    try:
+        mode = stat.S_IMODE(os.stat(BINDINGS).st_mode)
+    except FileNotFoundError:
+        mode = 0o644
+    tmp = os.path.join(dir_path, ".bindings.lua.%d" % os.getpid())
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+    with os.fdopen(fd, "w") as f:
+        f.write("\n".join(lines))
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, BINDINGS)
+
+
+def shortcut_state(lines):
+    for i, line in enumerate(lines or []):
+        if SHORTCUT_ACTION in line and line.lstrip().startswith("o.bind("):
+            m = re.match(r'\s*o\.bind\("([^"]*)"', line)
+            return i, (m.group(1) if m else "")
+    return None, ""
+
+
+def cmd_shortcut(args):
+    lines = read_bindings()
+    idx, combo = shortcut_state(lines)
+    if not args or args[0] == "get":
+        print(json.dumps({"present": idx is not None, "combo": combo, "file": BINDINGS}))
+        return 0
+    if args[0] == "set" and len(args) == 2:
+        new = " ".join(args[1].split())
+        if not COMBO_RE.match(new) or len(new) > 40:
+            raise Failure("the combo must look like SUPER + SHIFT + T")
+        lines = lines if lines is not None else []
+        if idx is not None:
+            lines[idx] = shortcut_line(new)
+        else:
+            if lines and lines[-1] != "":
+                lines.append("")
+            lines += [SHORTCUT_MARK, shortcut_line(new), ""]
+        write_bindings(lines)
+        print(json.dumps({"present": True, "combo": new, "file": BINDINGS}))
+        return 0
+    if args[0] == "remove":
+        if lines is None or idx is None:
+            print(json.dumps({"present": False, "combo": "", "file": BINDINGS}))
+            return 0
+        del lines[idx]
+        if idx > 0 and lines[idx - 1].strip() == SHORTCUT_MARK:
+            del lines[idx - 1]
+            idx -= 1
+        # one blank line where two now meet
+        if 0 < idx < len(lines) and lines[idx].strip() == "" and lines[idx - 1].strip() == "":
+            del lines[idx]
+        write_bindings(lines)
+        print(json.dumps({"present": False, "combo": "", "file": BINDINGS}))
+        return 0
+    raise Failure("shortcut get | set <combo> | remove")
+
+
 def clock(seconds):
     seconds = int(seconds)
     if seconds >= 3600:
@@ -701,6 +787,8 @@ def main(argv):
             return cmd_tempfile(args[0])
         if cmd == "store-size" and len(args) == 1:
             return cmd_store_size(args[0])
+        if cmd == "shortcut":
+            return cmd_shortcut(args)
         print(__doc__)
         return 2
     except Failure as e:

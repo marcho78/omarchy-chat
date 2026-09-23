@@ -517,6 +517,18 @@ Item {
         spacing: ui.px(4)
         SettingRow { c: root.c; label: "Sort rooms by"; Segmented { c: root.c; options: [{ value: "activity", label: "Activity" }, { value: "name", label: "Name" }]; value: root.service ? root.service.roomSort : "activity"; onChosen: function(v) { root.service.set("roomSort", v) } } }
         SettingRow { c: root.c; label: "Notify on new messages"; description: "For rooms no Yapper view is showing"; Toggle { c: root.c; checked: root.flag("notifications", true); onToggled: root.service.set("notifications", !checked) } }
+        SettingRow {
+          c: root.c; label: "Keyboard shortcut"
+          description: root.service && root.service.shortcutError !== "" ? root.service.shortcutError
+            : root.service && root.service.shortcutPresent ? "Toggles the Yapper window. One o.bind line in " + root.service.shortcutFile + "; Remove takes it out again."
+            : "Adds one o.bind line to ~/.config/hypr/bindings.lua that toggles the Yapper window. Nothing is written until you press Add."
+          Row {
+            spacing: ui.px(8)
+            Field { id: shortcutField; c: root.c; width: ui.px(190); text: root.service && root.service.shortcutCombo !== "" ? root.service.shortcutCombo : "SUPER + SHIFT + T"; placeholder: "SUPER + SHIFT + T"; maximumLength: 40; onAccepted: root.service.setShortcut(text) }
+            PillButton { c: root.c; label: root.service && root.service.shortcutPresent ? (shortcutField.text.trim() !== root.service.shortcutCombo ? "Change" : "Added") : "Add to Hyprland"; primary: !(root.service && root.service.shortcutPresent && shortcutField.text.trim() === root.service.shortcutCombo); round: true; enabled: shortcutField.text.trim() !== "" && !(root.service && root.service.shortcutPresent && shortcutField.text.trim() === root.service.shortcutCombo); onClicked: root.service.setShortcut(shortcutField.text) }
+            PillButton { c: root.c; visible: root.service && root.service.shortcutPresent; label: "Remove"; round: true; onClicked: root.service.removeShortcut() }
+          }
+        }
         SectionLabel { label: "Per room"; topPadding: ui.px(18) }
         Note { text: "Mentions and keywords still notify on Mentions; Mute keeps the room quiet and its badge grey." }
         Repeater {
