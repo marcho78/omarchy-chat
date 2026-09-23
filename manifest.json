@@ -88,11 +88,11 @@
         "options": [
           {
             "value": "yapper",
-            "label": "Yapper — the designed look, with palettes"
+            "label": "Yapper \u2014 the designed look, with palettes"
           },
           {
             "value": "omarchy",
-            "label": "Omarchy — the shell's widgets, follows the desktop theme"
+            "label": "Omarchy \u2014 the shell's widgets, follows the desktop theme"
           }
         ],
         "description": "Which set of screens draws the window and the popup.",
@@ -126,7 +126,7 @@
           },
           {
             "value": "rosepine",
-            "label": "Rosé Pine"
+            "label": "Ros\u00e9 Pine"
           },
           {
             "value": "matte",
