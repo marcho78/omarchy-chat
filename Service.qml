@@ -596,7 +596,7 @@ Item {
       root.refreshInvites()
       root.invitationReceived(ev)
       if (root.notificationsEnabled)
-        Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Yapper", "-g", root.glyph,
+        Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-notification-send", "--app-name", "Yapper", "-g", root.glyph,
           "Invitation from " + (ev.inviter_name || ev.inviter || "someone"), ev.direct ? "wants to chat with you" : String(ev.name),
           "--exec", "omarchy-shell", "shell", "summon", root.pluginId, "{}"])
     } else if (ev.event === "rooms_changed") {
@@ -607,7 +607,7 @@ Item {
       if (!root.activeFlow || root.activeFlow.flow_id === ev.flow_id || ev.state === "requested") root.activeFlow = ev
       root.verificationEvent(ev)
       if (ev.state === "requested" && !ev.outgoing && root.notificationsEnabled)
-        Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Yapper", "-g", "󰌾", "-u", "critical",
+        Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-notification-send", "--app-name", "Yapper", "-g", "󰌾", "-u", "critical",
           "Verification request", "Another device wants to verify with this one.",
           "--exec", "omarchy-shell", "shell", "summon", root.pluginId, "{}"])
     } else if (ev.event === "verification_status_changed") {
@@ -632,7 +632,7 @@ Item {
     homeserver = String(homeserver).trim()
     if (homeserver === "") { cb({ ok: false, error: "Enter a homeserver." }); return }
     root.request("login_oauth", { homeserver: homeserver }, function(r) {
-      if (r.ok) Quickshell.execDetached(["omarchy-launch-browser", String(r.result.url)])
+      if (r.ok) Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", String(r.result.url)])
       cb(r)
     })
   }
@@ -796,7 +796,7 @@ Item {
     }
     return tiers[0].concat(tiers[1], tiers[2]).slice(0, max)
   }
-  function openEmojiPicker() { Quickshell.execDetached(["omarchy-shell", "shell", "toggle", "omarchy.emojis"]) }
+  function openEmojiPicker() { Quickshell.execDetached(["/usr/bin/omarchy-shell", "shell", "toggle", "omarchy.emojis"]) }
 
   function searchMessages(query, roomId, cb) { root.request("search", { query: String(query), room: roomId || null, limit: 60 }, cb) }
   function invite(roomId, userId, cb) { root.request("invite", { room: roomId, user: userId }, cb) }
@@ -1035,10 +1035,10 @@ Item {
     root.dm(root.developerMatrix, function(r) {
       root.developerDmPending = false
       if (!r.ok) { root.log("developer DM: " + (r.error || "failed")); return }
-      Quickshell.execDetached(["omarchy-shell", "shell", "summon", root.pluginId, JSON.stringify({ room: r.result.id })])
+      Quickshell.execDetached(["/usr/bin/omarchy-shell", "shell", "summon", root.pluginId, JSON.stringify({ room: r.result.id })])
     })
   }
-  function openDeveloperX() { Quickshell.execDetached(["omarchy-launch-browser", root.developerX]) }
+  function openDeveloperX() { Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", root.developerX]) }
 
   function dm(userId, cb) { root.request("dm", { user: String(userId) }, function(r) { root.refreshRooms(); cb(r) }) }
   function createRoom(name, encrypted, priv, cb) {
@@ -1069,7 +1069,7 @@ Item {
     var title = direct ? who : who + " · " + room
     var body = m.attachment ? (m.attachment.kind === "image" ? "󰋩 Image" : "󰈔 " + m.attachment.name) : String(m.body).slice(0, 300)
     if (m.highlight === true) body = "󰀦 " + body
-    Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Yapper", "-g", root.glyph,
+    Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-notification-send", "--app-name", "Yapper", "-g", root.glyph,
       "-u", m.highlight === true ? "critical" : "normal", title, body,
       "--exec", "omarchy-shell", "shell", "summon", root.pluginId, JSON.stringify({ room: m.room })])
   }

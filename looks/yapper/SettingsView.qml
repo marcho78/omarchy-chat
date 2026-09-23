@@ -272,7 +272,7 @@ Item {
                 spacing: ui.px(8)
                 topPadding: ui.px(6)
                 PillButton { c: root.c; label: updateCard.daemon ? "Update the daemon" : "Update the plugin"; warn: true; round: true; enabled: !(updateCard.daemon && root.service.installActive); onClicked: updateCard.daemon ? root.installRequested(true) : root.service.updatePlugin() }
-                PillButton { c: root.c; label: "Release notes"; round: true; onClicked: Quickshell.execDetached(["omarchy-launch-browser", updateCard.daemon ? root.service.daemonRepo + "/releases" : root.service.pluginRepo + "/commits"]) }
+                PillButton { c: root.c; label: "Release notes"; round: true; onClicked: Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", updateCard.daemon ? root.service.daemonRepo + "/releases" : root.service.pluginRepo + "/commits"]) }
                 PillButton { c: root.c; label: "Not now"; round: true; onClicked: { if (updateCard.daemon) updateCard.dismissedDaemon = root.service.daemonLatest; else updateCard.dismissedPlugin = root.service.pluginUpdateCount } }
               }
             }

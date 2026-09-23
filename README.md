@@ -55,6 +55,30 @@ All at 2× on a 1280×820 window, the Yapper look on the Omarchy theme.
 | ![Invite](docs/screenshots/invite.png) Invite people | ![Verify](docs/screenshots/verify.png) Encryption dialog |
 | ![Latte](docs/screenshots/latte-appearance.png) The Catppuccin Latte palette | |
 
+## Requirements and what runs
+
+Everything the plugin executes, by absolute path, and where it comes from:
+
+| Program | Package | Used for |
+|---|---|---|
+| `/usr/bin/omarchy-yapperd` | `omarchy-yapperd` or `omarchy-yapperd-bin`, installed as described below | the Matrix session; the plugin talks to it over a Unix socket |
+| `/usr/bin/python3` | `python` | `bin/yapper-helper`, the plugin's own helper (in this repository) |
+| `/usr/bin/git`, `/usr/bin/makepkg`, `/usr/bin/pacman`, `/usr/bin/sudo` | `git`, `base-devel`, `pacman`, `sudo` | installing, updating and removing the daemon package, in a terminal window |
+| `/usr/bin/systemctl` | `systemd` | the daemon's user unit: start, stop, restart, enable, disable |
+| `/usr/bin/xdg-terminal-exec` | `xdg-terminal-exec` (Omarchy) | the terminal window for install, update, remove and plugin update |
+| `/usr/bin/pw-record`, `/usr/bin/pw-play`, `/usr/bin/pactl` | `pipewire`, `libpulse` | voice messages and the audio test; listing devices |
+| `/usr/bin/wl-copy`, `/usr/bin/wl-paste` | `wl-clipboard` | copying text; pasting an image from the clipboard |
+| `/usr/bin/xdg-open` | `xdg-utils` | opening a downloaded attachment |
+| `/usr/share/omarchy/bin/omarchy`, `omarchy-launch-browser`, `omarchy-notification-send`, `/usr/bin/omarchy-shell` | `omarchy` | plugin update, opening links, notifications, opening the shell's emoji picker and this plugin's own window |
+| `bin/pick-files` | this repository | the desktop portal file chooser (`org.freedesktop.portal.FileChooser`) for attachments, through `python-gobject` |
+| `/usr/bin/rm`, `/usr/bin/cat` | `coreutils` | removing a finished recording; reading the shell's emoji table |
+
+Nothing runs through a shell. The helper runs each program with a deadline
+and an output budget; only the terminal commands (`makepkg`, `pacman`) run
+without a deadline, in a window you can see. No program is downloaded and
+executed; the daemon is installed as a pacman package from a checked-out
+commit or a checksummed release tarball.
+
 ## Install
 
 ```bash
@@ -310,6 +334,11 @@ The socket does not reconnect by itself; the service retries every 5 s
 while the daemon is absent.
 
 ## Development
+
+`scripts/` holds development tools only: `reload.sh` syncs a working copy
+into the installed plugin and restarts the shell, `release.sh` tags a
+release, `gen-icons.py` rebuilds the icon table. Nothing in the plugin runs
+them.
 
 Work on a checkout directly in the plugin directory; the shell reloads
 plugin code on save:

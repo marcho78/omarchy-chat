@@ -352,7 +352,7 @@ Item {
                 lineHeight: 1.3
                 font.family: ui.sans
                 font.pixelSize: root.bodySize
-                onLinkActivated: function(link) { Quickshell.execDetached(["omarchy-launch-browser", link]) }
+                onLinkActivated: function(link) { Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", link]) }
                 MouseArea { anchors.fill: parent; acceptedButtons: Qt.NoButton; cursorShape: parent.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor }
               }
 
@@ -685,7 +685,7 @@ Item {
                     font.family: ui.sans; font.pixelSize: ui.f11
                   }
                 }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["omarchy-launch-browser", root.firstUrl]) }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", root.firstUrl]) }
               }
             }
           }

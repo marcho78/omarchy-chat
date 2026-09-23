@@ -701,7 +701,7 @@ Item {
               linkColor: root.bubbles && root.mine ? root.bg : root.accent
               font.family: root.fontFamily
               font.pixelSize: root.bodySize
-              onLinkActivated: function(link) { Quickshell.execDetached(["omarchy-launch-browser", link]) }
+              onLinkActivated: function(link) { Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", link]) }
               MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.NoButton
@@ -797,7 +797,7 @@ Item {
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
-              onClicked: Quickshell.execDetached(["omarchy-launch-browser", root.firstUrl])
+              onClicked: Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-launch-browser", root.firstUrl])
             }
           }
         }
