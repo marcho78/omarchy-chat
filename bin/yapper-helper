@@ -409,7 +409,15 @@ def cmd_install(kind, repo, commit):
         code, head = run([GIT, "-C", CHECKOUT, "rev-parse", "--verify", "HEAD^{commit}"], env=env, deadline=30)
         if code != 0 or head.strip() != want.strip():
             raise Failure("checked-out commit %s does not match %s" % (head.strip()[:12], commit[:12]))
-        run([GIT, "-C", CHECKOUT, "clean", "-fdq", "-e", "target", "-e", "src", "-e", "pkg", "-e", "*.tar.gz", "-e", "*.pkg.tar.*"], env=env, deadline=60)
+        # The tree must be exactly the verified commit: every untracked and ignored
+        # file goes, including makepkg's src/ and pkg/ from earlier builds and any
+        # cargo target directory, so nothing from a previous run can reach the package.
+        code, out = run([GIT, "-C", CHECKOUT, "clean", "-fdxq"], env=env, deadline=120)
+        if code != 0:
+            raise Failure("git clean failed:\n" + tail(out))
+        code, out = run([GIT, "-C", CHECKOUT, "status", "--porcelain", "--ignored"], env=env, deadline=60)
+        if code != 0 or out.strip() != "":
+            raise Failure("the checkout is not clean after git clean:\n" + tail(out))
 
         pkgdir = os.path.join(CHECKOUT, "packaging", "bin" if kind == "bin" else "")
         pkgbuild = os.path.join(pkgdir, "PKGBUILD")
@@ -426,7 +434,7 @@ def cmd_install(kind, repo, commit):
         say("Running makepkg -si in %s" % pkgdir)
         say("pacman will ask for your password to install the package%s." % (" and, if missing, rust and git" if kind == "source" else ""))
         if kind == "source":
-            say("Compiling matrix-rust-sdk takes 10-25 minutes on a first build.")
+            say("Compiling matrix-rust-sdk takes 10-25 minutes; every source build starts clean.")
         say()
 
         # Before pacman swaps the binary, stop the daemon so the file is not in use.
@@ -451,7 +459,9 @@ def cmd_install(kind, repo, commit):
                     progress.set("build", int(m.group(1)), int(m.group(2)))
 
         # -f: rebuild if this version was built before; --needed: no reinstall of an identical package.
-        code = run_in_pty([MAKEPKG, "-sif", "--needed"], pkgdir, dict(env, PATH="/usr/bin:/usr/bin/core_perl"), on_text)
+        # -C removes makepkg's src/ before building, so the source is cloned again from
+        # the verified tree; -f rebuilds if this version was built before.
+        code = run_in_pty([MAKEPKG, "-C", "-sif", "--needed"], pkgdir, dict(env, PATH="/usr/bin:/usr/bin/core_perl"), on_text)
         say()
         if code != 0:
             raise Failure("makepkg exited with %d" % code)

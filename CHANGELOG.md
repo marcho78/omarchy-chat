@@ -6,6 +6,15 @@ All notable changes to the Yapper plugin. The format follows
 
 ## [Unreleased]
 
+## [1.0.3]
+
+### Security
+- Before `makepkg` runs, the helper reduces the daemon checkout to exactly
+  the verified commit with `git clean -fdx` and confirms nothing untracked
+  or ignored remains; `makepkg` runs with `-C`, so its source directory is
+  recreated from that tree on every build. Nothing from a previous build can
+  reach the package. Source builds therefore compile in full every time.
+
 ## [1.0.2]
 
 ### Security
@@ -44,7 +53,8 @@ All notable changes to the Yapper plugin. The format follows
 - Every program the plugin runs is named by absolute path; no shell.
 - American spelling throughout.
 
-[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/marcho78/omarchy-yapper/releases/tag/v1.0.0
