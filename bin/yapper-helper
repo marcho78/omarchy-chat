@@ -412,7 +412,8 @@ def cmd_install(kind, repo, commit):
         # The tree must be exactly the verified commit: every untracked and ignored
         # file goes, including makepkg's src/ and pkg/ from earlier builds and any
         # cargo target directory, so nothing from a previous run can reach the package.
-        code, out = run([GIT, "-C", CHECKOUT, "clean", "-fdxq"], env=env, deadline=120)
+        # -ff: makepkg's src/ holds a nested git clone, which a single -f leaves alone.
+        code, out = run([GIT, "-C", CHECKOUT, "clean", "-ffdxq"], env=env, deadline=120)
         if code != 0:
             raise Failure("git clean failed:\n" + tail(out))
         code, out = run([GIT, "-C", CHECKOUT, "status", "--porcelain", "--ignored"], env=env, deadline=60)

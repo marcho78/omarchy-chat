@@ -6,6 +6,13 @@ All notable changes to the Yapper plugin. The format follows
 
 ## [Unreleased]
 
+## [1.0.5]
+
+### Fixed
+- The pre-build clean uses `git clean -ffdx`: makepkg's source directory is a
+  nested git clone, which the single-force clean skipped, so a second source
+  install stopped with "the checkout is not clean after git clean".
+
 ## [1.0.4]
 
 ### Security
@@ -68,7 +75,8 @@ All notable changes to the Yapper plugin. The format follows
 - Every program the plugin runs is named by absolute path; no shell.
 - American spelling throughout.
 
-[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.1...v1.0.2

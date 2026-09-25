@@ -101,7 +101,7 @@ daemon repository, and runs in an ordinary terminal window:
 `/usr/bin/xdg-terminal-exec` opens `bin/yapper-helper` (Python, shipped with
 the plugin), which clones `https://github.com/marcho78/omarchy-yapperd` into
 `~/.cache/omarchy-yapper/omarchy-yapperd`, checks out the pinned commit,
-verifies it, and runs `makepkg -C -sif --needed` in the package directory, after `git clean -fdx` has reduced the checkout to exactly the verified commit,
+verifies it, and runs `makepkg -C -sif --needed` in the package directory, after `git clean -ffdx` has reduced the checkout to exactly the verified commit,
 through a pseudo-terminal. pacman asks for your password in that window;
 nothing else runs as root and the plugin itself downloads or executes
 nothing. The helper writes what it sees (phase, crates compiled, timing) to
