@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "marcho78.yapper",
   "name": "Yapper",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "marcho78",
   "license": "MIT",
   "description": "End-to-end encrypted chat from the bar or as a window. Matrix (Olm/Megolm) via the omarchy-yapperd daemon; the shell never touches a key.",
