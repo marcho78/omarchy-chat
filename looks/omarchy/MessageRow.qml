@@ -49,8 +49,14 @@ Item {
   property var preview: null
   property bool previewAsked: false
   readonly property string firstUrl: root.deleted || root.isAttachment ? "" : Format.firstUrl(root.body)
+  // In an encrypted room nothing is fetched until the reader asks: a preview
+  // request tells the homeserver which URL was in an encrypted message.
+  readonly property bool previewOnRequest: root.roomEncrypted
+  property bool previewRequested: false
+  function requestPreview() { root.previewRequested = true; root.loadPreview() }
   function loadPreview() {
     if (!root.linkPreviews || root.previewAsked || root.firstUrl === "" || !root.service) return
+    if (root.previewOnRequest && !root.previewRequested) return
     root.previewAsked = true
     // The row may be gone by the time the reply lands (list rebuilt).
     root.service.preview(root.firstUrl, function(p) { if (root) root.preview = p })
@@ -711,6 +717,12 @@ Item {
           }
         }
 
+        // In an encrypted room: the preview only on request
+        Button {
+          visible: root.linkPreviews && root.previewOnRequest && !root.previewRequested && root.firstUrl !== "" && !root.deleted
+          text: "Show link preview"
+          onClicked: root.requestPreview()
+        }
         // Link preview card
         Item {
           visible: root.linkPreviews && root.preview !== null && !!(root.preview.title || root.preview.description)

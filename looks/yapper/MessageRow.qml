@@ -115,8 +115,14 @@ Item {
   property var preview: null
   property bool previewAsked: false
   readonly property string firstUrl: root.deleted || root.isAttachment ? "" : Format.firstUrl(root.body)
+  // In an encrypted room nothing is fetched until the reader asks: a preview
+  // request tells the homeserver which URL was in an encrypted message.
+  readonly property bool previewOnRequest: root.roomEncrypted
+  property bool previewRequested: false
+  function requestPreview() { root.previewRequested = true; root.loadPreview() }
   function loadPreview() {
     if (!root.linkPreviews || root.previewAsked || root.firstUrl === "" || !root.service) return
+    if (root.previewOnRequest && !root.previewRequested) return
     root.previewAsked = true
     root.service.preview(root.firstUrl, function(p) { if (root) root.preview = p })
   }
@@ -620,6 +626,25 @@ Item {
                 Text { anchors.verticalCenter: parent.verticalCenter; text: "Message deleted"; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.px(12.5); font.italic: true }
               }
 
+              // In an encrypted room: the preview only on request
+              Rectangle {
+                id: previewOffer
+                visible: root.linkPreviews && root.previewOnRequest && !root.previewRequested && root.firstUrl !== "" && !root.deleted
+                width: visible ? offerRow.implicitWidth + ui.px(20) : 0
+                height: visible ? ui.px(26) : 0
+                radius: ui.px(13)
+                color: offerMouse.containsMouse ? root.c.hover : root.c.chip
+                border.width: 1
+                border.color: root.c.line
+                Row {
+                  id: offerRow
+                  anchors.centerIn: parent
+                  spacing: ui.px(6)
+                  Icon { anchors.verticalCenter: parent.verticalCenter; name: "link"; size: ui.px(12); color: root.c.muted }
+                  Text { anchors.verticalCenter: parent.verticalCenter; text: "Show link preview"; color: root.c.muted; font.family: ui.sans; font.pixelSize: ui.f11 }
+                }
+                MouseArea { id: offerMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.requestPreview() }
+              }
               // Link card
               Rectangle {
                 id: previewCard

@@ -6,6 +6,21 @@ All notable changes to the Yapper plugin. The format follows
 
 ## [Unreleased]
 
+## [1.0.4]
+
+### Security
+- Pins daemon 1.0.1, which bounds media downloads and ffmpeg, allowlists
+  cached attachment extensions, rejects edits from other senders, and caps
+  search time, socket requests and remote string lengths.
+- Link previews are no longer fetched automatically in encrypted rooms; a
+  "Show link preview" chip loads one on request.
+- Notification arguments derived from other people's text can no longer be
+  read as options by the notification script.
+- `bin/pick-files` runs Python in isolated mode.
+
+### Fixed
+- Plain-text links containing `&` no longer end up double-escaped.
+
 ## [1.0.3]
 
 ### Security
@@ -53,7 +68,8 @@ All notable changes to the Yapper plugin. The format follows
 - Every program the plugin runs is named by absolute path; no shell.
 - American spelling throughout.
 
-[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.0...v1.0.1

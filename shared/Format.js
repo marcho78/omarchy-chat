@@ -31,11 +31,18 @@ var URL_RE = /((?:https?:\/\/|www\.)[^\s<>"']+[^\s<>"'.,;:!?)])/g
 // Plain text -> rich text with clickable links and preserved line breaks.
 function linkify(plain, linkColor) {
   var style = linkColor ? ' style="color:' + linkColor + '"' : ""
-  var out = escapeHtml(plain).replace(URL_RE, function(m) {
-    var href = safeUrl(m.indexOf("://") === -1 ? "https://" + m : m)
-    if (href === "") return m
-    return '<a href="' + escapeAttr(href) + '"' + style + '>' + m + '</a>'
-  })
+  var text = String(plain == null ? "" : plain)
+  var out = ""
+  var last = 0
+  var m
+  URL_RE.lastIndex = 0
+  while ((m = URL_RE.exec(text)) !== null) {
+    out += escapeHtml(text.substring(last, m.index))
+    var href = safeUrl(m[0].indexOf("://") === -1 ? "https://" + m[0] : m[0])
+    out += href === "" ? escapeHtml(m[0]) : '<a href="' + escapeAttr(href) + '"' + style + '>' + escapeHtml(m[0]) + '</a>'
+    last = m.index + m[0].length
+  }
+  out += escapeHtml(text.substring(last))
   return out.replace(/\n/g, "<br>")
 }
 

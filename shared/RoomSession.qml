@@ -606,7 +606,7 @@ Item {
     id: picker
     property string out: ""
     property string err: ""
-    command: ["/usr/bin/python3", session.pickerPath, "Send a file"]
+    command: ["/usr/bin/python3", "-I", session.pickerPath, "Send a file"]
     stdout: SplitParser { splitMarker: ""; onRead: function(d) { picker.out += d } }
     stderr: SplitParser { splitMarker: ""; onRead: function(d) { picker.err += d } }
     onStarted: { out = ""; err = "" }

@@ -622,7 +622,7 @@ Item {
       root.invitationReceived(ev)
       if (root.notificationsEnabled)
         Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-notification-send", "--app-name", "Yapper", "-g", root.glyph,
-          "Invitation from " + (ev.inviter_name || ev.inviter || "someone"), ev.direct ? "wants to chat with you" : String(ev.name),
+          "Invitation from " + root.notifyText(ev.inviter_name || ev.inviter || "someone"), ev.direct ? "wants to chat with you" : root.notifyText(ev.name),
           "--exec", "omarchy-shell", "shell", "summon", root.pluginId, "{}"])
     } else if (ev.event === "rooms_changed") {
       root.refresh()
@@ -1091,8 +1091,8 @@ Item {
     var room = root.roomName(m.room)
     var who = m.sender_name || m.sender
     var direct = (root.roomById(m.room) || {}).direct === true
-    var title = direct ? who : who + " · " + room
-    var body = m.attachment ? (m.attachment.kind === "image" ? "󰋩 Image" : "󰈔 " + m.attachment.name) : String(m.body).slice(0, 300)
+    var title = root.notifyText(direct ? who : who + " · " + room)
+    var body = m.attachment ? (m.attachment.kind === "image" ? "󰋩 Image" : "󰈔 " + root.notifyText(m.attachment.name)) : root.notifyText(String(m.body).slice(0, 300))
     if (m.highlight === true) body = "󰀦 " + body
     Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-notification-send", "--app-name", "Yapper", "-g", root.glyph,
       "-u", m.highlight === true ? "critical" : "normal", title, body,
@@ -1191,6 +1191,13 @@ Item {
 
   // Open the app window, optionally straight onto something: a room,
   // settings, a section — anything the window's payload understands.
+  // Text from other people, as a notification argument: never empty, never
+  // starting with "-" (the notification script would read it as an option).
+  function notifyText(s) {
+    var t = String(s == null ? "" : s).replace(/[\u0000-\u001f]/g, " ").trim()
+    if (t === "") return "…"
+    return t.charAt(0) === "-" ? "‒" + t.substring(1) : t
+  }
   function openWindow(payload) {
     if (root.shell && typeof root.shell.summon === "function") root.shell.summon(root.pluginId, payload ? JSON.stringify(payload) : "{}")
   }
