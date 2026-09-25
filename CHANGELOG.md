@@ -6,6 +6,13 @@ All notable changes to the Yapper plugin. The format follows
 
 ## [Unreleased]
 
+## [1.0.6]
+
+### Security
+- Pasting an image reads the clipboard in pieces and stops at 64 MiB; a larger
+  clipboard image is refused and its partial file removed, so a hostile
+  clipboard provider cannot fill the runtime directory.
+
 ## [1.0.5]
 
 ### Fixed
@@ -75,7 +82,8 @@ All notable changes to the Yapper plugin. The format follows
 - Every program the plugin runs is named by absolute path; no shell.
 - American spelling throughout.
 
-[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.6...HEAD
+[1.0.6]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.2...v1.0.3

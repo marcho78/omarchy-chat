@@ -615,8 +615,15 @@ def cmd_tempfile(suffix):
     return 0
 
 
+# A pasted image larger than this is not sent: it would not upload either
+# (the daemon refuses attachments over 100 MiB) and the runtime directory is
+# a small tmpfs.
+MAX_PASTE = 64 * 1024 * 1024
+
+
 def cmd_paste():
-    """If the clipboard holds an image, write it as PNG to a private temp file."""
+    """If the clipboard holds an image, write it as PNG to a private temp file,
+    reading from wl-paste in pieces and stopping at MAX_PASTE bytes or 30 s."""
     env = {"PATH": "/usr/bin", "HOME": HOME}
     for key in ("XDG_RUNTIME_DIR", "WAYLAND_DISPLAY"):
         if key in os.environ:
@@ -626,11 +633,36 @@ def cmd_paste():
         print(json.dumps({"path": ""}))
         return 0
     tfd, path = private_tempfile(".png")
-    with os.fdopen(tfd, "wb") as f:
-        proc = subprocess.run([WL_PASTE, "-t", "image/png"], env=env, stdout=f, stderr=subprocess.DEVNULL, timeout=30)
-    if proc.returncode != 0 or os.path.getsize(path) == 0:
+    proc = subprocess.Popen([WL_PASTE, "-t", "image/png"], env=env, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, process_group=0)
+    total = 0
+    ok = False
+    deadline = time.monotonic() + 30
+    try:
+        with os.fdopen(tfd, "wb") as f:
+            fd = proc.stdout.fileno()
+            while True:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    break
+                ready, _, _ = select.select([fd], [], [], min(left, 1.0))
+                if not ready:
+                    continue
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    ok = True
+                    break
+                total += len(chunk)
+                if total > MAX_PASTE:
+                    break
+                f.write(chunk)
+    finally:
+        if proc.poll() is None:
+            kill_group(proc)
+        proc.stdout.close()
+    if not ok or proc.wait() != 0 or total == 0:
         os.unlink(path)
-        print(json.dumps({"path": ""}))
+        print(json.dumps({"path": "", "error": "the clipboard image is larger than %d bytes" % MAX_PASTE if total > MAX_PASTE else ""}))
         return 0
     print(json.dumps({"path": path}))
     return 0
