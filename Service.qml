@@ -27,8 +27,8 @@ Item {
   // packaging commit tagged pkg-vX.Y.Z in the daemon repository, which holds both
   // PKGBUILDs for that version with checksums filled in. A newer daemon ships as a
   // new plugin release that moves this pin; nothing is discovered at run time.
-  readonly property string daemonPinVersion: "1.0.1"
-  readonly property string daemonPinCommit: "a19860680f551e97c0b34b6d0fe550e88160b3c6"
+  readonly property string daemonPinVersion: "1.0.2"
+  readonly property string daemonPinCommit: "c8f7a4297583359466922b90427d1272eb77b470"
   readonly property string helperPath: pluginDir + "/bin/yapper-helper"
   readonly property string glyph: "󰭹"
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, "")

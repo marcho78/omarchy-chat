@@ -6,6 +6,12 @@ All notable changes to the Yapper plugin. The format follows
 
 ## [Unreleased]
 
+## [1.0.7]
+
+### Security
+- Pins daemon 1.0.2, whose source PKGBUILD no longer overrides the pinned
+  Rust toolchain with a moving channel.
+
 ## [1.0.6]
 
 ### Security
@@ -82,7 +88,8 @@ All notable changes to the Yapper plugin. The format follows
 - Every program the plugin runs is named by absolute path; no shell.
 - American spelling throughout.
 
-[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.6...HEAD
+[Unreleased]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/marcho78/omarchy-yapper/compare/v1.0.3...v1.0.4
